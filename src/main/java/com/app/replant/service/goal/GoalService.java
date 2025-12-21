@@ -26,6 +26,16 @@ public interface GoalService {
     Goal updateGoal(Long memberId, SetGoalDto setGoalDto);
 
     /**
+     * 목표 삭제
+     */
+    void deleteGoal(Long goalId);
+
+    /**
+     * 목표 이력 조회
+     */
+    List<Goal> getGoalHistory(Long memberId);
+
+    /**
      * 목표 점수 계산
      */
     void calculateGoalScores();

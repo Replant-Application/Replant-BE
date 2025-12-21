@@ -21,7 +21,7 @@ public class MailServiceImpl implements MailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${NAVER_MAIL:noreply@replant.com}")
+    @Value("${GOOGLE_MAIL:noreply@replant.com}")
     private String fromEmail;
 
     // 인증 코드 임시 저장소 (실제로는 Redis 사용 권장)

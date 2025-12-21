@@ -10,10 +10,10 @@ import java.util.Optional;
 
 public interface UserRecommendationRepository extends JpaRepository<UserRecommendation, Long> {
 
-    @Query("SELECT ur FROM UserRecommendation ur WHERE ur.recommendedTo.id = :userId " +
+    @Query("SELECT ur FROM UserRecommendation ur WHERE ur.user.id = :userId " +
            "AND (:status IS NULL OR ur.status = :status)")
-    List<UserRecommendation> findByUserIdAndStatus(@Param("userId") Long userId, @Param("status") String status);
+    List<UserRecommendation> findByUserIdAndStatus(@Param("userId") Long userId, @Param("status") UserRecommendation.RecommendationStatus status);
 
-    @Query("SELECT ur FROM UserRecommendation ur WHERE ur.id = :recommendationId AND ur.recommendedTo.id = :userId")
+    @Query("SELECT ur FROM UserRecommendation ur WHERE ur.id = :recommendationId AND ur.user.id = :userId")
     Optional<UserRecommendation> findByIdAndUserId(@Param("recommendationId") Long recommendationId, @Param("userId") Long userId);
 }

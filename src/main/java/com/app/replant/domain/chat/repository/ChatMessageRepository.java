@@ -11,15 +11,15 @@ import java.util.List;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> {
 
-    @Query("SELECT cm FROM ChatMessage cm WHERE cm.chatRoom.id = :roomId " +
+    @Query("SELECT cm FROM ChatMessage cm WHERE cm.room.id = :roomId " +
            "AND (:before IS NULL OR cm.id < :before) " +
            "ORDER BY cm.id DESC")
-    List<ChatMessage> findByChatRoomIdWithCursor(@Param("roomId") Long roomId, @Param("before") Long before, Pageable pageable);
+    List<ChatMessage> findByRoomIdWithCursor(@Param("roomId") Long roomId, @Param("before") Long before, Pageable pageable);
 
     @Modifying
-    @Query("UPDATE ChatMessage cm SET cm.isRead = true WHERE cm.chatRoom.id = :roomId AND cm.sender.id != :userId AND cm.isRead = false")
+    @Query("UPDATE ChatMessage cm SET cm.isRead = true WHERE cm.room.id = :roomId AND cm.sender.id != :userId AND cm.isRead = false")
     int markMessagesAsRead(@Param("roomId") Long roomId, @Param("userId") Long userId);
 
-    @Query("SELECT COUNT(cm) FROM ChatMessage cm WHERE cm.chatRoom.id = :roomId AND cm.isRead = false AND cm.sender.id != :userId")
+    @Query("SELECT COUNT(cm) FROM ChatMessage cm WHERE cm.room.id = :roomId AND cm.isRead = false AND cm.sender.id != :userId")
     long countUnreadMessages(@Param("roomId") Long roomId, @Param("userId") Long userId);
 }

@@ -25,4 +25,6 @@ public interface VerificationPostRepository extends JpaRepository<VerificationPo
 
     @Query("SELECT vp FROM VerificationPost vp WHERE vp.id = :verificationId AND vp.user.id = :userId")
     Optional<VerificationPost> findByIdAndUserId(@Param("verificationId") Long verificationId, @Param("userId") Long userId);
+
+    boolean existsByUserMissionId(Long userMissionId);
 }

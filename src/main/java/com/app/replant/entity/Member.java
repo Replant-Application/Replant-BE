@@ -7,6 +7,12 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * @deprecated 이 엔티티는 더 이상 사용되지 않습니다.
+ * {@link com.app.replant.domain.user.entity.User}를 사용하세요.
+ * Member는 레거시 이메일/비밀번호 로그인 전용이며, User로 통합되었습니다.
+ */
+@Deprecated(since = "2.0", forRemoval = true)
 @Entity
 @Table(name = "member")
 @Getter

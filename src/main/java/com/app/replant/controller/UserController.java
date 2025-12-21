@@ -9,6 +9,7 @@ import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -34,7 +35,7 @@ public class UserController {
     @PutMapping("/me")
     public ApiResponse<UserResponse> updateMyInfo(
             @AuthenticationPrincipal Long userId,
-            @RequestBody UserUpdateRequest request) {
+            @RequestBody @Valid UserUpdateRequest request) {
         User user = userService.updateUser(userId, request);
         return ApiResponse.success(UserResponse.from(user));
     }

@@ -41,6 +41,18 @@ public class Reant extends BaseEntity {
     @Column(nullable = false, length = 20)
     private ReantStage stage;
 
+    @Column(name = "max_level", nullable = false)
+    private Integer maxLevel = 100;
+
+    @Column(nullable = false)
+    private Integer mood = 100; // 기분 (0-100)
+
+    @Column(nullable = false)
+    private Integer health = 100; // 건강도 (0-100)
+
+    @Column(name = "hunger", nullable = false)
+    private Integer hunger = 0; // 배고픔 (0-100, 높을수록 배고픔)
+
     @Column(columnDefinition = "json")
     private String appearance;
 
@@ -77,15 +89,49 @@ public class Reant extends BaseEntity {
 
     public void addExp(int expAmount) {
         this.exp += expAmount;
+
+        // Mood 상승 (경험치 획득 시 기분 좋아짐)
+        this.mood = Math.min(100, this.mood + 5);
+
         checkLevelUp();
+    }
+
+    public void feed() {
+        this.hunger = Math.max(0, this.hunger - 30);
+        this.health = Math.min(100, this.health + 5);
+        this.mood = Math.min(100, this.mood + 10);
+    }
+
+    public void rest() {
+        this.health = Math.min(100, this.health + 20);
+        this.mood = Math.min(100, this.mood + 10);
+    }
+
+    public void play() {
+        this.mood = Math.min(100, this.mood + 20);
+        this.hunger = Math.min(100, this.hunger + 5);
+    }
+
+    public void pet() {
+        this.mood = Math.min(100, this.mood + 15);
+    }
+
+    public void decreaseHunger() {
+        this.hunger = Math.min(100, this.hunger + 10);
+        if (this.hunger > 80) {
+            this.mood = Math.max(0, this.mood - 10);
+            this.health = Math.max(0, this.health - 5);
+        }
     }
 
     private void checkLevelUp() {
         int nextLevelExp = calculateNextLevelExp();
-        while (this.exp >= nextLevelExp) {
+        while (this.exp >= nextLevelExp && this.level < this.maxLevel) {
             this.level++;
             this.exp -= nextLevelExp;
             updateStage();
+            // 레벨업 시 기분 최대치
+            this.mood = 100;
             nextLevelExp = calculateNextLevelExp();
         }
     }

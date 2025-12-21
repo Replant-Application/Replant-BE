@@ -13,4 +13,7 @@ public interface VerificationVoteRepository extends JpaRepository<VerificationVo
 
     @Query("SELECT vv FROM VerificationVote vv WHERE vv.verificationPost.id = :verificationId AND vv.voter.id = :voterId")
     Optional<VerificationVote> findByVerificationIdAndVoterId(@Param("verificationId") Long verificationId, @Param("voterId") Long voterId);
+
+    @Query("SELECT vv FROM VerificationVote vv WHERE vv.verificationPost.id = :verificationPostId AND vv.voter.id = :voterId")
+    Optional<VerificationVote> findByVerificationPostIdAndVoterId(@Param("verificationPostId") Long verificationPostId, @Param("voterId") Long voterId);
 }

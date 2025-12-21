@@ -3,6 +3,7 @@ package com.app.replant.domain.verification.entity;
 import com.app.replant.common.BaseEntity;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.user.entity.User;
+import com.app.replant.domain.verification.enums.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -80,9 +81,5 @@ public class VerificationPost extends BaseEntity {
                 this.status = VerificationStatus.REJECTED;
             }
         }
-    }
-
-    public enum VerificationStatus {
-        PENDING, APPROVED, REJECTED
     }
 }

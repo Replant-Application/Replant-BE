@@ -1,6 +1,6 @@
 package com.app.replant.handler;
 
-import com.app.replant.controller.dto.ApiResponse;
+import com.app.replant.common.ApiResponse;
 import com.app.replant.exception.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
@@ -30,10 +30,9 @@ public class JwtAccessDeniedHandler implements AccessDeniedHandler {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         
-        // API 스펙에 맞는 에러 응답
+        // API 스펙에 맞는 에러 응답 (새로운 형식)
         ApiResponse<Void> errorResponse = ApiResponse.error(
-                errorCode.getStatusCode().value(),
-                errorCode.name(),
+                errorCode.getErrorCode(),
                 errorCode.getErrorMsg()
         );
         
