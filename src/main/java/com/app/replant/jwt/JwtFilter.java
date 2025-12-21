@@ -71,15 +71,22 @@ public class JwtFilter extends OncePerRequestFilter {
      * 인증이 필요한 경로인지 확인 (permitAll 경로 제외)
      */
     private boolean isAuthenticationRequired(String requestPath) {
-        // permitAll 경로 목록
+        // permitAll 경로 목록 (SecurityConfig와 동기화)
         String[] permitAllPaths = {
+                "/api/auth/",
                 "/auth/",
+                "/api/missions/",
+                "/api/custom-missions/",
+                "/api/verifications",
+                "/api/posts",
                 "/test/",
                 "/ws/",
                 "/files/",
                 "/swagger-ui",
                 "/v3/api-docs",
-                "/swagger-resources"
+                "/swagger-resources",
+                "/actuator/health",
+                "/actuator/info"
         };
 
         for (String permitPath : permitAllPaths) {
