@@ -1,13 +1,14 @@
 package com.app.replant.controller;
 
 
-import com.app.replant.controller.dto.ApiResponse;
+import com.app.replant.common.ApiResponse;
 import com.app.replant.controller.dto.UpdateEssentialCategoriesRequest;
 import com.app.replant.jwt.MemberDetail;
 import com.app.replant.service.member.MemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +30,7 @@ public class MemberController {
     @PostMapping("essential-categories")
     public ResponseEntity<ApiResponse<Void>> updateEssentialCategories(
             @Parameter(hidden = true) Authentication authentication,
-            @RequestBody UpdateEssentialCategoriesRequest request
+            @RequestBody @Valid UpdateEssentialCategoriesRequest request
     ) {
         MemberDetail principal = (MemberDetail) authentication.getPrincipal();
         Long memberId = principal.getId();

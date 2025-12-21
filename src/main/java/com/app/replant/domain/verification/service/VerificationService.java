@@ -1,0 +1,223 @@
+package com.app.replant.domain.verification.service;
+
+import com.app.replant.domain.user.entity.User;
+import com.app.replant.domain.user.repository.UserRepository;
+import com.app.replant.domain.usermission.entity.MissionVerification;
+import com.app.replant.domain.usermission.entity.UserMission;
+import com.app.replant.domain.usermission.enums.UserMissionStatus;
+import com.app.replant.domain.usermission.repository.MissionVerificationRepository;
+import com.app.replant.domain.usermission.repository.UserMissionRepository;
+import com.app.replant.domain.verification.dto.*;
+import com.app.replant.domain.verification.entity.VerificationPost;
+import com.app.replant.domain.verification.entity.VerificationVote;
+import com.app.replant.domain.verification.enums.VerificationStatus;
+import com.app.replant.domain.verification.repository.VerificationPostRepository;
+import com.app.replant.domain.verification.repository.VerificationVoteRepository;
+import com.app.replant.exception.CustomException;
+import com.app.replant.exception.ErrorCode;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@Transactional(readOnly = true)
+@RequiredArgsConstructor
+public class VerificationService {
+
+    private final VerificationPostRepository verificationPostRepository;
+    private final VerificationVoteRepository verificationVoteRepository;
+    private final UserMissionRepository userMissionRepository;
+    private final MissionVerificationRepository missionVerificationRepository;
+    private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
+
+    public Page<VerificationPostResponse> getVerifications(VerificationStatus status, Long missionId, Long customMissionId, Pageable pageable) {
+        return verificationPostRepository.findWithFilters(status, missionId, customMissionId, pageable)
+                .map(VerificationPostResponse::from);
+    }
+
+    public VerificationPostResponse getVerification(Long verificationId, Long userId) {
+        VerificationPost post = findVerificationById(verificationId);
+
+        String myVote = null;
+        if (userId != null) {
+            myVote = verificationVoteRepository.findByVerificationPostIdAndVoterId(verificationId, userId)
+                    .map(vote -> vote.getVote().name())
+                    .orElse(null);
+        }
+
+        return VerificationPostResponse.from(post, myVote);
+    }
+
+    @Transactional
+    public VerificationPostResponse createVerification(Long userId, VerificationPostRequest request) {
+        User user = findUserById(userId);
+        UserMission userMission = userMissionRepository.findByIdAndUserId(request.getUserMissionId(), userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
+
+        // COMMUNITY 타입만 VerificationPost 작성 가능
+        if (userMission.getMission() != null &&
+            userMission.getMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.COMMUNITY) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
+        }
+        if (userMission.getCustomMission() != null &&
+            userMission.getCustomMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.COMMUNITY) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
+        }
+
+        // 이미 인증글이 있는지 확인
+        if (verificationPostRepository.existsByUserMissionId(request.getUserMissionId())) {
+            throw new CustomException(ErrorCode.VERIFICATION_ALREADY_EXISTS);
+        }
+
+        // 미션 상태 확인
+        if (userMission.getStatus() != UserMissionStatus.ASSIGNED) {
+            throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
+        }
+
+        String imageUrlsJson = null;
+        if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
+            try {
+                imageUrlsJson = objectMapper.writeValueAsString(request.getImageUrls());
+            } catch (JsonProcessingException e) {
+                throw new CustomException(ErrorCode.INVALID_IMAGE_DATA);
+            }
+        }
+
+        VerificationPost post = VerificationPost.builder()
+                .user(user)
+                .userMission(userMission)
+                .content(request.getContent())
+                .imageUrls(imageUrlsJson)
+                .status(VerificationStatus.PENDING)
+                .build();
+
+        // UserMission 상태를 PENDING으로 변경
+        userMission.updateStatus(UserMissionStatus.PENDING);
+
+        VerificationPost saved = verificationPostRepository.save(post);
+        return VerificationPostResponse.from(saved);
+    }
+
+    @Transactional
+    public VerificationPostResponse updateVerification(Long verificationId, Long userId, VerificationPostRequest request) {
+        VerificationPost post = findVerificationById(verificationId);
+
+        if (!post.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
+        }
+
+        String imageUrlsJson = null;
+        if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
+            try {
+                imageUrlsJson = objectMapper.writeValueAsString(request.getImageUrls());
+            } catch (JsonProcessingException e) {
+                throw new CustomException(ErrorCode.INVALID_IMAGE_DATA);
+            }
+        }
+
+        post.updateContent(request.getContent(), imageUrlsJson);
+        return VerificationPostResponse.from(post);
+    }
+
+    @Transactional
+    public void deleteVerification(Long verificationId, Long userId) {
+        VerificationPost post = findVerificationById(verificationId);
+
+        if (!post.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
+        }
+
+        if (post.getStatus() != VerificationStatus.PENDING) {
+            throw new CustomException(ErrorCode.DELETION_NOT_ALLOWED);
+        }
+
+        // UserMission 상태를 다시 ASSIGNED로 변경
+        post.getUserMission().updateStatus(UserMissionStatus.ASSIGNED);
+
+        verificationPostRepository.delete(post);
+    }
+
+    @Transactional
+    public VoteResponse vote(Long verificationId, Long userId, VoteRequest request) {
+        VerificationPost post = findVerificationById(verificationId);
+        User voter = findUserById(userId);
+
+        // 본인 글 투표 방지
+        if (post.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.SELF_VOTE_NOT_ALLOWED);
+        }
+
+        // 중복 투표 방지
+        if (verificationVoteRepository.existsByVerificationPostIdAndVoterId(verificationId, userId)) {
+            throw new CustomException(ErrorCode.ALREADY_VOTED);
+        }
+
+        // PENDING 상태만 투표 가능
+        if (post.getStatus() != VerificationStatus.PENDING) {
+            throw new CustomException(ErrorCode.VOTING_NOT_ALLOWED);
+        }
+
+        // 투표 저장
+        VerificationVote vote = VerificationVote.builder()
+                .verificationPost(post)
+                .voter(voter)
+                .vote(request.getVote())
+                .build();
+
+        verificationVoteRepository.save(vote);
+
+        // 카운트 증가 및 상태 변경 (Entity 메서드 활용)
+        boolean isApprove = request.getVote() == VerificationVote.VoteType.APPROVE;
+        post.addVote(isApprove);
+
+        // 승인되었을 경우 UserMission 완료 처리 및 MissionVerification 생성
+        if (post.getStatus() == VerificationStatus.APPROVED) {
+            UserMission userMission = post.getUserMission();
+            userMission.updateStatus(UserMissionStatus.COMPLETED);
+
+            // MissionVerification 생성 (COMMUNITY 타입은 VerificationPost 연결)
+            MissionVerification verification = MissionVerification.builder()
+                    .userMission(userMission)
+                    .verificationPost(post)
+                    .verifiedAt(LocalDateTime.now())
+                    .build();
+            missionVerificationRepository.save(verification);
+        }
+
+        String message;
+        if (post.getStatus() == VerificationStatus.APPROVED) {
+            message = "인증이 승인되었습니다.";
+        } else if (post.getStatus() == VerificationStatus.REJECTED) {
+            message = "인증이 거절되었습니다.";
+        } else {
+            message = "투표가 완료되었습니다.";
+        }
+
+        return VoteResponse.builder()
+                .verificationId(verificationId)
+                .vote(request.getVote())
+                .approveCount(post.getApproveCount())
+                .rejectCount(post.getRejectCount())
+                .status(post.getStatus())
+                .message(message)
+                .build();
+    }
+
+    private VerificationPost findVerificationById(Long verificationId) {
+        return verificationPostRepository.findById(verificationId)
+                .orElseThrow(() -> new CustomException(ErrorCode.VERIFICATION_NOT_FOUND));
+    }
+
+    private User findUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+}

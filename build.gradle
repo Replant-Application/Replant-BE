@@ -73,12 +73,20 @@ dependencies {
     
     // Database
     runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly 'com.h2database:h2'
+
+    // Flyway Migration
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
 
     // Redis
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
     // (선택) 캐시 기능 활성화용
     implementation 'org.springframework.boot:spring-boot-starter-cache'
+
+    // Rate Limiting (Bucket4j)
+    implementation 'com.bucket4j:bucket4j-core:8.7.0'
     
     // Spring AI - OpenAI (필요시 주석 해제)
     // implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter:1.0.0-M4'

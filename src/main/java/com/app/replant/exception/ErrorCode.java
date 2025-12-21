@@ -46,6 +46,10 @@ public enum ErrorCode {
     DATA_ACCESS_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "ACCOUNT-018", "로그아웃 처리가 불가합니다."),
     REFRESH_TOKEN_REVOKED(HttpStatus.UNAUTHORIZED, "ACCOUNT-019", "이미 로그아웃 된 계정입니다."),
 
+    // OAuth
+    OAUTH_PROVIDER_ERROR(HttpStatus.BAD_REQUEST, "OAUTH-001", "OAuth 제공자로부터 정보를 가져오는데 실패했습니다."),
+    INVALID_OAUTH_PROVIDER(HttpStatus.BAD_REQUEST, "OAUTH-002", "지원하지 않는 OAuth 제공자입니다."),
+
     // 소비 내역
     CARD_INVALID(HttpStatus.BAD_REQUEST, "HISTORY-001", "카드가 유효하지 않습니다."),
     HISTORY_ISNULL(HttpStatus.NOT_FOUND, "HISTORY-002", "해당 소비 내역이 존재하지 않습니다."),
@@ -87,6 +91,12 @@ public enum ErrorCode {
     CARD_TOKEN_REVOKED(HttpStatus.GONE, "CARD-008", "이미 삭제된 카드입니다."),
     CARD_ISNULL(HttpStatus.NOT_FOUND, "CARD-009", "해당 카드는 존재하지 않습니다."),
     CARD_ISNOTYOURS(HttpStatus.FORBIDDEN, "CARD-010", "해당 카드는 수정이 불가합니다."),
+    CARD_NOT_FOUND(HttpStatus.NOT_FOUND, "CARD-011", "카드를 찾을 수 없습니다."),
+    CARD_IN_USE(HttpStatus.CONFLICT, "CARD-012", "이미 사용 중인 카드입니다."),
+    CARD_ALREADY_OWNED(HttpStatus.CONFLICT, "CARD-013", "이미 보유한 카드입니다."),
+
+    // 회원
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "MEMBER-001", "회원을 찾을 수 없습니다."),
 
     // 목표 - 목표설정 입력/수정/조회
     GOAL_INVALIDVALUE(HttpStatus.BAD_REQUEST, "GOAL-001", "제한금액은 급여보다 클 수 없습니다."),
@@ -100,7 +110,77 @@ public enum ErrorCode {
     // 채팅
     CHAT_USER_NOT_FOUND(HttpStatus.NOT_FOUND, "CHAT-001", "사용자를 찾을 수 없습니다."),
     CHAT_LLM_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT-002", "AI 응답 생성에 실패했습니다."),
-    CHAT_DATA_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT-003", "사용자 데이터 조회에 실패했습니다.");
+    CHAT_DATA_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "CHAT-003", "사용자 데이터 조회에 실패했습니다."),
+
+    // Reant
+    REANT_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "리앤트를 찾을 수 없습니다"),
+
+    // Mission
+    MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "M001", "미션을 찾을 수 없습니다"),
+    USER_MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "M002", "할당된 미션을 찾을 수 없습니다"),
+    MISSION_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "M003", "이미 완료된 미션입니다"),
+    MISSION_EXPIRED(HttpStatus.BAD_REQUEST, "M004", "만료된 미션입니다"),
+
+    // CustomMission
+    CUSTOM_MISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "CM001", "커스텀 미션을 찾을 수 없습니다"),
+    NOT_MISSION_CREATOR(HttpStatus.FORBIDDEN, "CM002", "미션 생성자만 수정/삭제할 수 있습니다"),
+    CUSTOM_MISSION_NOT_PUBLIC(HttpStatus.FORBIDDEN, "CM003", "공개되지 않은 미션입니다"),
+
+    // Badge
+    BADGE_REQUIRED(HttpStatus.FORBIDDEN, "B001", "유효한 뱃지가 필요합니다"),
+    BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "B002", "뱃지를 찾을 수 없습니다"),
+
+    // Review
+    REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "RV001", "이미 리뷰를 작성했습니다"),
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "RV002", "리뷰를 찾을 수 없습니다"),
+
+    // QnA
+    QNA_NOT_FOUND(HttpStatus.NOT_FOUND, "Q001", "QnA를 찾을 수 없습니다"),
+    ANSWER_NOT_FOUND(HttpStatus.NOT_FOUND, "Q002", "답변을 찾을 수 없습니다"),
+    NOT_QUESTIONER(HttpStatus.FORBIDDEN, "Q003", "질문 작성자만 채택할 수 있습니다"),
+    ANSWER_ALREADY_ACCEPTED(HttpStatus.BAD_REQUEST, "Q004", "이미 답변이 채택되었습니다"),
+
+    // Verification
+    VERIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "V001", "인증글을 찾을 수 없습니다"),
+    ALREADY_VOTED(HttpStatus.BAD_REQUEST, "V002", "이미 투표했습니다"),
+    SELF_VOTE_NOT_ALLOWED(HttpStatus.FORBIDDEN, "V003", "본인 글에는 투표할 수 없습니다"),
+    MODIFICATION_NOT_ALLOWED(HttpStatus.FORBIDDEN, "V004", "수정/삭제가 불가능한 상태입니다"),
+    GPS_OUT_OF_RANGE(HttpStatus.BAD_REQUEST, "V005", "목표 위치에서 너무 멀리 있습니다"),
+    TIME_NOT_ENOUGH(HttpStatus.BAD_REQUEST, "V006", "필요 시간을 충족하지 못했습니다"),
+    MISSION_ALREADY_VERIFIED(HttpStatus.BAD_REQUEST, "V007", "이미 인증된 미션입니다"),
+    INVALID_VERIFICATION_TYPE(HttpStatus.BAD_REQUEST, "V008", "잘못된 인증 타입입니다"),
+    INVALID_GPS_DATA(HttpStatus.BAD_REQUEST, "V009", "GPS 데이터가 올바르지 않습니다"),
+    GPS_NOT_REQUIRED(HttpStatus.BAD_REQUEST, "V010", "이 미션은 GPS 인증이 필요하지 않습니다"),
+    INVALID_TIME_DATA(HttpStatus.BAD_REQUEST, "V011", "시간 데이터가 올바르지 않습니다"),
+    TIME_NOT_REQUIRED(HttpStatus.BAD_REQUEST, "V012", "이 미션은 시간 인증이 필요하지 않습니다"),
+    VERIFICATION_ALREADY_EXISTS(HttpStatus.CONFLICT, "V013", "이미 인증글이 존재합니다"),
+    INVALID_IMAGE_DATA(HttpStatus.BAD_REQUEST, "V014", "이미지 데이터가 올바르지 않습니다"),
+    DELETION_NOT_ALLOWED(HttpStatus.FORBIDDEN, "V015", "삭제가 불가능한 상태입니다"),
+    VOTING_NOT_ALLOWED(HttpStatus.FORBIDDEN, "V016", "투표가 불가능한 상태입니다"),
+
+    // Post
+    POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "게시글을 찾을 수 없습니다"),
+    COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "P002", "댓글을 찾을 수 없습니다"),
+    NOT_COMMENT_AUTHOR(HttpStatus.FORBIDDEN, "P003", "댓글 작성자가 아닙니다"),
+    NOT_POST_AUTHOR(HttpStatus.FORBIDDEN, "P003", "작성자만 수정/삭제할 수 있습니다"),
+
+    // Recommendation
+    RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RC001", "추천을 찾을 수 없습니다"),
+    RECOMMENDATION_EXPIRED(HttpStatus.BAD_REQUEST, "RC002", "만료된 추천입니다"),
+    RECOMMENDATION_ALREADY_PROCESSED(HttpStatus.BAD_REQUEST, "RC003", "이미 처리된 추천입니다"),
+    INVALID_RECOMMENDATION_STATUS(HttpStatus.BAD_REQUEST, "RC004", "유효하지 않은 추천 상태입니다"),
+
+    // Chat
+    CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND, "CH001", "채팅방을 찾을 수 없습니다"),
+    CHAT_ROOM_INACTIVE(HttpStatus.FORBIDDEN, "CH002", "비활성화된 채팅방입니다"),
+    CHAT_ROOM_NOT_ACTIVE(HttpStatus.FORBIDDEN, "CH002", "비활성화된 채팅방입니다"),
+    NOT_CHAT_PARTICIPANT(HttpStatus.FORBIDDEN, "CH003", "채팅방 참여자가 아닙니다"),
+
+    // Notification
+    NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "알림을 찾을 수 없습니다"),
+
+    // Graduation
+    GRADUATION_NOT_ELIGIBLE(HttpStatus.BAD_REQUEST, "G001", "졸업 조건을 충족하지 못했습니다");
 
     private final HttpStatus statusCode;
     private final String errorCode;

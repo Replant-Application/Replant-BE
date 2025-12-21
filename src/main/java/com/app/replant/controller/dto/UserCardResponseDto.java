@@ -56,10 +56,10 @@ public class UserCardResponseDto {
     public static UserCardResponseDto from(MemberCard memberCard) {
         Card card = memberCard.getCard();
 
-        // File 엔티티에서 카드 이미지 URL - file_path에 이미 전체 URL이 있으므로 그대로 사용
+        // 카드 이미지 URL 가져오기
         String cardUrl = "";
-        if (card.getCardImage() != null && card.getCardImage().getFilePath() != null) {
-            cardUrl = card.getCardImage().getFilePath();
+        if (card.getCardImage() != null) {
+            cardUrl = card.getCardImage();
         }
 
         return UserCardResponseDto.builder()

@@ -72,7 +72,12 @@ public class S3FileServiceImpl implements S3FileService {
             String fileUrl = s3Client.utilities().getUrl(GetUrlRequest.builder().bucket(bucket).key(fileName).build()).toString();
 
             // 업로드한 파일의 URL 과 Name 반환
-            return new UploadedFileInfoDto(fileUrl, fileName);
+            return UploadedFileInfoDto.builder()
+                    .fileName(fileName)
+                    .fileUrl(fileUrl)
+                    .fileSize(multipartFile.getSize())
+                    .contentType(multipartFile.getContentType())
+                    .build();
 
     }
 

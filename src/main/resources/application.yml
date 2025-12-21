@@ -6,20 +6,32 @@ spring:
   application:
     name: Replant-BE
 
+  # Primary DataSource (H2) - 비활성화됨
+#  datasource:
+#    primary:
+#      jdbc-url: ${DB1_URL}
+#      username: ${DB1_USERNAME}
+#      password: ${DB1_PASSWORD}
+#      driver-class-name: org.h2.Driver
+#      connection-timeout: 30000
+#      maximum-pool-size: 10
+#      minimum-idle: 5
+#      pool-name: H2-HikariPool
+
+    # Primary DataSource (MariaDB)
   datasource:
-    db1:
-      driver-class-name: com.mysql.cj.jdbc.Driver
+    secondary:
       jdbc-url: ${DB1_URL}
       username: ${DB1_USERNAME}
       password: ${DB1_PASSWORD}
-      hikari:
-        connection-timeout: 30000
-        socket-timeout: 60000
-        maximum-pool-size: 10
-        minimum-idle: 5
-        max-lifetime: 1800000
-        idle-timeout: 600000
-        leak-detection-threshold: 60000
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      minimum-idle: 5
+      max-lifetime: 1800000
+      idle-timeout: 600000
+      leak-detection-threshold: 60000
+      pool-name: MariaDB-HikariPool
 
   mvc:
     hiddenmethod:
@@ -39,39 +51,53 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
-    database-platform: org.hibernate.dialect.MySQL8Dialect
+      ddl-auto: validate  # Flyway를 사용하므로 validate로 변경
+    # database-platform은 각 DataSource Config에서 설정
 
     # jpa format
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.MySQL8Dialect
     show-sql: true
 
-  # Redis 설정
+  # Flyway 설정
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+    validate-on-migrate: false
+    out-of-order: false
+    clean-disabled: false
+
+  # Redis 설정 (선택적 - 연결 실패 시 인메모리 폴백 사용)
   data:
     redis:
-      host: ${REDIS_URL}
-      port: ${REDIS_PORT}
-      password: # 비밀번호 없으면 비워둬도 됨
-      timeout: 6000ms
+      host: ${REDIS_URL:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      connect-timeout: 2000ms
+  # Redis 자동설정 오류 무시
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.actuate.autoconfigure.data.redis.RedisHealthContributorAutoConfiguration
 
   # log
   output:
     ansi:
       enabled: always
 
-  # Mail 설정
+  # Mail 설정 (Gmail SMTP)
   mail:
-    host: smtp.naver.com
-    port: 465
-    username: ${NAVER_MAIL}
-    password: ${NAVER_PW}
+    host: smtp.gmail.com
+    port: 587
+    username: ${GOOGLE_MAIL}
+    password: ${GOOGLE_APP_PASSWORD}
     properties:
       mail.smtp.auth: true
-      mail.smtp.ssl.enable: true
-      mail.smtp.ssl.trust: smtp.naver.com
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
 jwt:
   secret: ${JWT}
 
@@ -98,7 +124,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: "health,info,metrics"  # 보안: 필요한 엔드포인트만 노출
+      base-path: /actuator
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized  # 보안: 인증된 사용자만 상세 정보 조회 가능
+      roles: "ADMIN"  # ADMIN 롤만 상세 정보 조회

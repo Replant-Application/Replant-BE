@@ -1,8 +1,8 @@
 package com.app.replant.controller;
 
+import com.app.replant.common.ApiResponse;
 import com.app.replant.controller.dto.AdminDiaryNotificationRequestDto;
 import com.app.replant.controller.dto.AdminReportNotificationRequestDto;
-import com.app.replant.controller.dto.ApiResponse;
 import com.app.replant.controller.dto.CardResponseDto;
 import com.app.replant.controller.dto.MemberResponseDto;
 import com.app.replant.controller.dto.NotificationSendRequestDto;

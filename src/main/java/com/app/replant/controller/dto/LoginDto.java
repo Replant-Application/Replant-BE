@@ -12,11 +12,11 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class LoginDto {
-    
+
     @Schema(description = "회원 ID (이메일)", example = "test@example.com")
     @JsonProperty("id")
-    private String memberId;
-    
+    private String id;
+
     @Schema(description = "비밀번호", example = "password123")
     private String password;
 }

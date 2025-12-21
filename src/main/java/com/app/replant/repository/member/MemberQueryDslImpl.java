@@ -22,7 +22,7 @@ public class MemberQueryDslImpl implements MemberQueryDsl {
         return queryFactory
                 .selectFrom(m)
                 .where(
-                        m.lastLoginDate.goe(threeMonthsAgo)
+                        m.lastLoginAt.goe(threeMonthsAgo)
                 )
                 .fetch();
     }

@@ -1,9 +1,10 @@
 package com.app.replant.jwt;
 
 import com.app.replant.controller.dto.TokenDto;
+import com.app.replant.domain.user.security.UserDetail;
+import com.app.replant.domain.user.security.UserDetailService;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
-import com.app.replant.service.MemberDetailService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -24,18 +25,19 @@ public class TokenProvider {
 
     private static final String AUTHORITIES_KEY = "auth";
     private static final String BEARER_TYPE = "Bearer";
-    private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 3000;            // 30분
+    private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 30;            // 30분
     private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60 * 24 * 7;  // 7일
-    private final MemberDetailService memberDetailService;
+    private final UserDetailService userDetailService;
     private final Key key;
 
-    public TokenProvider(@Value("${jwt.secret}") String secretKey, MemberDetailService memberDetailService) {
-        this.memberDetailService = memberDetailService;
+    public TokenProvider(@Value("${jwt.secret}") String secretKey, UserDetailService userDetailService) {
+        this.userDetailService = userDetailService;
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public TokenDto generateTokenDto(MemberDetail principal) {
+
+    public TokenDto generateTokenDto(org.springframework.security.core.userdetails.UserDetails principal) {
 
         // 권한들 가져오기
         String authorities = principal.getAuthorities().stream()
@@ -47,7 +49,7 @@ public class TokenProvider {
         // Access Token 생성
         Date accessTokenExpiresIn = new Date(now + ACCESS_TOKEN_EXPIRE_TIME);
         String accessToken = Jwts.builder()
-                .setSubject(principal.getUsername())       // payload "sub": "name"
+                .setSubject(principal.getUsername())       // payload "sub": "email"
                 .claim(AUTHORITIES_KEY, authorities)        // payload "auth": "ROLE_USER"
                 .setExpiration(accessTokenExpiresIn)        // payload "exp": 1516239022 (예시)
                 .signWith(key, SignatureAlgorithm.HS512)    // header "alg": "HS512"
@@ -75,12 +77,11 @@ public class TokenProvider {
             throw new RuntimeException("권한 정보가 없는 토큰입니다.");
         }
 
-
         // 토큰에 담긴 사용자의 이메일 가져오기
-        String userEmail = claims.getSubject(); // 토큰에 사용자의 이메일이 subject로 설정되어 있다고 가정
+        String userEmail = claims.getSubject();
 
         // 이메일을 기반으로 사용자 정보 조회
-        MemberDetail principal = memberDetailService.loadUserByUsername(userEmail);
+        UserDetail principal = userDetailService.loadUserByUsername(userEmail);
 
         return new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities());
     }

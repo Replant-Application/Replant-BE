@@ -2,28 +2,31 @@ package com.app.replant.service.auth;
 
 
 import com.app.replant.controller.dto.*;
-import com.app.replant.entity.Member;
+import com.app.replant.domain.user.entity.User;
 
 import java.util.Optional;
 
+/**
+ * 인증 서비스 인터페이스 (User 엔티티 기반)
+ */
 public interface AuthService {
 
-    Optional<Member> getMemberById(String email);
+    Optional<User> getUserByEmail(String email);
 
-    LoginResponseDto login(String memberId, String password);
+    LoginResponseDto login(String email, String password);
 
     LoginResponseDto join(JoinDto joinDto);
-    
-    Boolean checkId(String memberId);
+
+    Boolean checkId(String email);
 
     TokenDto reissue(TokenRequestDto tokenRequestDto);
 
-    Member findMemberByMemberNameAndPhone(MemberSearchIdDto memberSearchIdDto);
+    User findUserByNicknameAndPhone(MemberSearchIdDto memberSearchIdDto);
 
-    void logout(String memberId);
-    
+    void logout(String email);
+
     void resetPassword(ResetPasswordDto resetPasswordDto);
-    
+
     void changePassword(ChangePasswordDto changePasswordDto);
 
 }

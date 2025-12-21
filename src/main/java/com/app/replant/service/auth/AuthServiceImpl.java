@@ -2,19 +2,18 @@ package com.app.replant.service.auth;
 
 
 import com.app.replant.controller.dto.*;
-import com.app.replant.entity.*;
-import com.app.replant.entity.type.*;
+import com.app.replant.domain.user.entity.User;
+import com.app.replant.domain.user.enums.UserRole;
+import com.app.replant.domain.user.enums.UserStatus;
+import com.app.replant.domain.user.repository.UserRepository;
+import com.app.replant.domain.user.security.UserDetail;
 import com.app.replant.exception.*;
 import com.app.replant.jwt.*;
-import com.app.replant.repository.member.MemberRepository;
 import com.app.replant.service.mailService.MailService;
 import com.app.replant.service.token.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,30 +24,29 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
-    private final MemberRepository memberRepository;
+    private final UserRepository userRepository;
     private final TokenProvider tokenProvider;
-    private final RefreshTokenService refreshTokenService;  // Redis 기반으로 변경
+    private final RefreshTokenService refreshTokenService;
     private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManagerBuilder authenticationManagerBuilder;
     private final MailService mailService;
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<Member> getMemberById(String email) {
-        return memberRepository.findByMemberId(email);
+    public Optional<User> getUserByEmail(String email) {
+        return userRepository.findByEmail(email);
     }
 
     @Override
     @Transactional
     public LoginResponseDto join(JoinDto joinDto) {
         try {
-            // ✅ 1. 필수 요소 누락 확인
-            if (joinDto.getId().isEmpty()|| joinDto.getPassword().isEmpty()||
-                    joinDto.getName().isEmpty()|| joinDto.getPhone().isEmpty()) {
+            // 1. 필수 요소 누락 확인
+            if (joinDto.getId().isEmpty() || joinDto.getPassword().isEmpty() ||
+                    joinDto.getName().isEmpty() || joinDto.getPhone().isEmpty()) {
                 throw new CustomException(ErrorCode.REQUIRED_MISSING);
             }
 
-            // ✅ 2. 형식 검증 (이메일, 비밀번호 등)
+            // 2. 형식 검증 (이메일, 비밀번호 등)
             if (!joinDto.getId().matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")) {
                 throw new CustomException(ErrorCode.INVALID_FORMAT);
             }
@@ -56,24 +54,32 @@ public class AuthServiceImpl implements AuthService {
                 throw new CustomException(ErrorCode.INVALID_FORMAT);
             }
 
-            // ✅ 3. 중복 회원 확인
-            if (memberRepository.findByMemberId(joinDto.getId()).isPresent()) {
+            // 3. 중복 회원 확인
+            if (userRepository.existsByEmail(joinDto.getId())) {
                 throw new CustomException(ErrorCode.DUPLICATE_LOGIN_ID);
             }
 
-            // ✅ 4. 비밀번호 암호화 및 회원 저장
+            // 4. 비밀번호 암호화 및 회원 저장
             String encodedPassword = passwordEncoder.encode(joinDto.getPassword());
-            Member member = joinDto.toEntity(encodedPassword);
-            memberRepository.save(member);
+
+            User user = User.builder()
+                    .email(joinDto.getId())
+                    .nickname(joinDto.getName())
+                    .password(encodedPassword)
+                    .phone(joinDto.getPhone())
+                    .role(UserRole.USER)
+                    .status(UserStatus.ACTIVE)
+                    .build();
+
+            userRepository.save(user);
 
             log.info("회원가입 완료: {}", joinDto.getId());
 
-            // ✅ 5. 자동 로그인
+            // 5. 자동 로그인
             return login(joinDto.getId(), joinDto.getPassword());
 
-
         } catch (CustomException e) {
-            throw e; // 이미 정의된 예외는 그대로 던짐
+            throw e;
         } catch (Exception e) {
             log.error("회원가입 중 서버 오류 발생", e);
             throw new CustomException(ErrorCode.SIGNIN_FAIL);
@@ -82,75 +88,75 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional(readOnly = true)
-    public Boolean checkId(String memberId) {
-
-        Optional<Member> foundMember = memberRepository.findByMemberId(memberId);
-
+    public Boolean checkId(String email) {
         // 1. 비어있을 시
-        if(memberId.isEmpty()) {
+        if (email.isEmpty()) {
             throw new CustomException(ErrorCode.REQUIRED_MISSING);
         }
-        // 2. 형식 검증 (이메일, 비밀번호 등)
-        if (!memberId.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")) {
+        // 2. 형식 검증 (이메일)
+        if (!email.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,6}$")) {
             throw new CustomException(ErrorCode.INVALID_FORMAT);
         }
-        // 3. 이미 존재하는 ID인 경우 예외 발생
-        if (foundMember.isPresent()) {
+        // 3. 이미 존재하는 이메일인 경우 예외 발생
+        if (userRepository.existsByEmail(email)) {
             throw new CustomException(ErrorCode.DUPLICATE_LOGIN_ID);
         }
-        // 사용 가능한 IDw
+        // 사용 가능한 이메일
         return true;
     }
 
 
     @Override
     @Transactional
-    public LoginResponseDto login(String memberId, String password) {
+    public LoginResponseDto login(String email, String password) {
         try {
-            // 1. memberId + password 로 AuthenticationToken 생성
-            UsernamePasswordAuthenticationToken authenticationToken =
-                    new UsernamePasswordAuthenticationToken(memberId, password);
+            // 1. 사용자 조회
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> {
+                        log.error("로그인 실패 - 사용자 없음: {}", email);
+                        return new CustomException(ErrorCode.USER_NOT_FOUND);
+                    });
 
-            // 2. 실제로 검증 (사용자 비밀번호 체크)
-            // authenticate 메서드가 실행이 될 때 MemberDetailService 의 loadUserByUsername 메서드가 실행됨
-            Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+            // 2. 비밀번호 검증
+            if (!passwordEncoder.matches(password, user.getPassword())) {
+                log.error("로그인 실패 - 비밀번호 불일치: {}", email);
+                throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
+            }
 
-            // 3. 인증 정보를 기반으로 JWT 토큰 생성
-            MemberDetail memberDetail = (MemberDetail) authentication.getPrincipal();
-            TokenDto tokenDto = tokenProvider.generateTokenDto(memberDetail);
+            // 3. 계정 상태 확인
+            if (user.getStatus() == UserStatus.SUSPENDED) {
+                throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
+            }
 
-            // 4. RefreshToken Redis에 저장
-            refreshTokenService.saveRefreshToken(memberId, tokenDto.getRefreshToken());
+            // 4. UserDetail 생성 및 JWT 토큰 발급
+            UserDetail userDetail = new UserDetail(user);
+            TokenDto tokenDto = tokenProvider.generateTokenDto(userDetail);
 
-            // 5. LoginResponseDto 생성
+            // 5. RefreshToken 저장 (Redis 또는 인메모리)
+            refreshTokenService.saveRefreshToken(email, tokenDto.getRefreshToken());
+
+            // 6. 마지막 로그인 시간 업데이트
+            user.updateLastLoginAt();
+            userRepository.save(user);
+
+            log.info("로그인 성공: {}", email);
+
+            // 7. LoginResponseDto 생성
             TokenRequestDto tokens = TokenRequestDto.builder()
                     .accessToken(tokenDto.getAccessToken())
                     .refreshToken(tokenDto.getRefreshToken())
                     .build();
-            
+
             return LoginResponseDto.builder()
-                    .name(memberDetail.getName())
+                    .name(userDetail.getNickname())
                     .tokens(tokens)
                     .build();
-                    
-        } catch (org.springframework.security.authentication.BadCredentialsException e) {
-            // 비밀번호가 틀린 경우
-            log.error("로그인 실패 - 비밀번호 불일치: {}", memberId);
-            throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
-        } catch (org.springframework.security.core.userdetails.UsernameNotFoundException e) {
-            // 사용자를 찾을 수 없는 경우
-            log.error("로그인 실패 - 사용자 없음: {}", memberId);
-            throw new CustomException(ErrorCode.USER_NOT_FOUND);
-        } catch (org.springframework.security.authentication.InternalAuthenticationServiceException e) {
-            // MemberDetailService에서 던진 예외가 이 예외로 감싸질 수 있음
-            if (e.getCause() instanceof UsernameNotFoundException) {
-                log.error("로그인 실패 - 사용자 없음 (Internal): {}", memberId);
-                throw new CustomException(ErrorCode.USER_NOT_FOUND);
-            }
-            throw e;
+
         } catch (CustomException e) {
-            // 계정 정지 등 이미 정의된 CustomException
             throw e;
+        } catch (Exception e) {
+            log.error("로그인 중 예외 발생: {}", e.getMessage(), e);
+            throw new CustomException(ErrorCode.SIGNIN_FAIL);
         }
     }
 
@@ -165,16 +171,16 @@ public class AuthServiceImpl implements AuthService {
         if (tokenRequestDto.getRefreshToken() == null || tokenRequestDto.getRefreshToken().isEmpty()) {
             throw new CustomException(ErrorCode.NO_TOKEN);
         }
-        
+
         // 2. Refresh Token 검증 (만료, 서명 등)
         tokenProvider.validateToken(tokenRequestDto.getRefreshToken());
 
-        // 3. Access Token에서 Member ID 가져오기
+        // 3. Access Token에서 User 이메일 가져오기
         Authentication authentication = tokenProvider.getAuthentication(tokenRequestDto.getAccessToken());
-        String memberId = authentication.getName();
-        
+        String email = authentication.getName();
+
         // 4. Redis에서 저장된 Refresh Token 조회
-        String savedRefreshToken = refreshTokenService.getRefreshToken(memberId)
+        String savedRefreshToken = refreshTokenService.getRefreshToken(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.REFRESH_TOKEN_REVOKED));
 
         // 5. Refresh Token 일치하는지 검사
@@ -183,35 +189,34 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 6. 새로운 토큰 생성
-        MemberDetail memberDetail = (MemberDetail) authentication.getPrincipal();
-        TokenDto tokenDto = tokenProvider.generateTokenDto(memberDetail);
+        UserDetail userDetail = (UserDetail) authentication.getPrincipal();
+        TokenDto tokenDto = tokenProvider.generateTokenDto(userDetail);
 
         // 7. Redis에 새로운 Refresh Token 저장
-        refreshTokenService.saveRefreshToken(memberId, tokenDto.getRefreshToken());
+        refreshTokenService.saveRefreshToken(email, tokenDto.getRefreshToken());
 
         return tokenDto;
     }
 
     @Override
-    public Member findMemberByMemberNameAndPhone(MemberSearchIdDto memberSearchIdDto) {
-        if(memberSearchIdDto.getName().isEmpty() || memberSearchIdDto.getPhone().isEmpty()) {
+    public User findUserByNicknameAndPhone(MemberSearchIdDto memberSearchIdDto) {
+        if (memberSearchIdDto.getName().isEmpty() || memberSearchIdDto.getPhone().isEmpty()) {
             throw new CustomException(ErrorCode.INVALID_FORMAT);
         }
-        Optional<Member> member =  memberRepository.findByMemberNameAndPhone(memberSearchIdDto.getName(),memberSearchIdDto.getPhone());
-        if(member.isEmpty()) {
-            throw new CustomException(ErrorCode.USER_NOT_FOUND);
-        }
-        if(member.get().getStatus() == StatusType.UNABLE) {
+        User user = userRepository.findByNicknameAndPhone(memberSearchIdDto.getName(), memberSearchIdDto.getPhone())
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        if (user.getStatus() == UserStatus.SUSPENDED) {
             throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
         }
-        return member.get();
+        return user;
     }
     
     @Override
-    public void logout(String memberId) {
+    public void logout(String email) {
         // Redis에서 Refresh Token 삭제
-        refreshTokenService.deleteRefreshToken(memberId);
-        log.info("로그아웃 완료: {}", memberId);
+        refreshTokenService.deleteRefreshToken(email);
+        log.info("로그아웃 완료: {}", email);
     }
     
     /**
@@ -227,35 +232,35 @@ public class AuthServiceImpl implements AuthService {
         if (resetPasswordDto.getMemberName() == null || resetPasswordDto.getMemberName().isEmpty()) {
             throw new CustomException(ErrorCode.REQUIRED_MISSING);
         }
-        
-        // 2. 회원 조회 (이메일 + 이름으로 본인 확인)
-        Member member = memberRepository.findByMemberId(resetPasswordDto.getMemberId())
+
+        // 2. 회원 조회 (이메일 + 닉네임으로 본인 확인)
+        User user = userRepository.findByEmail(resetPasswordDto.getMemberId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        
-        // 3. 이름이 일치하는지 확인
-        if (!member.getMemberName().equals(resetPasswordDto.getMemberName())) {
-            log.error("비밀번호 재설정 실패: 이름 불일치 - ID: {}, 입력된 이름: {}, 실제 이름: {}", 
-                    resetPasswordDto.getMemberId(), resetPasswordDto.getMemberName(), member.getMemberName());
+
+        // 3. 닉네임이 일치하는지 확인
+        if (!user.getNickname().equals(resetPasswordDto.getMemberName())) {
+            log.error("비밀번호 재설정 실패: 닉네임 불일치 - Email: {}, 입력된 닉네임: {}, 실제 닉네임: {}",
+                    resetPasswordDto.getMemberId(), resetPasswordDto.getMemberName(), user.getNickname());
             throw new CustomException(ErrorCode.USER_NOT_FOUND); // 보안상 동일한 에러 메시지
         }
-        
+
         // 4. 계정 상태 확인
-        if (member.getStatus() == StatusType.UNABLE) {
+        if (user.getStatus() == UserStatus.SUSPENDED) {
             throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
         }
-        
+
         // 5. 임시 비밀번호 생성 및 이메일 발송
         String tempPassword = mailService.sendTemporaryPassword(
-                resetPasswordDto.getMemberId(), 
+                resetPasswordDto.getMemberId(),
                 resetPasswordDto.getMemberName()
         );
         log.info("임시 비밀번호 발급 및 이메일 발송 완료: {}", resetPasswordDto.getMemberId());
-        
+
         // 6. DB에 임시 비밀번호 저장 (암호화)
         String encodedPassword = passwordEncoder.encode(tempPassword);
-        member.setPassword(encodedPassword);
-        memberRepository.save(member);
-        
+        user.updatePassword(encodedPassword);
+        userRepository.save(user);
+
         log.info("비밀번호 재설정 완료: {}", resetPasswordDto.getMemberId());
     }
     
@@ -275,33 +280,33 @@ public class AuthServiceImpl implements AuthService {
         if (changePasswordDto.getNewPassword() == null || changePasswordDto.getNewPassword().isEmpty()) {
             throw new CustomException(ErrorCode.REQUIRED_MISSING);
         }
-        
+
         // 2. 회원 조회
-        Member member = memberRepository.findByMemberId(changePasswordDto.getMemberId())
+        User user = userRepository.findByEmail(changePasswordDto.getMemberId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        
+
         // 3. 계정 상태 확인
-        if (member.getStatus() == StatusType.UNABLE) {
+        if (user.getStatus() == UserStatus.SUSPENDED) {
             throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
         }
-        
+
         // 4. 기존 비밀번호 확인
-        if (!passwordEncoder.matches(changePasswordDto.getOldPassword(), member.getPassword())) {
-            log.error("비밀번호 변경 실패: 기존 비밀번호 불일치 - ID: {}", changePasswordDto.getMemberId());
+        if (!passwordEncoder.matches(changePasswordDto.getOldPassword(), user.getPassword())) {
+            log.error("비밀번호 변경 실패: 기존 비밀번호 불일치 - Email: {}", changePasswordDto.getMemberId());
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
         }
-        
+
         // 5. 새 비밀번호와 기존 비밀번호가 같은지 확인
         if (changePasswordDto.getOldPassword().equals(changePasswordDto.getNewPassword())) {
-            log.error("비밀번호 변경 실패: 새 비밀번호가 기존 비밀번호와 동일 - ID: {}", changePasswordDto.getMemberId());
+            log.error("비밀번호 변경 실패: 새 비밀번호가 기존 비밀번호와 동일 - Email: {}", changePasswordDto.getMemberId());
             throw new CustomException(ErrorCode.SAME_PASSWORD);
         }
-        
+
         // 6. 새 비밀번호 암호화 및 저장
         String encodedNewPassword = passwordEncoder.encode(changePasswordDto.getNewPassword());
-        member.setPassword(encodedNewPassword);
-        memberRepository.save(member);
-        
+        user.updatePassword(encodedNewPassword);
+        userRepository.save(user);
+
         log.info("비밀번호 변경 완료: {}", changePasswordDto.getMemberId());
     }
 
