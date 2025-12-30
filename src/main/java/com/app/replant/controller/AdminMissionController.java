@@ -21,6 +21,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Tag(name = "Admin Mission", description = "관리자 미션 관리 API (ADMIN 권한 필요)")
@@ -91,5 +92,20 @@ public class AdminMissionController {
         log.info("관리자 - 미션 활성화 토글: {}, isActive={}", missionId, isActive);
         MissionResponse mission = missionService.toggleMissionActive(missionId, isActive);
         return ApiResponse.success(mission);
+    }
+
+    @Operation(summary = "미션 대량 등록", description = "JSON 배열로 여러 미션을 한 번에 등록합니다")
+    @PostMapping("/bulk")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<Map<String, Object>> bulkCreateMissions(@RequestBody @Valid List<MissionRequest> requests) {
+        log.info("관리자 - 미션 대량 등록: {}개", requests.size());
+        List<MissionResponse> createdMissions = missionService.bulkCreateMissions(requests);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("message", String.format("%d개의 미션이 등록되었습니다.", createdMissions.size()));
+        result.put("count", createdMissions.size());
+        result.put("missions", createdMissions);
+
+        return ApiResponse.success(result);
     }
 }

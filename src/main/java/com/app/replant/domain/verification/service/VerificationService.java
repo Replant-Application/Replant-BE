@@ -2,8 +2,7 @@ package com.app.replant.domain.verification.service;
 
 import com.app.replant.domain.badge.entity.UserBadge;
 import com.app.replant.domain.badge.repository.UserBadgeRepository;
-import com.app.replant.domain.notification.entity.Notification;
-import com.app.replant.domain.notification.repository.NotificationRepository;
+import com.app.replant.domain.notification.service.NotificationService;
 import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.user.entity.User;
@@ -45,7 +44,7 @@ public class VerificationService {
     private final MissionVerificationRepository missionVerificationRepository;
     private final UserRepository userRepository;
     private final UserBadgeRepository userBadgeRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
     private final ReantRepository reantRepository;
     private final ObjectMapper objectMapper;
 
@@ -290,39 +289,35 @@ public class VerificationService {
     }
 
     /**
-     * 인증 승인 알림 발송
+     * 인증 승인 알림 발송 (SSE 실시간 푸시 포함)
      */
     private void sendVerificationApprovedNotification(User user, UserMission userMission) {
         String missionTitle = getMissionTitle(userMission);
 
-        Notification notification = Notification.builder()
-                .user(user)
-                .type("VERIFICATION_APPROVED")
-                .title("미션 인증이 승인되었습니다!")
-                .content(String.format("'%s' 미션 인증이 커뮤니티에서 승인되었습니다. 뱃지와 경험치를 획득했습니다!", missionTitle))
-                .referenceType("USER_MISSION")
-                .referenceId(userMission.getId())
-                .build();
-
-        notificationRepository.save(notification);
+        notificationService.createAndPushNotification(
+                user,
+                "VERIFICATION_APPROVED",
+                "미션 인증이 승인되었습니다!",
+                String.format("'%s' 미션 인증이 커뮤니티에서 승인되었습니다. 뱃지와 경험치를 획득했습니다!", missionTitle),
+                "USER_MISSION",
+                userMission.getId()
+        );
     }
 
     /**
-     * 인증 거절 알림 발송
+     * 인증 거절 알림 발송 (SSE 실시간 푸시 포함)
      */
     private void sendVerificationRejectedNotification(User user, UserMission userMission) {
         String missionTitle = getMissionTitle(userMission);
 
-        Notification notification = Notification.builder()
-                .user(user)
-                .type("VERIFICATION_REJECTED")
-                .title("미션 인증이 거절되었습니다")
-                .content(String.format("'%s' 미션 인증이 커뮤니티에서 거절되었습니다. 다시 인증을 시도해주세요.", missionTitle))
-                .referenceType("USER_MISSION")
-                .referenceId(userMission.getId())
-                .build();
-
-        notificationRepository.save(notification);
+        notificationService.createAndPushNotification(
+                user,
+                "VERIFICATION_REJECTED",
+                "미션 인증이 거절되었습니다",
+                String.format("'%s' 미션 인증이 커뮤니티에서 거절되었습니다. 다시 인증을 시도해주세요.", missionTitle),
+                "USER_MISSION",
+                userMission.getId()
+        );
     }
 
     private String getMissionTitle(UserMission userMission) {
