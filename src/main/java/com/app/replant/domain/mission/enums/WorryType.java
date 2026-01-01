@@ -9,5 +9,6 @@ public enum WorryType {
     ENTRANCE_EXAM,    // 입시
     ADVANCEMENT,      // 진학
     RETURN_TO_SCHOOL, // 복학
-    RELATIONSHIP      // 연애
+    RELATIONSHIP,     // 연애
+    SELF_MANAGEMENT   // 자기관리
 }
