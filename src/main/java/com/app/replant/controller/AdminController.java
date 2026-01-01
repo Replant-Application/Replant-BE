@@ -21,9 +21,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "관리자", description = "관리자 전용 API (ADMIN 권한 필요)")
 @RestController
@@ -37,6 +40,7 @@ public class AdminController {
     private final CardService cardService;
     private final SseService sseService;
     private final MemberRepository memberRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     @Operation(summary = "전체 회원 조회", description = "모든 회원 정보를 조회합니다 (관리자 전용)")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
@@ -165,5 +169,98 @@ public class AdminController {
         log.info("관리자 - 리포트 알림 전송 완료: DB ID={}, 이메일={}, month={}",
                 memberId, requestDto.getMemberId(), currentMonth);
         return ResponseEntity.ok(ApiResponse.res(200, "리포트 알림이 성공적으로 전송되었습니다."));
+    }
+
+    @Operation(summary = "미션 데이터 초기화 및 시드", description = "유저 정보는 유지하고 미션 관련 데이터만 초기화합니다 (관리자 전용)")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "초기화 성공")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "초기화 실패")
+    @PostMapping("/reset-missions")
+    public ResponseEntity<Map<String, Object>> resetMissions() {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            log.info("미션 데이터 초기화 시작...");
+
+            // 외래키 체크 비활성화
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
+
+            // 미션 관련 테이블 초기화 (유저 데이터 유지)
+            jdbcTemplate.execute("DELETE FROM chat_message");
+            jdbcTemplate.execute("DELETE FROM chat_room");
+            jdbcTemplate.execute("DELETE FROM user_recommendation");
+            jdbcTemplate.execute("DELETE FROM notification");
+            jdbcTemplate.execute("DELETE FROM comment");
+            jdbcTemplate.execute("DELETE FROM post");
+            jdbcTemplate.execute("DELETE FROM mission_qna_answer");
+            jdbcTemplate.execute("DELETE FROM mission_qna");
+            jdbcTemplate.execute("DELETE FROM mission_review");
+            jdbcTemplate.execute("DELETE FROM verification_vote");
+            jdbcTemplate.execute("DELETE FROM mission_verification");
+            jdbcTemplate.execute("DELETE FROM verification_post");
+            jdbcTemplate.execute("DELETE FROM user_badge");
+            jdbcTemplate.execute("DELETE FROM user_mission");
+            jdbcTemplate.execute("DELETE FROM custom_mission");
+            jdbcTemplate.execute("DELETE FROM mission");
+
+            // 외래키 체크 활성화
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
+
+            log.info("미션 데이터 삭제 완료, 새 미션 데이터 삽입 중...");
+
+            // 미션 데이터 삽입
+            String insertMissions = """
+                INSERT INTO mission (id, title, description, type, verification_type, gps_latitude, gps_longitude, gps_radius_meters, required_minutes, exp_reward, badge_duration_days, is_active) VALUES
+                (1, '30분 산책하기', '동네를 30분 동안 산책하며 마음을 정리해보세요.', 'DAILY', 'TIME', NULL, NULL, NULL, 30, 15, 3, TRUE),
+                (2, '물 8잔 마시기', '하루 동안 물 8잔(2L)을 마시고 인증해주세요.', 'DAILY', 'COMMUNITY', NULL, NULL, NULL, NULL, 10, 3, TRUE),
+                (3, '10분 명상하기', '조용한 곳에서 10분간 명상을 해보세요.', 'DAILY', 'TIME', NULL, NULL, NULL, 10, 10, 3, TRUE),
+                (4, '영어 단어 10개 외우기', '오늘 새로운 영어 단어 10개를 외워보세요.', 'DAILY', 'COMMUNITY', NULL, NULL, NULL, NULL, 10, 3, TRUE),
+                (5, '아침 식사하기', '건강한 아침 식사를 하고 사진으로 인증해주세요.', 'DAILY', 'COMMUNITY', NULL, NULL, NULL, NULL, 10, 3, TRUE),
+                (6, '일기 쓰기', '오늘 하루를 돌아보며 일기를 작성해주세요.', 'DAILY', 'COMMUNITY', NULL, NULL, NULL, NULL, 10, 3, TRUE),
+                (7, '스트레칭 10분', '10분간 스트레칭으로 몸을 풀어주세요.', 'DAILY', 'TIME', NULL, NULL, NULL, 10, 10, 3, TRUE),
+                (8, '책 1권 읽기', '이번 주에 책 1권을 완독하고 감상을 공유해주세요.', 'WEEKLY', 'COMMUNITY', NULL, NULL, NULL, NULL, 50, 7, TRUE),
+                (9, '헬스장 3회 방문', '이번 주에 헬스장을 3회 방문해주세요.', 'WEEKLY', 'GPS', 37.5665, 126.9780, 500, NULL, 50, 7, TRUE),
+                (10, '새로운 요리 도전', '이번 주에 처음 만들어보는 요리에 도전해보세요.', 'WEEKLY', 'COMMUNITY', NULL, NULL, NULL, NULL, 40, 7, TRUE),
+                (11, '친구와 통화하기', '오랫동안 연락 못했던 친구와 통화해보세요.', 'WEEKLY', 'COMMUNITY', NULL, NULL, NULL, NULL, 30, 7, TRUE),
+                (12, '주 3회 운동하기', '이번 주에 3회 이상 운동을 해주세요. 각 30분 이상.', 'WEEKLY', 'TIME', NULL, NULL, NULL, 90, 50, 7, TRUE),
+                (13, '새로운 취미 시작', '이번 달에 새로운 취미를 시작해보세요.', 'MONTHLY', 'COMMUNITY', NULL, NULL, NULL, NULL, 100, 21, TRUE),
+                (14, '5만원 저축하기', '이번 달에 5만원을 저축하고 인증해주세요.', 'MONTHLY', 'COMMUNITY', NULL, NULL, NULL, NULL, 80, 21, TRUE),
+                (15, '봉사활동 참여', '이번 달에 봉사활동에 참여해보세요.', 'MONTHLY', 'COMMUNITY', NULL, NULL, NULL, NULL, 120, 21, TRUE)
+                """;
+
+            jdbcTemplate.execute(insertMissions);
+
+            // 미션 수 확인
+            Integer missionCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mission", Integer.class);
+
+            log.info("미션 데이터 초기화 완료! 총 {} 개의 미션", missionCount);
+
+            response.put("success", true);
+            response.put("message", "미션 데이터가 초기화되었습니다.");
+            response.put("missionCount", missionCount);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("미션 데이터 초기화 실패", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @Operation(summary = "현재 미션 수 확인", description = "현재 DB에 저장된 미션 수를 확인합니다")
+    @GetMapping("/mission-count")
+    public ResponseEntity<Map<String, Object>> getMissionCount() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Integer missionCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mission", Integer.class);
+            response.put("success", true);
+            response.put("missionCount", missionCount);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
     }
 }
