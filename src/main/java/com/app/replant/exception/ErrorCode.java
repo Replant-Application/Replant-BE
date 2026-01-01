@@ -180,7 +180,17 @@ public enum ErrorCode {
     NOTIFICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "N001", "알림을 찾을 수 없습니다"),
 
     // Graduation
-    GRADUATION_NOT_ELIGIBLE(HttpStatus.BAD_REQUEST, "G001", "졸업 조건을 충족하지 못했습니다");
+    GRADUATION_NOT_ELIGIBLE(HttpStatus.BAD_REQUEST, "G001", "졸업 조건을 충족하지 못했습니다"),
+
+    // Wakeup Mission
+    WAKEUP_SETTING_NOT_FOUND(HttpStatus.NOT_FOUND, "WM001", "기상 미션 설정을 찾을 수 없습니다"),
+    WAKEUP_SETTING_ALREADY_EXISTS(HttpStatus.CONFLICT, "WM002", "해당 주차의 기상 미션 설정이 이미 존재합니다"),
+    WAKEUP_TIME_NOT_IN_SLOT(HttpStatus.BAD_REQUEST, "WM003", "설정된 시간대가 아닙니다"),
+    WAKEUP_VERIFICATION_TOO_EARLY(HttpStatus.BAD_REQUEST, "WM004", "아직 인증 시간이 아닙니다"),
+    WAKEUP_VERIFICATION_TOO_LATE(HttpStatus.BAD_REQUEST, "WM005", "인증 시간이 지났습니다"),
+
+    // Admin Mission
+    ADMIN_ONLY(HttpStatus.FORBIDDEN, "AD001", "관리자만 접근 가능합니다");
 
     private final HttpStatus statusCode;
     private final String errorCode;

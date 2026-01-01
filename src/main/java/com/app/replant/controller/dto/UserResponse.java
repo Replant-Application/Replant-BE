@@ -1,5 +1,7 @@
 package com.app.replant.controller.dto;
 
+import com.app.replant.domain.mission.enums.PlaceType;
+import com.app.replant.domain.mission.enums.WorryType;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.enums.Gender;
 import lombok.Builder;
@@ -19,6 +21,11 @@ public class UserResponse {
     private String profileImg;
     private LocalDateTime createdAt;
 
+    // ============ 사용자 맞춤 정보 필드들 ============
+    private WorryType worryType;
+    private String region;
+    private PlaceType preferredPlaceType;
+
     public static UserResponse from(User user) {
         return UserResponse.builder()
                 .id(user.getId())
@@ -28,6 +35,10 @@ public class UserResponse {
                 .gender(user.getGender())
                 .profileImg(user.getProfileImg())
                 .createdAt(user.getCreatedAt())
+                // 사용자 맞춤 정보
+                .worryType(user.getWorryType())
+                .region(user.getRegion())
+                .preferredPlaceType(user.getPreferredPlaceType())
                 .build();
     }
 }

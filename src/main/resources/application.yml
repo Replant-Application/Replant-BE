@@ -51,7 +51,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate  # Flyway를 사용하므로 validate로 변경
+      ddl-auto: update  # 누락된 테이블 자동 생성
     # database-platform은 각 DataSource Config에서 설정
 
     # jpa format

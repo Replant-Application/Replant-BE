@@ -23,6 +23,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -144,6 +146,107 @@ public class MissionService {
 
         answer.accept();
         qna.resolve();
+    }
+
+    // ============ 관리자 미션 관리 ============
+
+    @Transactional
+    public MissionResponse createMission(MissionRequest request) {
+        Mission mission = Mission.builder()
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .type(request.getType())
+                .verificationType(request.getVerificationType())
+                .gpsLatitude(request.getGpsLatitude())
+                .gpsLongitude(request.getGpsLongitude())
+                .gpsRadiusMeters(request.getGpsRadiusMeters())
+                .requiredMinutes(request.getRequiredMinutes())
+                .expReward(request.getExpReward())
+                .badgeDurationDays(request.getBadgeDurationDays())
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                // 사용자 맞춤 필드
+                .worryType(request.getWorryType())
+                .ageRanges(request.getAgeRanges())
+                .placeType(request.getPlaceType())
+                .difficultyLevel(request.getDifficultyLevel())
+                .build();
+
+        Mission saved = missionRepository.save(mission);
+        return MissionResponse.from(saved);
+    }
+
+    @Transactional
+    public MissionResponse updateMission(Long missionId, MissionRequest request) {
+        Mission mission = findMissionById(missionId);
+
+        mission.update(
+                request.getTitle(),
+                request.getDescription(),
+                request.getType(),
+                request.getVerificationType(),
+                request.getGpsLatitude(),
+                request.getGpsLongitude(),
+                request.getGpsRadiusMeters(),
+                request.getRequiredMinutes(),
+                request.getExpReward(),
+                request.getBadgeDurationDays(),
+                // 사용자 맞춤 필드
+                request.getWorryType(),
+                request.getAgeRanges(),
+                request.getPlaceType(),
+                request.getDifficultyLevel()
+        );
+
+        if (request.getIsActive() != null) {
+            mission.setActive(request.getIsActive());
+        }
+
+        return MissionResponse.from(mission);
+    }
+
+    /**
+     * 미션 대량 등록
+     */
+    @Transactional
+    public List<MissionResponse> bulkCreateMissions(List<MissionRequest> requests) {
+        List<Mission> missions = requests.stream()
+                .map(request -> Mission.builder()
+                        .title(request.getTitle())
+                        .description(request.getDescription())
+                        .type(request.getType())
+                        .verificationType(request.getVerificationType())
+                        .gpsLatitude(request.getGpsLatitude())
+                        .gpsLongitude(request.getGpsLongitude())
+                        .gpsRadiusMeters(request.getGpsRadiusMeters())
+                        .requiredMinutes(request.getRequiredMinutes())
+                        .expReward(request.getExpReward())
+                        .badgeDurationDays(request.getBadgeDurationDays())
+                        .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                        // 사용자 맞춤 필드
+                        .worryType(request.getWorryType())
+                        .ageRanges(request.getAgeRanges())
+                        .placeType(request.getPlaceType())
+                        .difficultyLevel(request.getDifficultyLevel())
+                        .build())
+                .collect(Collectors.toList());
+
+        List<Mission> savedMissions = missionRepository.saveAll(missions);
+        return savedMissions.stream()
+                .map(MissionResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void deleteMission(Long missionId) {
+        Mission mission = findMissionById(missionId);
+        missionRepository.delete(mission);
+    }
+
+    @Transactional
+    public MissionResponse toggleMissionActive(Long missionId, Boolean isActive) {
+        Mission mission = findMissionById(missionId);
+        mission.setActive(isActive);
+        return MissionResponse.from(mission);
     }
 
     private Mission findMissionById(Long missionId) {

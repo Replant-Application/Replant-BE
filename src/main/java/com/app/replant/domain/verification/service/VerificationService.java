@@ -1,5 +1,10 @@
 package com.app.replant.domain.verification.service;
 
+import com.app.replant.domain.badge.entity.UserBadge;
+import com.app.replant.domain.badge.repository.UserBadgeRepository;
+import com.app.replant.domain.notification.service.NotificationService;
+import com.app.replant.domain.reant.entity.Reant;
+import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.MissionVerification;
@@ -18,6 +23,7 @@ import com.app.replant.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -29,6 +35,7 @@ import java.util.List;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
+@Slf4j
 public class VerificationService {
 
     private final VerificationPostRepository verificationPostRepository;
@@ -36,6 +43,9 @@ public class VerificationService {
     private final UserMissionRepository userMissionRepository;
     private final MissionVerificationRepository missionVerificationRepository;
     private final UserRepository userRepository;
+    private final UserBadgeRepository userBadgeRepository;
+    private final NotificationService notificationService;
+    private final ReantRepository reantRepository;
     private final ObjectMapper objectMapper;
 
     public Page<VerificationPostResponse> getVerifications(VerificationStatus status, Long missionId, Long customMissionId, Pageable pageable) {
@@ -190,6 +200,24 @@ public class VerificationService {
                     .verifiedAt(LocalDateTime.now())
                     .build();
             missionVerificationRepository.save(verification);
+
+            // 뱃지 발급
+            createBadge(userMission);
+
+            // 경험치 보상
+            int expReward = getExpReward(userMission);
+            reantRepository.findByUserId(post.getUser().getId())
+                    .ifPresent(reant -> reant.addExp(expReward));
+
+            // 인증 완료 알림 발송
+            sendVerificationApprovedNotification(post.getUser(), userMission);
+
+            log.info("커뮤니티 인증 승인 완료 - userId={}, userMissionId={}", post.getUser().getId(), userMission.getId());
+        }
+
+        // 거절되었을 경우 알림 발송
+        if (post.getStatus() == VerificationStatus.REJECTED) {
+            sendVerificationRejectedNotification(post.getUser(), post.getUserMission());
         }
 
         String message;
@@ -219,5 +247,85 @@ public class VerificationService {
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
+     * 커뮤니티 인증 완료 시 뱃지 발급
+     */
+    private void createBadge(UserMission userMission) {
+        LocalDateTime now = LocalDateTime.now();
+        Integer badgeDurationDays = getBadgeDurationDays(userMission);
+        LocalDateTime expiresAt = now.plusDays(badgeDurationDays);
+
+        UserBadge badge = UserBadge.builder()
+                .user(userMission.getUser())
+                .mission(userMission.getMission())
+                .customMission(userMission.getCustomMission())
+                .userMission(userMission)
+                .issuedAt(now)
+                .expiresAt(expiresAt)
+                .build();
+
+        userBadgeRepository.save(badge);
+        log.info("뱃지 발급 완료 - userId={}, userMissionId={}", userMission.getUser().getId(), userMission.getId());
+    }
+
+    private Integer getBadgeDurationDays(UserMission userMission) {
+        if (userMission.getMission() != null) {
+            return userMission.getMission().getBadgeDurationDays();
+        } else if (userMission.getCustomMission() != null) {
+            return userMission.getCustomMission().getBadgeDurationDays();
+        }
+        return 3;
+    }
+
+    private int getExpReward(UserMission userMission) {
+        if (userMission.getMission() != null) {
+            return userMission.getMission().getExpReward();
+        } else if (userMission.getCustomMission() != null) {
+            return userMission.getCustomMission().getExpReward();
+        }
+        return 10;
+    }
+
+    /**
+     * 인증 승인 알림 발송 (SSE 실시간 푸시 포함)
+     */
+    private void sendVerificationApprovedNotification(User user, UserMission userMission) {
+        String missionTitle = getMissionTitle(userMission);
+
+        notificationService.createAndPushNotification(
+                user,
+                "VERIFICATION_APPROVED",
+                "미션 인증이 승인되었습니다!",
+                String.format("'%s' 미션 인증이 커뮤니티에서 승인되었습니다. 뱃지와 경험치를 획득했습니다!", missionTitle),
+                "USER_MISSION",
+                userMission.getId()
+        );
+    }
+
+    /**
+     * 인증 거절 알림 발송 (SSE 실시간 푸시 포함)
+     */
+    private void sendVerificationRejectedNotification(User user, UserMission userMission) {
+        String missionTitle = getMissionTitle(userMission);
+
+        notificationService.createAndPushNotification(
+                user,
+                "VERIFICATION_REJECTED",
+                "미션 인증이 거절되었습니다",
+                String.format("'%s' 미션 인증이 커뮤니티에서 거절되었습니다. 다시 인증을 시도해주세요.", missionTitle),
+                "USER_MISSION",
+                userMission.getId()
+        );
+    }
+
+    private String getMissionTitle(UserMission userMission) {
+        if (userMission.getMission() != null) {
+            return userMission.getMission().getTitle();
+        } else if (userMission.getCustomMission() != null) {
+            return userMission.getCustomMission().getTitle();
+        }
+        return "미션";
     }
 }

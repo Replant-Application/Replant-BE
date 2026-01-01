@@ -29,7 +29,7 @@ public class FlywayConfig {
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
                 .baselineOnMigrate(true)  // 기존 DB에 대해 베이스라인 설정
-                .baselineVersion("0")      // 베이스라인 버전
+                .baselineVersion("3")      // V1-V3 이미 적용된 것으로 간주, V4부터 실행
                 .validateOnMigrate(false)  // 마이그레이션 시 검증 비활성화 (repair 사용)
                 .outOfOrder(false)         // 순서대로 실행
                 .cleanDisabled(false)      // clean 비활성화 해제 (repair에 필요)
