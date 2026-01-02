@@ -14,6 +14,7 @@ public class MissionReviewResponse {
     private String userNickname;
     private String userProfileImg;
     private String content;
+    private Integer rating;
     private LocalDateTime createdAt;
 
     public static MissionReviewResponse from(MissionReview review) {
@@ -23,6 +24,7 @@ public class MissionReviewResponse {
                 .userNickname(review.getUser().getNickname())
                 .userProfileImg(review.getUser().getProfileImg())
                 .content(review.getContent())
+                .rating(review.getRating())
                 .createdAt(review.getCreatedAt())
                 .build();
     }
