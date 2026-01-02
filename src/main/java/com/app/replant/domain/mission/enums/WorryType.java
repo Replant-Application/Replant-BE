@@ -10,5 +10,6 @@ public enum WorryType {
     ADVANCEMENT,       // 진학
     RETURN_TO_SCHOOL,  // 복학
     RELATIONSHIP,      // 연애
-    SELF_MANAGEMENT    // 자기관리
+    SELF_MANAGEMENT,   // 자기관리
+    EMPLOYMENT         // 취업 (DB 호환)
 }

@@ -72,25 +72,36 @@ public class JwtFilter extends OncePerRequestFilter {
      */
     private boolean isAuthenticationRequired(String requestPath) {
         // permitAll 경로 목록 (SecurityConfig와 동기화)
-        String[] permitAllPaths = {
+        // startsWith로 체크할 경로
+        String[] startsWithPaths = {
                 "/api/auth/",
                 "/auth/",
                 "/api/missions/",
                 "/api/custom-missions/",
-                "/api/verifications",
-                "/api/posts",
                 "/test/",
                 "/ws/",
                 "/files/",
                 "/swagger-ui",
                 "/v3/api-docs",
-                "/swagger-resources",
+                "/swagger-resources"
+        };
+
+        // 정확히 일치해야 하는 경로 (GET 목록 조회용)
+        String[] exactMatchPaths = {
+                "/api/verifications",
+                "/api/posts",
                 "/actuator/health",
                 "/actuator/info"
         };
 
-        for (String permitPath : permitAllPaths) {
+        for (String permitPath : startsWithPaths) {
             if (requestPath.startsWith(permitPath)) {
+                return false;
+            }
+        }
+
+        for (String exactPath : exactMatchPaths) {
+            if (requestPath.equals(exactPath)) {
                 return false;
             }
         }
