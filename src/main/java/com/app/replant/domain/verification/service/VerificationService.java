@@ -125,6 +125,11 @@ public class VerificationService {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
+        // PENDING 상태일 때만 수정 가능 (인증 통과 전에만 수정 가능)
+        if (post.getStatus() != VerificationStatus.PENDING) {
+            throw new CustomException(ErrorCode.MODIFICATION_NOT_ALLOWED);
+        }
+
         String imageUrlsJson = null;
         if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
             try {
