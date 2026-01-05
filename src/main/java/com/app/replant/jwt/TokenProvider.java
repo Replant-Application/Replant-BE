@@ -52,13 +52,13 @@ public class TokenProvider {
                 .setSubject(principal.getUsername())       // payload "sub": "email"
                 .claim(AUTHORITIES_KEY, authorities)        // payload "auth": "ROLE_USER"
                 .setExpiration(accessTokenExpiresIn)        // payload "exp": 1516239022 (예시)
-                .signWith(key, SignatureAlgorithm.HS512)    // header "alg": "HS512"
+                .signWith(key)                             // header "alg": "HS512" (Key 타입에서 자동 감지)
                 .compact();
 
         // Refresh Token 생성
         String refreshToken = Jwts.builder()
                 .setExpiration(new Date(now + REFRESH_TOKEN_EXPIRE_TIME))
-                .signWith(key, SignatureAlgorithm.HS512)
+                .signWith(key)                              // Key 타입에서 자동으로 알고리즘 감지
                 .compact();
 
         return TokenDto.builder()
