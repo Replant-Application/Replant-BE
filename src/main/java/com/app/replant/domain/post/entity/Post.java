@@ -44,6 +44,9 @@ public class Post extends BaseEntity {
     @Column(name = "has_valid_badge", nullable = false)
     private Boolean hasValidBadge;
 
+    @Column(name = "del_flag", nullable = false)
+    private Boolean delFlag = false;
+
     @Builder
     public Post(User user, Mission mission, CustomMission customMission, String title, String content, String imageUrls, Boolean hasValidBadge) {
         this.user = user;
@@ -53,6 +56,7 @@ public class Post extends BaseEntity {
         this.content = content;
         this.imageUrls = imageUrls;
         this.hasValidBadge = hasValidBadge != null ? hasValidBadge : false;
+        this.delFlag = false;
     }
 
     public void update(String title, String content, String imageUrls) {
@@ -69,5 +73,26 @@ public class Post extends BaseEntity {
 
     public boolean isAuthor(Long userId) {
         return this.user.getId().equals(userId);
+    }
+
+    /**
+     * 소프트 삭제 (delFlag를 true로 설정)
+     */
+    public void softDelete() {
+        this.delFlag = true;
+    }
+
+    /**
+     * 삭제 상태 복원
+     */
+    public void restore() {
+        this.delFlag = false;
+    }
+
+    /**
+     * 삭제 여부 확인
+     */
+    public boolean isDeleted() {
+        return this.delFlag != null && this.delFlag;
     }
 }

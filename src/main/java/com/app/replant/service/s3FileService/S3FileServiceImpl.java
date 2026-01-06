@@ -46,7 +46,12 @@ public class S3FileServiceImpl implements S3FileService {
 
     // 파일 업로드
     public UploadedFileInfoDto uploadImage(MultipartFile multipartFile) throws IOException {
-        log.info("uploadImage()");
+        return uploadImageToFolder(multipartFile, null);
+    }
+
+    // 폴더에 파일 업로드
+    public UploadedFileInfoDto uploadImageToFolder(MultipartFile multipartFile, String folder) throws IOException {
+        log.info("uploadImageToFolder() folder: {}", folder);
 
         // 파일 확장자 포함한 고유 이름 생성
         UUID uuid = UUID.randomUUID();
@@ -55,30 +60,35 @@ public class S3FileServiceImpl implements S3FileService {
         String fileOriName = multipartFile.getOriginalFilename();
         String fileExtension = fileOriName.substring(fileOriName.lastIndexOf(".")); // 확장자 추출
 
-        String fileName = uniqueFileName + fileExtension;
+        // 폴더가 있으면 폴더 경로 추가
+        String fileName;
+        if (folder != null && !folder.isEmpty()) {
+            fileName = folder + "/" + uniqueFileName + fileExtension;
+        } else {
+            fileName = uniqueFileName + fileExtension;
+        }
 
-            // PutObjectRequest로 S3에 파일 업로드
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                    .bucket(bucket)
-                    .key(fileName)
-                    .acl(ObjectCannedACL.PUBLIC_READ)  // 공개 읽기 권한
-                    .contentType(multipartFile.getContentType())
-                    .build();
+        // PutObjectRequest로 S3에 파일 업로드
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucket)
+                .key(fileName)
+                .acl(ObjectCannedACL.PUBLIC_READ)  // 공개 읽기 권한
+                .contentType(multipartFile.getContentType())
+                .build();
 
-            // 파일 업로드
-            s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(multipartFile.getInputStream(), multipartFile.getSize()));
+        // 파일 업로드
+        s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(multipartFile.getInputStream(), multipartFile.getSize()));
 
-            // 업로드한 파일의 URL
-            String fileUrl = s3Client.utilities().getUrl(GetUrlRequest.builder().bucket(bucket).key(fileName).build()).toString();
+        // 업로드한 파일의 URL
+        String fileUrl = s3Client.utilities().getUrl(GetUrlRequest.builder().bucket(bucket).key(fileName).build()).toString();
 
-            // 업로드한 파일의 URL 과 Name 반환
-            return UploadedFileInfoDto.builder()
-                    .fileName(fileName)
-                    .fileUrl(fileUrl)
-                    .fileSize(multipartFile.getSize())
-                    .contentType(multipartFile.getContentType())
-                    .build();
-
+        // 업로드한 파일의 URL 과 Name 반환
+        return UploadedFileInfoDto.builder()
+                .fileName(fileName)
+                .fileUrl(fileUrl)
+                .fileSize(multipartFile.getSize())
+                .contentType(multipartFile.getContentType())
+                .build();
     }
 
     // 파일 삭제

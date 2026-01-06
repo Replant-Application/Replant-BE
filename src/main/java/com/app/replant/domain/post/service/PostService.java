@@ -5,6 +5,7 @@ import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.custommission.repository.CustomMissionRepository;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.repository.MissionRepository;
+import com.app.replant.domain.notification.service.NotificationService;
 import com.app.replant.domain.post.dto.CommentRequest;
 import com.app.replant.domain.post.dto.CommentResponse;
 import com.app.replant.domain.post.dto.PostRequest;
@@ -17,6 +18,7 @@ import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ import java.time.LocalDateTime;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
+@Slf4j
 public class PostService {
 
     private final PostRepository postRepository;
@@ -38,6 +41,7 @@ public class PostService {
     private final MissionRepository missionRepository;
     private final CustomMissionRepository customMissionRepository;
     private final UserBadgeRepository userBadgeRepository;
+    private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
 
     public Page<PostResponse> getPosts(Long missionId, Long customMissionId, Boolean badgeOnly, Pageable pageable) {
@@ -128,15 +132,17 @@ public class PostService {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
-        postRepository.delete(post);
+        // Soft delete (delFlag를 true로 설정)
+        post.softDelete();
     }
 
     // Comment methods
     public Page<CommentResponse> getComments(Long postId, Pageable pageable) {
         // Verify post exists
         findPostById(postId);
-        return commentRepository.findByPostId(postId, pageable)
-                .map(CommentResponse::from);
+        // 최상위 댓글만 조회하고, 대댓글은 replies로 포함
+        return commentRepository.findParentCommentsByPostId(postId, pageable)
+                .map(CommentResponse::fromWithReplies);
     }
 
     @Transactional
@@ -144,14 +150,87 @@ public class PostService {
         Post post = findPostById(postId);
         User user = findUserById(userId);
 
+        // 부모 댓글 처리
+        Comment parentComment = null;
+        if (request.getParentId() != null) {
+            parentComment = findCommentById(request.getParentId());
+            // 부모 댓글이 같은 게시글에 속하는지 확인
+            if (!parentComment.getPost().getId().equals(postId)) {
+                throw new CustomException(ErrorCode.INVALID_PARENT_COMMENT);
+            }
+        }
+
         Comment comment = Comment.builder()
                 .post(post)
                 .user(user)
                 .content(request.getContent())
+                .parent(parentComment)
                 .build();
 
         Comment saved = commentRepository.save(comment);
+
+        // 댓글 알림 발송 (본인 글에 댓글 달면 알림 안 함)
+        if (!post.getUser().getId().equals(userId)) {
+            sendCommentNotification(post.getUser(), user, post);
+        }
+
+        // 대댓글인 경우, 부모 댓글 작성자에게도 알림 (본인이 아닌 경우)
+        if (parentComment != null && !parentComment.getUser().getId().equals(userId)) {
+            sendReplyNotification(parentComment.getUser(), user, post);
+        }
+
         return CommentResponse.from(saved);
+    }
+
+    /**
+     * 대댓글 알림 발송
+     */
+    private void sendReplyNotification(User parentCommentAuthor, User replier, Post post) {
+        String title = "댓글에 답글이 달렸습니다";
+        String content = String.format("%s님이 회원님의 댓글에 답글을 달았습니다.",
+                replier.getNickname());
+
+        notificationService.createAndPushNotification(
+                parentCommentAuthor,
+                "REPLY",
+                title,
+                content,
+                "POST",
+                post.getId()
+        );
+
+        log.info("답글 알림 발송 - postId={}, replierId={}, parentCommentAuthorId={}",
+                post.getId(), replier.getId(), parentCommentAuthor.getId());
+    }
+
+    /**
+     * 댓글 알림 발송
+     */
+    private void sendCommentNotification(User postAuthor, User commenter, Post post) {
+        String title = "새로운 댓글이 달렸습니다";
+        String content = String.format("%s님이 '%s' 게시글에 댓글을 달았습니다.",
+                commenter.getNickname(), truncateTitle(post.getTitle(), 20));
+
+        notificationService.createAndPushNotification(
+                postAuthor,
+                "COMMENT",
+                title,
+                content,
+                "POST",
+                post.getId()
+        );
+
+        log.info("댓글 알림 발송 - postId={}, commenterId={}, postAuthorId={}",
+                post.getId(), commenter.getId(), postAuthor.getId());
+    }
+
+    /**
+     * 제목 자르기 (길면 ... 추가)
+     */
+    private String truncateTitle(String title, int maxLength) {
+        if (title == null) return "게시글";
+        if (title.length() <= maxLength) return title;
+        return title.substring(0, maxLength) + "...";
     }
 
     @Transactional
@@ -178,7 +257,7 @@ public class PostService {
     }
 
     private Post findPostById(Long postId) {
-        return postRepository.findById(postId)
+        return postRepository.findByIdAndNotDeleted(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
     }
 

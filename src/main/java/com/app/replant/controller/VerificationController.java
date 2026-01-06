@@ -110,7 +110,18 @@ public class VerificationController {
             @RequestBody Map<String, Object> request) {
         Long userMissionId = Long.valueOf(request.get("userMissionId").toString());
 
-        Map<String, Object> result = verificationService.verifyByTime(userId, userMissionId);
+        // 시작/종료 시간 파싱 (옵션)
+        java.time.LocalDateTime startedAt = null;
+        java.time.LocalDateTime endedAt = null;
+
+        if (request.containsKey("startedAt") && request.get("startedAt") != null) {
+            startedAt = java.time.LocalDateTime.parse(request.get("startedAt").toString());
+        }
+        if (request.containsKey("endedAt") && request.get("endedAt") != null) {
+            endedAt = java.time.LocalDateTime.parse(request.get("endedAt").toString());
+        }
+
+        Map<String, Object> result = verificationService.verifyByTime(userId, userMissionId, startedAt, endedAt);
         return ApiResponse.success(result);
     }
 }

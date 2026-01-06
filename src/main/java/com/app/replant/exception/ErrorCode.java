@@ -162,7 +162,8 @@ public enum ErrorCode {
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "게시글을 찾을 수 없습니다"),
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "P002", "댓글을 찾을 수 없습니다"),
     NOT_COMMENT_AUTHOR(HttpStatus.FORBIDDEN, "P003", "댓글 작성자가 아닙니다"),
-    NOT_POST_AUTHOR(HttpStatus.FORBIDDEN, "P003", "작성자만 수정/삭제할 수 있습니다"),
+    NOT_POST_AUTHOR(HttpStatus.FORBIDDEN, "P004", "작성자만 수정/삭제할 수 있습니다"),
+    INVALID_PARENT_COMMENT(HttpStatus.BAD_REQUEST, "P005", "부모 댓글이 올바르지 않습니다"),
 
     // Recommendation
     RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RC001", "추천을 찾을 수 없습니다"),

@@ -68,16 +68,20 @@ public class VerificationPost extends BaseEntity {
         this.imageUrls = imageUrls;
     }
 
+    // 승인/거절에 필요한 투표 수 (테스트용: 1, 운영용: 3)
+    private static final int REQUIRED_APPROVE_COUNT = 1;
+    private static final int REQUIRED_REJECT_COUNT = 3;
+
     public void addVote(boolean isApprove) {
         if (isApprove) {
             this.approveCount++;
-            if (this.approveCount >= 3) {
+            if (this.approveCount >= REQUIRED_APPROVE_COUNT) {
                 this.status = VerificationStatus.APPROVED;
                 this.verifiedAt = LocalDateTime.now();
             }
         } else {
             this.rejectCount++;
-            if (this.rejectCount >= 3) {
+            if (this.rejectCount >= REQUIRED_REJECT_COUNT) {
                 this.status = VerificationStatus.REJECTED;
             }
         }

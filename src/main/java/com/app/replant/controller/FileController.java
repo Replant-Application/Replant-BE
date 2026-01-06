@@ -47,6 +47,44 @@ public class FileController {
         return ApiResponse.success(uploadedFile);
     }
 
+    @Operation(summary = "미션 인증 사진 업로드", description = "미션 인증 사진을 S3의 mission_verify 폴더에 업로드합니다")
+    @PostMapping(value = "/upload/mission-verify", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<UploadedFileInfoDto> uploadMissionVerifyImage(
+            @AuthenticationPrincipal Long userId,
+            @Parameter(description = "업로드할 파일", required = true)
+            @RequestParam("file") MultipartFile file) throws IOException {
+
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("파일이 비어있습니다.");
+        }
+
+        UploadedFileInfoDto uploadedFile = s3FileService.uploadImageToFolder(file, "mission_verify");
+        log.info("User {} uploaded mission verify image: {}", userId, uploadedFile.getFileName());
+
+        return ApiResponse.success(uploadedFile);
+    }
+
+    @Operation(summary = "폴더에 파일 업로드", description = "이미지 파일을 지정된 폴더에 업로드합니다")
+    @PostMapping(value = "/upload/{folder}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<UploadedFileInfoDto> uploadFileToFolder(
+            @AuthenticationPrincipal Long userId,
+            @Parameter(description = "업로드할 폴더", required = true)
+            @PathVariable String folder,
+            @Parameter(description = "업로드할 파일", required = true)
+            @RequestParam("file") MultipartFile file) throws IOException {
+
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("파일이 비어있습니다.");
+        }
+
+        UploadedFileInfoDto uploadedFile = s3FileService.uploadImageToFolder(file, folder);
+        log.info("User {} uploaded file to folder {}: {}", userId, folder, uploadedFile.getFileName());
+
+        return ApiResponse.success(uploadedFile);
+    }
+
     @Operation(summary = "파일 삭제", description = "S3에서 파일을 삭제합니다")
     @DeleteMapping("/{fileName}")
     public ApiResponse<Map<String, String>> deleteFile(

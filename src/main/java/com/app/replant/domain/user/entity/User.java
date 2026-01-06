@@ -102,6 +102,10 @@ public class User extends BaseEntity {
     @Column(name = "preferred_place_type", length = 10)
     private PlaceType preferredPlaceType;
 
+    // FCM 토큰 (푸시 알림용)
+    @Column(name = "fcm_token", length = 500)
+    private String fcmToken;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<UserOauth> oauthList = new ArrayList<>();
 
@@ -217,5 +221,12 @@ public class User extends BaseEntity {
 
     public com.app.replant.domain.reant.entity.Reant getReant() {
         return this.reant;
+    }
+
+    /**
+     * FCM 토큰 업데이트 (푸시 알림용)
+     */
+    public void updateFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
     }
 }

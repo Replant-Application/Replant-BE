@@ -14,6 +14,10 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Query("SELECT c FROM Comment c WHERE c.post.id = :postId")
     Page<Comment> findByPostId(@Param("postId") Long postId, Pageable pageable);
 
+    // 최상위 댓글만 조회 (parent가 null인 것들)
+    @Query("SELECT c FROM Comment c LEFT JOIN FETCH c.replies WHERE c.post.id = :postId AND c.parent IS NULL ORDER BY c.createdAt ASC")
+    Page<Comment> findParentCommentsByPostId(@Param("postId") Long postId, Pageable pageable);
+
     @Query("SELECT c FROM Comment c WHERE c.id = :commentId AND c.user.id = :userId")
     Optional<Comment> findByIdAndUserId(@Param("commentId") Long commentId, @Param("userId") Long userId);
 
