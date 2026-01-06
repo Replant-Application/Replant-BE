@@ -1,5 +1,7 @@
 package com.app.replant.service.sse;
 
+import com.app.replant.domain.notification.dto.NotificationResponse;
+import com.app.replant.domain.notification.entity.Notification;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

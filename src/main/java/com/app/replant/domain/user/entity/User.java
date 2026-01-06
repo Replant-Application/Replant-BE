@@ -1,6 +1,8 @@
 package com.app.replant.domain.user.entity;
 
 import com.app.replant.common.BaseEntity;
+import com.app.replant.domain.mission.enums.PlaceType;
+import com.app.replant.domain.mission.enums.WorryType;
 import com.app.replant.domain.user.enums.Gender;
 import com.app.replant.domain.user.enums.UserRole;
 import com.app.replant.domain.user.enums.UserStatus;
@@ -83,15 +85,33 @@ public class User extends BaseEntity {
     @Column(name = "last_login_date")
     private LocalDate lastLoginDate;
 
+    // ============ 사용자 맞춤 정보 필드들 ============
+
+    // 고민 종류: RE_EMPLOYMENT(재취업), JOB_PREPARATION(취업준비), ENTRANCE_EXAM(입시),
+    //          ADVANCEMENT(진학), RETURN_TO_SCHOOL(복학), RELATIONSHIP(연애)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "worry_type", length = 20)
+    private WorryType worryType;
+
+    // 지역 (서울, 경기, 인천 등)
+    @Column(name = "region", length = 50)
+    private String region;
+
+    // 선호 장소: HOME(집), OUTDOOR(야외), INDOOR(실내)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_place_type", length = 10)
+    private PlaceType preferredPlaceType;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<UserOAuth> oauthList = new ArrayList<>();
+    private List<UserOauth> oauthList = new ArrayList<>();
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private com.app.replant.domain.reant.entity.Reant reant;
 
     @Builder
     private User(String email, String nickname, String password, String phone, LocalDate birthDate,
-                 Gender gender, String profileImg, UserRole role, UserStatus status) {
+                 Gender gender, String profileImg, UserRole role, UserStatus status,
+                 WorryType worryType, String region, PlaceType preferredPlaceType) {
         this.email = email;
         this.nickname = nickname;
         this.password = password;
@@ -101,9 +121,14 @@ public class User extends BaseEntity {
         this.profileImg = profileImg;
         this.role = role != null ? role : UserRole.USER;
         this.status = status != null ? status : UserStatus.ACTIVE;
+        // 사용자 맞춤 정보
+        this.worryType = worryType;
+        this.region = region;
+        this.preferredPlaceType = preferredPlaceType;
     }
 
-    public void updateProfile(String nickname, LocalDate birthDate, Gender gender, String profileImg) {
+    public void updateProfile(String nickname, LocalDate birthDate, Gender gender, String profileImg,
+                              WorryType worryType, String region, PlaceType preferredPlaceType) {
         if (nickname != null) {
             this.nickname = nickname;
         }
@@ -115,6 +140,16 @@ public class User extends BaseEntity {
         }
         if (profileImg != null) {
             this.profileImg = profileImg;
+        }
+        // 사용자 맞춤 정보 업데이트
+        if (worryType != null) {
+            this.worryType = worryType;
+        }
+        if (region != null) {
+            this.region = region;
+        }
+        if (preferredPlaceType != null) {
+            this.preferredPlaceType = preferredPlaceType;
         }
     }
 

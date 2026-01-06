@@ -6,9 +6,9 @@ import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.user.dto.OAuthUserInfo;
 import com.app.replant.domain.user.entity.User;
-import com.app.replant.domain.user.entity.UserOAuth;
+import com.app.replant.domain.user.entity.UserOauth;
 import com.app.replant.domain.user.enums.OAuthProvider;
-import com.app.replant.domain.user.repository.UserOAuthRepository;
+import com.app.replant.domain.user.repository.UserOauthRepository;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.user.service.oauth.OAuthClient;
 import com.app.replant.exception.CustomException;
@@ -33,7 +33,7 @@ public class OAuthService {
 
     private final List<OAuthClient> oAuthClients;
     private final UserRepository userRepository;
-    private final UserOAuthRepository userOAuthRepository;
+    private final UserOauthRepository userOauthRepository;
     private final ReantRepository reantRepository;
     private final TokenProvider tokenProvider;
 
@@ -56,20 +56,20 @@ public class OAuthService {
         OAuthUserInfo userInfo = oAuthClient.getUserInfo(accessToken);
 
         // 2. 기존 OAuth 계정 확인
-        UserOAuth userOAuth = userOAuthRepository
+        UserOauth userOauth = userOauthRepository
                 .findByProviderAndProviderId(provider, userInfo.getProviderId())
                 .orElse(null);
 
         User user;
         boolean isNewUser;
 
-        if (userOAuth != null) {
+        if (userOauth != null) {
             // 기존 회원 - 로그인
-            user = userOAuth.getUser();
+            user = userOauth.getUser();
             isNewUser = false;
 
             // Access Token 업데이트
-            userOAuth.updateTokens(accessToken, null);
+            userOauth.updateTokens(accessToken, null);
         } else {
             // 신규 회원 - 회원가입
             // 이메일로 기존 User 확인
@@ -95,13 +95,13 @@ public class OAuthService {
             }
 
             // OAuth 연동 정보 저장
-            userOAuth = UserOAuth.builder()
+            userOauth = UserOauth.builder()
                     .user(user)
                     .provider(provider)
                     .providerId(userInfo.getProviderId())
                     .accessToken(accessToken)
                     .build();
-            userOAuthRepository.save(userOAuth);
+            userOauthRepository.save(userOauth);
 
             isNewUser = true;
         }

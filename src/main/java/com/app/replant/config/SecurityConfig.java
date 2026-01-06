@@ -173,7 +173,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/sse/**").authenticated() // SSE
 
-                        // 관리자 API
+                        // 관리자 API (reset-missions는 개발용으로 공개)
+                        .requestMatchers("/admin/reset-missions", "/admin/mission-count").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/admin/**").hasRole("ADMIN")
 

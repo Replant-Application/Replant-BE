@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class UserOAuth extends BaseEntity {
+public class UserOauth extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,7 +38,7 @@ public class UserOAuth extends BaseEntity {
     private String refreshToken;
 
     @Builder
-    private UserOAuth(User user, OAuthProvider provider, String providerId, String accessToken, String refreshToken) {
+    private UserOauth(User user, OAuthProvider provider, String providerId, String accessToken, String refreshToken) {
         this.user = user;
         this.provider = provider;
         this.providerId = providerId;

@@ -38,15 +38,19 @@ public class MissionReview {
     @Column(nullable = false, length = 200)
     private String content;
 
+    @Column(nullable = false)
+    private Integer rating; // 1-5 별점
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
-    private MissionReview(Mission mission, User user, UserBadge badge, String content) {
+    private MissionReview(Mission mission, User user, UserBadge badge, String content, Integer rating) {
         this.mission = mission;
         this.user = user;
         this.badge = badge;
         this.content = content;
+        this.rating = rating != null ? rating : 5;
         this.createdAt = LocalDateTime.now();
     }
 }

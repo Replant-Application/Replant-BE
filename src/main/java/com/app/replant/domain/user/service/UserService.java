@@ -33,7 +33,11 @@ public class UserService {
                 request.getNickname(),
                 request.getBirthDate(),
                 request.getGender(),
-                request.getProfileImg()
+                request.getProfileImg(),
+                // 사용자 맞춤 정보
+                request.getWorryType(),
+                request.getRegion(),
+                request.getPreferredPlaceType()
         );
         return user;
     }

@@ -89,4 +89,28 @@ public class VerificationController {
         VoteResponse response = verificationService.vote(verificationId, userId, request);
         return ApiResponse.success(response);
     }
+
+    @Operation(summary = "GPS 인증 (GPS 타입 미션)")
+    @PostMapping("/gps")
+    public ApiResponse<Map<String, Object>> verifyByGps(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody Map<String, Object> request) {
+        Long userMissionId = Long.valueOf(request.get("userMissionId").toString());
+        Double latitude = Double.valueOf(request.get("latitude").toString());
+        Double longitude = Double.valueOf(request.get("longitude").toString());
+
+        Map<String, Object> result = verificationService.verifyByGps(userId, userMissionId, latitude, longitude);
+        return ApiResponse.success(result);
+    }
+
+    @Operation(summary = "시간 인증 (TIME 타입 미션)")
+    @PostMapping("/time")
+    public ApiResponse<Map<String, Object>> verifyByTime(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody Map<String, Object> request) {
+        Long userMissionId = Long.valueOf(request.get("userMissionId").toString());
+
+        Map<String, Object> result = verificationService.verifyByTime(userId, userMissionId);
+        return ApiResponse.success(result);
+    }
 }

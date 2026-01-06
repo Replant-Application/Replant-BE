@@ -3,7 +3,9 @@ package com.app.replant.controller;
 import com.app.replant.common.ApiResponse;
 import com.app.replant.domain.usermission.dto.*;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
+import com.app.replant.domain.usermission.enums.WakeupTimeSlot;
 import com.app.replant.domain.usermission.service.UserMissionService;
+import com.app.replant.domain.usermission.service.WakeupMissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 public class UserMissionController {
 
     private final UserMissionService userMissionService;
+    private final WakeupMissionService wakeupMissionService;
 
     @Operation(summary = "내 미션 목록 조회")
     @GetMapping
@@ -81,5 +84,61 @@ public class UserMissionController {
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<UserMissionResponse> history = userMissionService.getMissionHistory(userId, pageable);
         return ApiResponse.success(history);
+    }
+
+    // ============ 기상 미션 설정 API ============
+
+    @Operation(summary = "기상 미션 시간대 설정", description = "다음 주차 기상미션 시간대를 설정합니다 (6-8시/8-10시/10-12시)")
+    @PostMapping("/wakeup/settings")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<WakeupMissionSettingResponse> setWakeupTime(
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid WakeupMissionSettingRequest request) {
+        WakeupMissionSettingResponse response = wakeupMissionService.setWakeupTime(userId, request);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "기상 미션 시간대 수정")
+    @PutMapping("/wakeup/settings/{settingId}")
+    public ApiResponse<WakeupMissionSettingResponse> updateWakeupTime(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long settingId,
+            @RequestParam WakeupTimeSlot timeSlot) {
+        WakeupMissionSettingResponse response = wakeupMissionService.updateWakeupTime(userId, settingId, timeSlot);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "현재 주차 기상 미션 설정 조회")
+    @GetMapping("/wakeup/settings/current")
+    public ApiResponse<WakeupMissionSettingResponse> getCurrentWeekSetting(
+            @AuthenticationPrincipal Long userId) {
+        WakeupMissionSettingResponse response = wakeupMissionService.getCurrentWeekSetting(userId);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "특정 주차 기상 미션 설정 조회")
+    @GetMapping("/wakeup/settings")
+    public ApiResponse<WakeupMissionSettingResponse> getWeekSetting(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam Integer weekNumber,
+            @RequestParam Integer year) {
+        WakeupMissionSettingResponse response = wakeupMissionService.getWeekSetting(userId, weekNumber, year);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "다음 주차 기상 미션 설정 정보", description = "다음 주차 설정을 위한 정보와 이미 설정되어 있는지 확인")
+    @GetMapping("/wakeup/settings/next-week-info")
+    public ApiResponse<WakeupMissionService.NextWeekSetupInfo> getNextWeekSetupInfo(
+            @AuthenticationPrincipal Long userId) {
+        WakeupMissionService.NextWeekSetupInfo info = wakeupMissionService.getNextWeekSetupInfo(userId);
+        return ApiResponse.success(info);
+    }
+
+    @Operation(summary = "기상 미션 인증 시간 확인", description = "현재 시간이 설정된 기상 인증 시간대인지 확인")
+    @GetMapping("/wakeup/verify-time")
+    public ApiResponse<WakeupMissionService.WakeupVerificationResult> verifyWakeupTime(
+            @AuthenticationPrincipal Long userId) {
+        WakeupMissionService.WakeupVerificationResult result = wakeupMissionService.verifyWakeupTime(userId);
+        return ApiResponse.success(result);
     }
 }

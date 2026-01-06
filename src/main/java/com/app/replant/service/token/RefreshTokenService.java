@@ -117,8 +117,13 @@ public class RefreshTokenService {
         String savedToken = null;
 
         try {
+            if (!isRedisAvailable()) {
+                throw new RedisConnectionFailureException("Redis unavailable");
+            }
             savedToken = redisTemplate.opsForValue().get(key);
-        } catch (RedisConnectionFailureException e) {
+        } catch (Exception e) {
+            // Redis 연결 실패 시 인메모리에서 조회
+            log.debug("Redis 연결 실패, 인메모리에서 조회: {}", memberId);
             InMemoryTokenConfig.TokenEntry entry = InMemoryTokenConfig.getTokenStore().get(key);
             if (entry != null && entry.expiresAt > System.currentTimeMillis()) {
                 savedToken = entry.value;

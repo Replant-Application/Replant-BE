@@ -3,8 +3,7 @@ package com.app.replant.scheduler;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.repository.MissionRepository;
-import com.app.replant.domain.notification.entity.Notification;
-import com.app.replant.domain.notification.repository.NotificationRepository;
+import com.app.replant.domain.notification.service.NotificationService;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
@@ -35,11 +34,11 @@ public class MissionDistributionScheduler {
     private final UserRepository userRepository;
     private final MissionRepository missionRepository;
     private final UserMissionRepository userMissionRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService;
 
     private static final int DAILY_MISSION_COUNT = 3;
-    private static final int WEEKLY_MISSION_COUNT = 3;
-    private static final int MONTHLY_MISSION_COUNT = 3;
+    private static final int WEEKLY_MISSION_COUNT = 2;
+    private static final int MONTHLY_MISSION_COUNT = 1;
 
     /**
      * 매일 오전 7시 (KST = UTC+9) 일간 미션 배분
@@ -117,21 +116,20 @@ public class MissionDistributionScheduler {
             userMissionRepository.saveAll(assignedMissions);
             totalAssigned += assignedMissions.size();
 
-            // 알림 생성
+            // 알림 생성 + SSE 실시간 푸시
             String typeKorean = getMissionTypeKorean(type);
             String notificationTitle = String.format("새로운 %s 미션이 도착했어요!", typeKorean);
             String notificationContent = String.format("%d개의 %s 미션이 배정되었습니다. 지금 확인해보세요!",
                     selectedMissions.size(), typeKorean);
 
-            Notification notification = Notification.builder()
-                    .user(user)
-                    .type("MISSION")
-                    .title(notificationTitle)
-                    .content(notificationContent)
-                    .referenceType("MISSION_TYPE")
-                    .referenceId(null)
-                    .build();
-            notificationRepository.save(notification);
+            notificationService.createAndPushNotification(
+                    user,
+                    "MISSION_ASSIGNED",
+                    notificationTitle,
+                    notificationContent,
+                    "MISSION_TYPE",
+                    null
+            );
             totalNotified++;
         }
 

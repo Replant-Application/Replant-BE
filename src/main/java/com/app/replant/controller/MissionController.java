@@ -2,8 +2,7 @@ package com.app.replant.controller;
 
 import com.app.replant.common.ApiResponse;
 import com.app.replant.domain.mission.dto.*;
-import com.app.replant.domain.mission.enums.MissionType;
-import com.app.replant.domain.mission.enums.VerificationType;
+import com.app.replant.domain.mission.enums.*;
 import com.app.replant.domain.mission.service.MissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +34,22 @@ public class MissionController {
             @RequestParam(required = false) VerificationType verificationType,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<MissionResponse> missions = missionService.getMissions(type, verificationType, pageable);
+        return ApiResponse.success(missions);
+    }
+
+    @Operation(summary = "사용자 맞춤 미션 목록 조회 (필터링)")
+    @GetMapping("/filtered")
+    public ApiResponse<Page<MissionResponse>> getFilteredMissions(
+            @RequestParam(required = false) MissionType type,
+            @RequestParam(required = false) VerificationType verificationType,
+            @RequestParam(required = false) WorryType worryType,
+            @RequestParam(required = false) AgeRange ageRange,
+            @RequestParam(required = false) GenderType genderType,
+            @RequestParam(required = false) RegionType regionType,
+            @RequestParam(required = false) DifficultyLevel difficultyLevel,
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<MissionResponse> missions = missionService.getFilteredMissions(
+                type, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable);
         return ApiResponse.success(missions);
     }
 
