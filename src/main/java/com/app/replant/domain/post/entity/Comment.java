@@ -2,6 +2,7 @@ package com.app.replant.domain.post.entity;
 
 import com.app.replant.common.BaseEntity;
 import com.app.replant.domain.user.entity.User;
+import com.app.replant.domain.verification.entity.VerificationPost;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -25,8 +26,12 @@ public class Comment extends BaseEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "post_id", nullable = false)
+    @JoinColumn(name = "post_id")
     private Post post;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "verification_post_id")
+    private VerificationPost verificationPost;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -45,8 +50,9 @@ public class Comment extends BaseEntity {
     private List<Comment> replies = new ArrayList<>();
 
     @Builder
-    public Comment(Post post, User user, String content, Comment parent) {
+    public Comment(Post post, VerificationPost verificationPost, User user, String content, Comment parent) {
         this.post = post;
+        this.verificationPost = verificationPost;
         this.user = user;
         this.content = content;
         this.parent = parent;

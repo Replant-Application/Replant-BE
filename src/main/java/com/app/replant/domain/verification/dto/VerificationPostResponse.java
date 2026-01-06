@@ -24,11 +24,13 @@ public class VerificationPostResponse {
     private String missionType;
     private MissionInfo mission;
     private CustomMissionInfo customMission;
+    private String missionTitle;  // 프론트엔드 호환성을 위해 추가
     private String content;
     private List<String> imageUrls;
     private VerificationStatus status;
     private Integer approveCount;
     private Integer rejectCount;
+    private Integer commentCount;  // 댓글 수 추가
     private LocalDateTime createdAt;
     private String myVote;
 
@@ -48,21 +50,35 @@ public class VerificationPostResponse {
     }
 
     public static VerificationPostResponse from(VerificationPost post) {
-        return from(post, null);
+        return from(post, null, 0);
     }
 
     public static VerificationPostResponse from(VerificationPost post, String myVote) {
+        return from(post, myVote, 0);
+    }
+
+    public static VerificationPostResponse from(VerificationPost post, String myVote, int commentCount) {
+        // missionTitle 추출
+        String missionTitle = "미션";
+        if (post.getUserMission().getMission() != null) {
+            missionTitle = post.getUserMission().getMission().getTitle();
+        } else if (post.getUserMission().getCustomMission() != null) {
+            missionTitle = post.getUserMission().getCustomMission().getTitle();
+        }
+
         VerificationPostResponseBuilder builder = VerificationPostResponse.builder()
                 .id(post.getId())
                 .userId(post.getUser().getId())
                 .userNickname(post.getUser().getNickname())
                 .userProfileImg(post.getUser().getProfileImg())
                 .userMissionId(post.getUserMission().getId())
+                .missionTitle(missionTitle)
                 .content(post.getContent())
                 .imageUrls(parseImageUrls(post.getImageUrls()))
                 .status(post.getStatus())
                 .approveCount(post.getApproveCount())
                 .rejectCount(post.getRejectCount())
+                .commentCount(commentCount)
                 .createdAt(post.getCreatedAt())
                 .myVote(myVote);
 

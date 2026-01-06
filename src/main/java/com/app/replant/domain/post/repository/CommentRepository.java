@@ -23,4 +23,15 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
 
     @Query("SELECT COUNT(c) FROM Comment c WHERE c.post.id = :postId")
     long countByPostId(@Param("postId") Long postId);
+
+    // VerificationPost 댓글 조회
+    @Query("SELECT c FROM Comment c WHERE c.verificationPost.id = :verificationPostId")
+    Page<Comment> findByVerificationPostId(@Param("verificationPostId") Long verificationPostId, Pageable pageable);
+
+    // VerificationPost 최상위 댓글만 조회
+    @Query("SELECT c FROM Comment c LEFT JOIN FETCH c.replies WHERE c.verificationPost.id = :verificationPostId AND c.parent IS NULL ORDER BY c.createdAt ASC")
+    Page<Comment> findParentCommentsByVerificationPostId(@Param("verificationPostId") Long verificationPostId, Pageable pageable);
+
+    @Query("SELECT COUNT(c) FROM Comment c WHERE c.verificationPost.id = :verificationPostId")
+    long countByVerificationPostId(@Param("verificationPostId") Long verificationPostId);
 }
