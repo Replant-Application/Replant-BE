@@ -10,6 +10,7 @@ public enum NotificationType {
     // 커뮤니티 게시글 관련
     COMMENT,                    // 내 게시글에 댓글
     REPLY,                      // 내 댓글에 대댓글
+    LIKE,                       // 내 게시글에 좋아요
 
     // 인증글 관련
     VERIFICATION_COMMENT,       // 내 인증글에 댓글

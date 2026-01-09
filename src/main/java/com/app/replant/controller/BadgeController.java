@@ -12,10 +12,12 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "Badge", description = "뱃지 API")
 @RestController
@@ -40,5 +42,14 @@ public class BadgeController {
             @PageableDefault(size = 20, sort = "issuedAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<BadgeResponse> history = badgeService.getBadgeHistory(userId, pageable);
         return ApiResponse.success(history);
+    }
+
+    @Operation(summary = "특정 미션에 대한 유효 뱃지 보유 여부 확인")
+    @GetMapping("/check/{missionId}")
+    public ApiResponse<Map<String, Boolean>> checkBadgeForMission(
+            @AuthenticationPrincipal Long userId,
+            @PathVariable Long missionId) {
+        boolean hasBadge = badgeService.hasValidBadgeForMission(userId, missionId);
+        return ApiResponse.success(Map.of("hasBadge", hasBadge));
     }
 }

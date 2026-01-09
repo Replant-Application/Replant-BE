@@ -116,7 +116,8 @@ public class VerificationService {
     public VerificationPostResponse updateVerification(Long postId, Long userId, VerificationPostRequest request) {
         Post post = findVerificationPostById(postId);
 
-        if (!post.getUser().getId().equals(userId)) {
+        // NPE 방어: User null 체크
+        if (post.getUser() == null || !post.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
@@ -142,7 +143,8 @@ public class VerificationService {
     public void deleteVerification(Long postId, Long userId) {
         Post post = findVerificationPostById(postId);
 
-        if (!post.getUser().getId().equals(userId)) {
+        // NPE 방어: User null 체크
+        if (post.getUser() == null || !post.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
@@ -161,8 +163,8 @@ public class VerificationService {
         Post post = findVerificationPostById(postId);
         User voter = findUserById(userId);
 
-        // 본인 글 투표 방지
-        if (post.getUser().getId().equals(userId)) {
+        // 본인 글 투표 방지 (NPE 방어: User null 체크)
+        if (post.getUser() != null && post.getUser().getId().equals(userId)) {
             throw new CustomException(ErrorCode.SELF_VOTE_NOT_ALLOWED);
         }
 
@@ -185,8 +187,10 @@ public class VerificationService {
 
         verificationVoteRepository.save(vote);
 
-        // 투표 알림 발송
-        sendVoteNotification(post.getUser(), voter, post, request.getVote());
+        // 투표 알림 발송 (NPE 방어: User null 체크)
+        if (post.getUser() != null) {
+            sendVoteNotification(post.getUser(), voter, post, request.getVote());
+        }
 
         // 카운트 증가 및 상태 변경
         boolean isApprove = request.getVote() == VerificationVote.VoteType.APPROVE;
@@ -208,15 +212,17 @@ public class VerificationService {
             // 뱃지 발급
             createBadge(userMission);
 
-            // 경험치 보상
+            // 경험치 보상 (NPE 방어: User null 체크)
             int expReward = getExpReward(userMission);
-            reantRepository.findByUserId(post.getUser().getId())
-                    .ifPresent(reant -> reant.addExp(expReward));
+            if (post.getUser() != null) {
+                reantRepository.findByUserId(post.getUser().getId())
+                        .ifPresent(reant -> reant.addExp(expReward));
 
-            // 인증 완료 알림 발송
-            sendVerificationApprovedNotification(post.getUser(), userMission);
+                // 인증 완료 알림 발송
+                sendVerificationApprovedNotification(post.getUser(), userMission);
 
-            log.info("커뮤니티 인증 승인 완료 - userId={}, userMissionId={}", post.getUser().getId(), userMission.getId());
+                log.info("커뮤니티 인증 승인 완료 - userId={}, userMissionId={}", post.getUser().getId(), userMission.getId());
+            }
         }
 
         // 거절되었을 경우 알림 발송

@@ -114,6 +114,14 @@ public class VerificationController {
     public ApiResponse<Map<String, Object>> verifyByGps(
             @AuthenticationPrincipal Long userId,
             @RequestBody Map<String, Object> request) {
+        // NPE 방어: 필수 파라미터 null 체크
+        if (request.get("userMissionId") == null) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "userMissionId는 필수입니다.");
+        }
+        if (request.get("latitude") == null || request.get("longitude") == null) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "GPS 좌표(latitude, longitude)는 필수입니다.");
+        }
+
         Long userMissionId = Long.valueOf(request.get("userMissionId").toString());
         Double latitude = Double.valueOf(request.get("latitude").toString());
         Double longitude = Double.valueOf(request.get("longitude").toString());
@@ -127,6 +135,10 @@ public class VerificationController {
     public ApiResponse<Map<String, Object>> verifyByTime(
             @AuthenticationPrincipal Long userId,
             @RequestBody Map<String, Object> request) {
+        // NPE 방어: 필수 파라미터 null 체크
+        if (request.get("userMissionId") == null) {
+            throw new CustomException(ErrorCode.INVALID_INPUT_VALUE, "userMissionId는 필수입니다.");
+        }
         Long userMissionId = Long.valueOf(request.get("userMissionId").toString());
 
         // 시작/종료 시간 파싱 (옵션)
@@ -207,12 +219,12 @@ public class VerificationController {
         Comment saved = commentRepository.save(comment);
 
         // 댓글 알림 발송 (본인 글에 댓글 달면 알림 안 함)
-        if (!post.getUser().getId().equals(userId)) {
+        if (post.getUser() != null && !post.getUser().getId().equals(userId)) {
             sendVerificationCommentNotification(post.getUser(), user, post);
         }
 
         // 대댓글인 경우, 부모 댓글 작성자에게도 알림 (본인이 아닌 경우)
-        if (parentComment != null && !parentComment.getUser().getId().equals(userId)) {
+        if (parentComment != null && parentComment.getUser() != null && !parentComment.getUser().getId().equals(userId)) {
             sendVerificationReplyNotification(parentComment.getUser(), user, post);
         }
 

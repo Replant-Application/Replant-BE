@@ -30,11 +30,15 @@ public class MissionQnAResponse {
         private Boolean isAccepted;
         private LocalDateTime createdAt;
 
+        // NPE 방어: answerer null 체크 추가
         public static AnswerInfo from(MissionQnAAnswer answer) {
+            Long answererId = answer.getAnswerer() != null ? answer.getAnswerer().getId() : null;
+            String answererNickname = answer.getAnswerer() != null ? answer.getAnswerer().getNickname() : "알 수 없음";
+            
             return AnswerInfo.builder()
                     .id(answer.getId())
-                    .answererId(answer.getAnswerer().getId())
-                    .answererNickname(answer.getAnswerer().getNickname())
+                    .answererId(answererId)
+                    .answererNickname(answererNickname)
                     .content(answer.getContent())
                     .isAccepted(answer.getIsAccepted())
                     .createdAt(answer.getCreatedAt())
@@ -42,11 +46,15 @@ public class MissionQnAResponse {
         }
     }
 
+    // NPE 방어: questioner null 체크 추가
     public static MissionQnAResponse from(MissionQnA qna) {
+        Long questionerId = qna.getQuestioner() != null ? qna.getQuestioner().getId() : null;
+        String questionerNickname = qna.getQuestioner() != null ? qna.getQuestioner().getNickname() : "알 수 없음";
+        
         return MissionQnAResponse.builder()
                 .id(qna.getId())
-                .questionerId(qna.getQuestioner().getId())
-                .questionerNickname(qna.getQuestioner().getNickname())
+                .questionerId(questionerId)
+                .questionerNickname(questionerNickname)
                 .question(qna.getQuestion())
                 .isResolved(qna.getIsResolved())
                 .answerCount(qna.getAnswers() != null ? qna.getAnswers().size() : 0)
@@ -54,14 +62,18 @@ public class MissionQnAResponse {
                 .build();
     }
 
+    // NPE 방어: questioner null 체크 추가
     public static MissionQnAResponse fromWithAnswers(MissionQnA qna) {
+        Long questionerId = qna.getQuestioner() != null ? qna.getQuestioner().getId() : null;
+        String questionerNickname = qna.getQuestioner() != null ? qna.getQuestioner().getNickname() : "알 수 없음";
+        
         List<AnswerInfo> answerInfos = qna.getAnswers() != null ?
                 qna.getAnswers().stream().map(AnswerInfo::from).toList() : List.of();
 
         return MissionQnAResponse.builder()
                 .id(qna.getId())
-                .questionerId(qna.getQuestioner().getId())
-                .questionerNickname(qna.getQuestioner().getNickname())
+                .questionerId(questionerId)
+                .questionerNickname(questionerNickname)
                 .question(qna.getQuestion())
                 .isResolved(qna.getIsResolved())
                 .createdAt(qna.getCreatedAt())

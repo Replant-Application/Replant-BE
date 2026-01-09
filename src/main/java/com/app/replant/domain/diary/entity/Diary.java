@@ -8,12 +8,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "diary", indexes = {
-    @Index(name = "idx_diary_user_date", columnList = "user_id, date"),
-    @Index(name = "idx_diary_user_created", columnList = "user_id, created_at DESC")
+    @Index(name = "idx_diary_user_date", columnList = "user_id, date")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -30,52 +28,38 @@ public class Diary {
     @Column(nullable = false)
     private LocalDate date;
 
-    @Column(nullable = false, length = 50)
-    private String emotion;
+    @Column
+    private Integer mood; // 기분 값 (1-5 또는 슬라이더 값)
+
+    @Column(name = "emotions", columnDefinition = "json")
+    private String emotions; // 선택된 감정들 (JSON 배열: ["행복", "기쁨", "사랑"])
+
+    @Column(name = "emotion_factors", columnDefinition = "json")
+    private String emotionFactors; // 감정에 영향을 준 요인들 (JSON 배열: ["공부", "가족", "운동"])
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(length = 50)
-    private String weather;
-
-    @Column(length = 100)
-    private String location;
-
-    @Column(name = "image_urls", columnDefinition = "JSON")
-    private String imageUrls;
-
-    @Column(name = "is_private", nullable = false)
-    private Boolean isPrivate;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
     @Builder
-    public Diary(User user, LocalDate date, String emotion, String content, String weather, String location, String imageUrls, Boolean isPrivate) {
+    public Diary(User user, LocalDate date, Integer mood, String emotions, String emotionFactors, String content) {
         this.user = user;
         this.date = date;
-        this.emotion = emotion;
+        this.mood = mood;
+        this.emotions = emotions;
+        this.emotionFactors = emotionFactors;
         this.content = content;
-        this.weather = weather;
-        this.location = location;
-        this.imageUrls = imageUrls;
-        this.isPrivate = isPrivate != null ? isPrivate : false;
-        this.createdAt = LocalDateTime.now();
     }
 
-    public void update(String emotion, String content, String weather, String location, String imageUrls, Boolean isPrivate) {
-        this.emotion = emotion;
-        this.content = content;
-        this.weather = weather;
-        this.location = location;
-        this.imageUrls = imageUrls;
-        if (isPrivate != null) {
-            this.isPrivate = isPrivate;
+    public void update(Integer mood, String emotions, String emotionFactors, String content) {
+        if (mood != null) {
+            this.mood = mood;
         }
-        this.updatedAt = LocalDateTime.now();
+        if (emotions != null) {
+            this.emotions = emotions;
+        }
+        if (emotionFactors != null) {
+            this.emotionFactors = emotionFactors;
+        }
+        this.content = content;
     }
 }

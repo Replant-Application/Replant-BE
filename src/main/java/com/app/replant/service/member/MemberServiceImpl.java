@@ -127,8 +127,10 @@ public class MemberServiceImpl implements MemberService {
 
     @Override
     public List<MemberResponseDto> getAllMembers() {
-        // TODO: 실제 구현 필요
-        return new java.util.ArrayList<>();
+        List<Member> members = memberRepository.findAll();
+        return members.stream()
+                .map(MemberResponseDto::from)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -136,8 +138,7 @@ public class MemberServiceImpl implements MemberService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
 
-        // TODO: MemberResponseDto 변환 로직 구현 필요
-        return new MemberResponseDto();
+        return MemberResponseDto.from(member);
     }
 
     @Override

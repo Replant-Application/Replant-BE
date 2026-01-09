@@ -13,23 +13,14 @@ import java.util.Optional;
 
 public interface DiaryRepository extends JpaRepository<Diary, Long> {
 
-    @Query("SELECT d FROM Diary d WHERE d.user.id = :userId ORDER BY d.createdAt DESC")
+    @Query("SELECT d FROM Diary d WHERE d.user.id = :userId")
     Page<Diary> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
     @Query("SELECT d FROM Diary d WHERE d.user.id = :userId AND d.date = :date")
     Optional<Diary> findByUserIdAndDate(@Param("userId") Long userId, @Param("date") LocalDate date);
 
-    @Query("SELECT d FROM Diary d WHERE d.user.id = :userId AND d.date BETWEEN :startDate AND :endDate ORDER BY d.date DESC")
-    List<Diary> findByUserIdAndDateBetween(@Param("userId") Long userId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
-
     @Query("SELECT d FROM Diary d WHERE d.id = :diaryId AND d.user.id = :userId")
     Optional<Diary> findByIdAndUserId(@Param("diaryId") Long diaryId, @Param("userId") Long userId);
 
     boolean existsByUserIdAndDate(Long userId, LocalDate date);
-
-    @Query("SELECT COUNT(d) FROM Diary d WHERE d.user.id = :userId")
-    long countByUserId(@Param("userId") Long userId);
-
-    @Query("SELECT d.emotion, COUNT(d) FROM Diary d WHERE d.user.id = :userId GROUP BY d.emotion")
-    List<Object[]> getEmotionStatsByUserId(@Param("userId") Long userId);
 }

@@ -45,28 +45,36 @@ public class ChatRoomResponse {
     public static ChatRoomResponse from(ChatRoom chatRoom, Long currentUserId, Long unreadCount) {
         User otherUser = chatRoom.getOtherUser(currentUserId);
 
+        // NPE 방어: otherUser null 체크
+        OtherUserInfo otherUserInfo = null;
+        if (otherUser != null) {
+            otherUserInfo = OtherUserInfo.builder()
+                    .id(otherUser.getId())
+                    .nickname(otherUser.getNickname())
+                    .profileImg(otherUser.getProfileImg())
+                    .build();
+        }
+
         ChatRoomResponseBuilder builder = ChatRoomResponse.builder()
                 .id(chatRoom.getId())
-                .otherUser(OtherUserInfo.builder()
-                        .id(otherUser.getId())
-                        .nickname(otherUser.getNickname())
-                        .profileImg(otherUser.getProfileImg())
-                        .build())
+                .otherUser(otherUserInfo)
                 .unreadCount(unreadCount)
                 .isActive(chatRoom.getIsActive())
                 .createdAt(chatRoom.getCreatedAt());
 
-        // Mission info from recommendation
-        if (chatRoom.getRecommendation().getMission() != null) {
-            builder.matchedMission(MissionInfo.builder()
-                    .id(chatRoom.getRecommendation().getMission().getId())
-                    .title(chatRoom.getRecommendation().getMission().getTitle())
-                    .build());
-        } else if (chatRoom.getRecommendation().getCustomMission() != null) {
-            builder.matchedMission(MissionInfo.builder()
-                    .id(chatRoom.getRecommendation().getCustomMission().getId())
-                    .title(chatRoom.getRecommendation().getCustomMission().getTitle())
-                    .build());
+        // Mission info from recommendation - NPE 방어 추가
+        if (chatRoom.getRecommendation() != null) {
+            if (chatRoom.getRecommendation().getMission() != null) {
+                builder.matchedMission(MissionInfo.builder()
+                        .id(chatRoom.getRecommendation().getMission().getId())
+                        .title(chatRoom.getRecommendation().getMission().getTitle())
+                        .build());
+            } else if (chatRoom.getRecommendation().getCustomMission() != null) {
+                builder.matchedMission(MissionInfo.builder()
+                        .id(chatRoom.getRecommendation().getCustomMission().getId())
+                        .title(chatRoom.getRecommendation().getCustomMission().getTitle())
+                        .build());
+            }
         }
 
         return builder.build();

@@ -13,7 +13,9 @@ import com.app.replant.domain.post.dto.PostRequest;
 import com.app.replant.domain.post.dto.PostResponse;
 import com.app.replant.domain.post.entity.Comment;
 import com.app.replant.domain.post.entity.Post;
+import com.app.replant.domain.post.entity.PostLike;
 import com.app.replant.domain.post.repository.CommentRepository;
+import com.app.replant.domain.post.repository.PostLikeRepository;
 import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
@@ -39,6 +41,7 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final PostLikeRepository postLikeRepository;
     private final UserRepository userRepository;
     private final MissionRepository missionRepository;
     private final CustomMissionRepository customMissionRepository;
@@ -47,18 +50,35 @@ public class PostService {
     private final ObjectMapper objectMapper;
 
     public Page<PostResponse> getPosts(Long missionId, Long customMissionId, Boolean badgeOnly, Pageable pageable) {
+        return getPosts(missionId, customMissionId, badgeOnly, pageable, null);
+    }
+
+    public Page<PostResponse> getPosts(Long missionId, Long customMissionId, Boolean badgeOnly, Pageable pageable, Long currentUserId) {
         boolean badgeFilter = badgeOnly != null && badgeOnly;
+        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+
         return postRepository.findWithFilters(missionId, customMissionId, badgeFilter, pageable)
                 .map(post -> {
                     long commentCount = commentRepository.countByPostId(post.getId());
-                    return PostResponse.from(post, commentCount);
+                    long likeCount = postLikeRepository.countByPostId(post.getId());
+                    boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
+                    return PostResponse.from(post, commentCount, likeCount, isLiked);
                 });
     }
 
     public PostResponse getPost(Long postId) {
+        return getPost(postId, null);
+    }
+
+    public PostResponse getPost(Long postId, Long currentUserId) {
         Post post = findPostById(postId);
+        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+
         long commentCount = commentRepository.countByPostId(postId);
-        return PostResponse.from(post, commentCount);
+        long likeCount = postLikeRepository.countByPostId(postId);
+        boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
+
+        return PostResponse.from(post, commentCount, likeCount, isLiked);
     }
 
     @Transactional
@@ -265,6 +285,70 @@ public class PostService {
         }
 
         commentRepository.delete(comment);
+    }
+
+    // 좋아요 관련 메서드
+    @Transactional
+    public java.util.Map<String, Object> toggleLike(Long postId, Long userId) {
+        Post post = findPostById(postId);
+        User user = findUserById(userId);
+
+        // 자기 글에는 좋아요 불가
+        if (post.isAuthor(userId)) {
+            throw new CustomException(ErrorCode.CANNOT_LIKE_OWN_POST);
+        }
+
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        boolean isLiked;
+
+        java.util.Optional<PostLike> existingLike = postLikeRepository.findByPostAndUser(post, user);
+
+        if (existingLike.isPresent()) {
+            // 이미 좋아요 한 경우 -> 좋아요 취소
+            postLikeRepository.delete(existingLike.get());
+            isLiked = false;
+            log.info("좋아요 취소 - postId={}, userId={}", postId, userId);
+        } else {
+            // 좋아요 추가
+            PostLike newLike = PostLike.builder()
+                    .post(post)
+                    .user(user)
+                    .build();
+            postLikeRepository.save(newLike);
+            isLiked = true;
+            log.info("좋아요 추가 - postId={}, userId={}", postId, userId);
+
+            // 좋아요 알림 발송 (게시글 작성자에게)
+            sendLikeNotification(post.getUser(), user, post);
+        }
+
+        long likeCount = postLikeRepository.countByPostId(postId);
+
+        result.put("isLiked", isLiked);
+        result.put("likeCount", likeCount);
+
+        return result;
+    }
+
+    /**
+     * 좋아요 알림 발송
+     */
+    private void sendLikeNotification(User postAuthor, User liker, Post post) {
+        String title = "게시글에 좋아요가 달렸습니다";
+        String content = String.format("%s님이 '%s' 게시글에 좋아요를 눌렀습니다.",
+                liker.getNickname(), truncateTitle(post.getTitle(), 20));
+
+        notificationService.createAndPushNotification(
+                postAuthor,
+                NotificationType.LIKE,
+                title,
+                content,
+                "POST",
+                post.getId()
+        );
+
+        log.info("좋아요 알림 발송 - postId={}, likerId={}, postAuthorId={}",
+                post.getId(), liker.getId(), postAuthor.getId());
     }
 
     private Post findPostById(Long postId) {

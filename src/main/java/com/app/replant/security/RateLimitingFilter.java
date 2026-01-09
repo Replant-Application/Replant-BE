@@ -20,8 +20,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Rate Limiting 필터
  * IP 기반으로 API 호출 횟수 제한
- * - 일반 API: 60 req/min
- * - 로그인/회원가입: 10 req/min
+ * - 일반 API: 200 req/min (앱에서 다수의 API 호출 고려)
+ * - 로그인/회원가입: 20 req/min
  * - 이메일 발송: 5 req/min
  */
 @Slf4j
@@ -58,16 +58,16 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         Bandwidth limit;
 
         if (uri.contains("/api/auth/login") || uri.contains("/api/auth/join") || uri.contains("/api/auth/oauth")) {
-            // 로그인/회원가입: 10 req/min
-            limit = Bandwidth.classic(10, Refill.intervally(10, Duration.ofMinutes(1)));
-            log.debug("Rate limit for auth endpoint: 10 req/min");
+            // 로그인/회원가입: 20 req/min
+            limit = Bandwidth.classic(20, Refill.intervally(20, Duration.ofMinutes(1)));
+            log.debug("Rate limit for auth endpoint: 20 req/min");
         } else if (uri.contains("/api/auth/send-verification") || uri.contains("/api/auth/genPw")) {
             // 이메일 발송: 5 req/min
             limit = Bandwidth.classic(5, Refill.intervally(5, Duration.ofMinutes(1)));
             log.debug("Rate limit for email endpoint: 5 req/min");
         } else {
-            // 일반 API: 60 req/min
-            limit = Bandwidth.classic(60, Refill.intervally(60, Duration.ofMinutes(1)));
+            // 일반 API: 200 req/min (앱에서 다수의 API 호출 고려)
+            limit = Bandwidth.classic(200, Refill.intervally(200, Duration.ofMinutes(1)));
         }
 
         return Bucket.builder()

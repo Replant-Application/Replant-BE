@@ -190,4 +190,16 @@ public class PostController {
 
         return ApiResponse.success(result);
     }
+
+    // Like endpoints
+    @Operation(summary = "좋아요 토글",
+            description = "게시글 좋아요를 추가하거나 취소합니다. 이미 좋아요한 경우 취소, 아닌 경우 추가됩니다.")
+    @PostMapping("/{postId}/like")
+    public ApiResponse<Map<String, Object>> toggleLike(
+            @Parameter(description = "게시글 ID", example = "1")
+            @PathVariable Long postId,
+            @AuthenticationPrincipal Long userId) {
+        Map<String, Object> result = postService.toggleLike(postId, userId);
+        return ApiResponse.success(result);
+    }
 }

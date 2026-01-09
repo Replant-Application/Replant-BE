@@ -85,6 +85,29 @@ public class FileController {
         return ApiResponse.success(uploadedFile);
     }
 
+    @Operation(summary = "서브폴더에 파일 업로드", description = "이미지 파일을 지정된 서브폴더 경로에 업로드합니다 (예: REPLANT/COMMUNITY)")
+    @PostMapping(value = "/upload/{folder}/{subfolder}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<UploadedFileInfoDto> uploadFileToSubFolder(
+            @AuthenticationPrincipal Long userId,
+            @Parameter(description = "업로드할 폴더", required = true)
+            @PathVariable String folder,
+            @Parameter(description = "업로드할 서브폴더", required = true)
+            @PathVariable String subfolder,
+            @Parameter(description = "업로드할 파일", required = true)
+            @RequestParam("file") MultipartFile file) throws IOException {
+
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("파일이 비어있습니다.");
+        }
+
+        String fullPath = folder + "/" + subfolder;
+        UploadedFileInfoDto uploadedFile = s3FileService.uploadImageToFolder(file, fullPath);
+        log.info("User {} uploaded file to folder {}: {}", userId, fullPath, uploadedFile.getFileName());
+
+        return ApiResponse.success(uploadedFile);
+    }
+
     @Operation(summary = "파일 삭제", description = "S3에서 파일을 삭제합니다")
     @DeleteMapping("/{fileName}")
     public ApiResponse<Map<String, String>> deleteFile(

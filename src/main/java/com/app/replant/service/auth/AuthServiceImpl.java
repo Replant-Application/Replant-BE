@@ -246,34 +246,24 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void resetPassword(ResetPasswordDto resetPasswordDto) {
-        // 1. 필수 요소 검증
+        // 1. 필수 요소 검증 (이메일만 필수)
         if (resetPasswordDto.getMemberId() == null || resetPasswordDto.getMemberId().isEmpty()) {
             throw new CustomException(ErrorCode.REQUIRED_MISSING);
         }
-        if (resetPasswordDto.getMemberName() == null || resetPasswordDto.getMemberName().isEmpty()) {
-            throw new CustomException(ErrorCode.REQUIRED_MISSING);
-        }
 
-        // 2. 회원 조회 (이메일 + 닉네임으로 본인 확인)
+        // 2. 회원 조회 (이메일로 확인)
         User user = userRepository.findByEmail(resetPasswordDto.getMemberId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 3. 닉네임이 일치하는지 확인
-        if (!user.getNickname().equals(resetPasswordDto.getMemberName())) {
-            log.error("비밀번호 재설정 실패: 닉네임 불일치 - Email: {}, 입력된 닉네임: {}, 실제 닉네임: {}",
-                    resetPasswordDto.getMemberId(), resetPasswordDto.getMemberName(), user.getNickname());
-            throw new CustomException(ErrorCode.USER_NOT_FOUND); // 보안상 동일한 에러 메시지
-        }
-
-        // 4. 계정 상태 확인
+        // 3. 계정 상태 확인
         if (user.getStatus() == UserStatus.SUSPENDED) {
             throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
         }
 
-        // 5. 임시 비밀번호 생성 및 이메일 발송
+        // 4. 임시 비밀번호 생성 및 이메일 발송
         String tempPassword = mailService.sendTemporaryPassword(
                 resetPasswordDto.getMemberId(),
-                resetPasswordDto.getMemberName()
+                user.getNickname()
         );
         log.info("임시 비밀번호 발급 및 이메일 발송 완료: {}", resetPasswordDto.getMemberId());
 

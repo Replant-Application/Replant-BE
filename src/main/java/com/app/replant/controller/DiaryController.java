@@ -1,6 +1,7 @@
 package com.app.replant.controller;
 
 import com.app.replant.common.ApiResponse;
+import com.app.replant.common.dto.PageResponse;
 import com.app.replant.domain.diary.dto.DiaryRequest;
 import com.app.replant.domain.diary.dto.DiaryResponse;
 import com.app.replant.domain.diary.service.DiaryService;
@@ -20,7 +21,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Tag(name = "Diary", description = "다이어리 API")
@@ -32,41 +32,28 @@ public class DiaryController {
 
     private final DiaryService diaryService;
 
-    @Operation(summary = "다이어리 목록 조회")
+    @Operation(
+            summary = "다이어리 목록 조회",
+            description = "사용자가 작성한 감정일기 목록을 조회합니다. 날짜순으로 정렬되어 최신 일기가 먼저 표시됩니다. " +
+                    "페이징 파라미터: page(페이지 번호, 0부터 시작), size(페이지 크기, 기본값 20), sort(정렬 필드, 예: date,desc)")
     @GetMapping
-    public ApiResponse<Page<DiaryResponse>> getDiaries(
+    public ApiResponse<PageResponse<DiaryResponse>> getDiaries(
             @AuthenticationPrincipal Long userId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+            @PageableDefault(size = 20, sort = "date", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<DiaryResponse> diaries = diaryService.getDiaries(userId, pageable);
-        return ApiResponse.success(diaries);
+        return ApiResponse.success(PageResponse.from(diaries));
     }
 
-    @Operation(summary = "다이어리 상세 조회")
-    @GetMapping("/{diaryId}")
-    public ApiResponse<DiaryResponse> getDiary(
-            @PathVariable Long diaryId,
-            @AuthenticationPrincipal Long userId) {
-        DiaryResponse diary = diaryService.getDiary(diaryId, userId);
-        return ApiResponse.success(diary);
-    }
-
-    @Operation(summary = "날짜별 다이어리 조회")
+    @Operation(
+            summary = "날짜별 다이어리 조회",
+            description = "특정 날짜에 작성한 다이어리를 조회합니다. 날짜 형식: YYYY-MM-DD (예: 2026-01-09)"
+    )
     @GetMapping("/by-date")
     public ApiResponse<DiaryResponse> getDiaryByDate(
             @AuthenticationPrincipal Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         DiaryResponse diary = diaryService.getDiaryByDate(userId, date);
         return ApiResponse.success(diary);
-    }
-
-    @Operation(summary = "기간별 다이어리 조회")
-    @GetMapping("/range")
-    public ApiResponse<List<DiaryResponse>> getDiariesByDateRange(
-            @AuthenticationPrincipal Long userId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        List<DiaryResponse> diaries = diaryService.getDiariesByDateRange(userId, startDate, endDate);
-        return ApiResponse.success(diaries);
     }
 
     @Operation(summary = "다이어리 생성")
@@ -76,16 +63,6 @@ public class DiaryController {
             @AuthenticationPrincipal Long userId,
             @RequestBody @Valid DiaryRequest request) {
         DiaryResponse diary = diaryService.createDiary(userId, request);
-        return ApiResponse.success(diary);
-    }
-
-    @Operation(summary = "다이어리 수정")
-    @PutMapping("/{diaryId}")
-    public ApiResponse<DiaryResponse> updateDiary(
-            @PathVariable Long diaryId,
-            @AuthenticationPrincipal Long userId,
-            @RequestBody @Valid DiaryRequest request) {
-        DiaryResponse diary = diaryService.updateDiary(diaryId, userId, request);
         return ApiResponse.success(diary);
     }
 
@@ -101,11 +78,4 @@ public class DiaryController {
         return ApiResponse.success(result);
     }
 
-    @Operation(summary = "다이어리 통계 조회")
-    @GetMapping("/stats")
-    public ApiResponse<Map<String, Object>> getDiaryStats(
-            @AuthenticationPrincipal Long userId) {
-        Map<String, Object> stats = diaryService.getDiaryStats(userId);
-        return ApiResponse.success(stats);
-    }
 }

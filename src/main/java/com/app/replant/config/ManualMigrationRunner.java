@@ -60,6 +60,16 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV8Migration(conn);
             log.info("V8 마이그레이션 완료");
 
+            // V9 마이그레이션: diary 테이블에 created_at, updated_at 컬럼 추가
+            boolean needV9 = !columnExists(stmt, "diary", "created_at");
+            if (needV9) {
+                log.info("V9 마이그레이션 실행 중...");
+                executeV9Migration(conn);
+                log.info("V9 마이그레이션 완료");
+            } else {
+                log.info("V9 마이그레이션 스킵 (이미 적용됨)");
+            }
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -251,6 +261,29 @@ public class ManualMigrationRunner implements CommandLineRunner {
             );
 
             log.info("V8 마이그레이션: user_mission.mission_source 컬럼 크기 수정 완료");
+        }
+    }
+
+    private void executeV9Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V9: diary 테이블에 created_at, updated_at 컬럼 추가
+
+            // 1. created_at 컬럼 추가
+            executeIgnore(stmt,
+                "ALTER TABLE `diary` ADD COLUMN `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+            );
+
+            // 2. updated_at 컬럼 추가
+            executeIgnore(stmt,
+                "ALTER TABLE `diary` ADD COLUMN `updated_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+            );
+
+            // 3. 기존 데이터의 created_at을 date 기준으로 설정
+            executeIgnore(stmt,
+                "UPDATE `diary` SET `created_at` = TIMESTAMP(`date`) WHERE `created_at` IS NULL OR `created_at` = '0000-00-00 00:00:00'"
+            );
+
+            log.info("V9 마이그레이션: diary 테이블 created_at, updated_at 컬럼 추가 완료");
         }
     }
 

@@ -16,21 +16,14 @@ public class DiaryRequest {
     @NotNull(message = "날짜를 입력해주세요")
     private LocalDate date;
 
-    @NotBlank(message = "감정을 선택해주세요")
-    @Size(max = 50, message = "감정은 50자 이하로 입력해주세요")
-    private String emotion;
+    @NotNull(message = "기분을 선택해주세요")
+    private Integer mood; // 기분 값 (1-5 또는 슬라이더 값)
+
+    private List<String> emotions; // 선택된 감정들 (예: ["행복", "기쁨", "사랑"])
+
+    private List<String> emotionFactors; // 감정에 영향을 준 요인들 (예: ["공부", "가족", "운동"])
 
     @NotBlank(message = "내용을 입력해주세요")
     @Size(max = 1000, message = "내용은 1000자 이하로 입력해주세요")
     private String content;
-
-    @Size(max = 50, message = "날씨는 50자 이하로 입력해주세요")
-    private String weather;
-
-    @Size(max = 100, message = "위치는 100자 이하로 입력해주세요")
-    private String location;
-
-    private List<String> imageUrls;
-
-    private Boolean isPrivate;
 }

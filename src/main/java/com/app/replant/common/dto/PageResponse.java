@@ -42,8 +42,6 @@ public class PageResponse<T> {
                         .size(page.getSize())
                         .totalElements(page.getTotalElements())
                         .totalPages(page.getTotalPages())
-                        .first(page.isFirst())
-                        .last(page.isLast())
                         .build())
                 .build();
     }
@@ -75,15 +73,5 @@ public class PageResponse<T> {
          * 전체 페이지 개수
          */
         private int totalPages;
-
-        /**
-         * 첫 페이지 여부
-         */
-        private boolean first;
-
-        /**
-         * 마지막 페이지 여부
-         */
-        private boolean last;
     }
 }

@@ -34,14 +34,14 @@ public class FlywayConfig {
             // flyway_schema_history에서 모든 기록 삭제하고 baseline만 다시 삽입
             stmt.execute("DELETE FROM flyway_schema_history");
 
-            // baseline을 V8로 설정 (V6, V7, V8은 수동 마이그레이션으로 처리)
+            // baseline을 V9로 설정 (V6~V9는 수동 마이그레이션으로 처리)
             String insertBaseline =
                 "INSERT INTO flyway_schema_history " +
                 "(installed_rank, version, description, type, script, checksum, installed_by, execution_time, success) VALUES " +
-                "(1, '8', '<< Flyway Baseline >>', 'BASELINE', '<< Flyway Baseline >>', NULL, 'admin', 0, 1)";
+                "(1, '9', '<< Flyway Baseline >>', 'BASELINE', '<< Flyway Baseline >>', NULL, 'admin', 0, 1)";
             stmt.execute(insertBaseline);
 
-            log.info("Flyway: baseline V8 설정 완료 - 마이그레이션 스킵");
+            log.info("Flyway: baseline V9 설정 완료 - 마이그레이션 스킵");
         } catch (Exception e) {
             log.warn("Flyway baseline 설정 중 오류 (무시 가능): {}", e.getMessage());
         }
@@ -50,14 +50,14 @@ public class FlywayConfig {
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
                 .baselineOnMigrate(true)
-                .baselineVersion("8")
+                .baselineVersion("9")
                 .validateOnMigrate(false)
                 .outOfOrder(false)
                 .cleanDisabled(true)
                 .load();
 
-        // 마이그레이션 스킵 (이미 baseline V8로 설정됨)
-        log.info("Flyway: 마이그레이션 스킵 (baseline V8)");
+        // 마이그레이션 스킵 (이미 baseline V9로 설정됨)
+        log.info("Flyway: 마이그레이션 스킵 (baseline V9)");
 
         return flyway;
     }

@@ -4,13 +4,12 @@ import com.app.replant.common.ApiResponse;
 import com.app.replant.controller.dto.AdminDiaryNotificationRequestDto;
 import com.app.replant.controller.dto.AdminReportNotificationRequestDto;
 import com.app.replant.controller.dto.CardResponseDto;
-import com.app.replant.controller.dto.MemberResponseDto;
 import com.app.replant.controller.dto.NotificationSendRequestDto;
-import com.app.replant.entity.Member;
+import com.app.replant.controller.dto.UserResponseDto;
+import com.app.replant.domain.user.entity.User;
+import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
-import com.app.replant.repository.member.MemberRepository;
-import com.app.replant.service.member.MemberService;
 import com.app.replant.service.card.CardService;
 import com.app.replant.service.sse.SseService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Tag(name = "관리자", description = "관리자 전용 API (ADMIN 권한 필요)")
 @RestController
@@ -36,19 +36,21 @@ import java.util.Map;
 @SecurityRequirement(name = "JWT Token")
 public class AdminController {
 
-    private final MemberService memberService;
     private final CardService cardService;
     private final SseService sseService;
-    private final MemberRepository memberRepository;
+    private final UserRepository userRepository;
     private final JdbcTemplate jdbcTemplate;
 
     @Operation(summary = "전체 회원 조회", description = "모든 회원 정보를 조회합니다 (관리자 전용)")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음")
     @GetMapping("/members")
-    public ResponseEntity<ApiResponse<List<MemberResponseDto>>> getAllMembers() {
+    public ResponseEntity<ApiResponse<List<UserResponseDto>>> getAllMembers() {
         log.info("관리자 - 전체 회원 조회");
-        List<MemberResponseDto> members = memberService.getAllMembers();
+        List<User> users = userRepository.findAll();
+        List<UserResponseDto> members = users.stream()
+                .map(UserResponseDto::from)
+                .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.res(200, "사용자들을 정보를 불러왔습니다!", members));
     }
 
@@ -56,12 +58,13 @@ public class AdminController {
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음")
-    @GetMapping("/members/{memberId}")
-    public ResponseEntity<ApiResponse<MemberResponseDto>> getMemberById(
-            @Parameter(description = "조회할 회원 ID", required = true) @PathVariable Long memberId) {
-        log.info("관리자 - 회원 조회: {}", memberId);
-        MemberResponseDto member = memberService.getMemberByIdForAdmin(memberId);
-        return ResponseEntity.ok(ApiResponse.res(200, "사용자 정보를 불러왔습니다!", member));
+    @GetMapping("/members/{userId}")
+    public ResponseEntity<ApiResponse<UserResponseDto>> getMemberById(
+            @Parameter(description = "조회할 회원 ID", required = true) @PathVariable Long userId) {
+        log.info("관리자 - 회원 조회: {}", userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        return ResponseEntity.ok(ApiResponse.res(200, "사용자 정보를 불러왔습니다!", UserResponseDto.from(user)));
     }
 
     @Operation(summary = "전체 카드 조회", description = "tbl_card에 등록된 모든 카드 정보를 조회합니다 (관리자 전용)")
@@ -82,32 +85,32 @@ public class AdminController {
     @PostMapping("/send/custom")
     public ResponseEntity<ApiResponse<Void>> sendNotification(
             @Parameter(description = "알림 전송 요청 정보", required = true) @Valid @RequestBody NotificationSendRequestDto requestDto) {
-        log.info("관리자 - 알림 전송 요청: memberId(이메일)={}, message={}", requestDto.getMemberId(), requestDto.getMessage());
+        log.info("관리자 - 알림 전송 요청: email={}, message={}", requestDto.getMemberId(), requestDto.getMessage());
 
         // 이메일로 회원 찾기
-        Member member = memberRepository.findByMemberId(requestDto.getMemberId())
+        User user = userRepository.findByEmail(requestDto.getMemberId())
                 .orElseThrow(() -> {
-                    log.warn("관리자 - 알림 전송 실패: 회원을 찾을 수 없음 - memberId(이메일)={}", requestDto.getMemberId());
+                    log.warn("관리자 - 알림 전송 실패: 회원을 찾을 수 없음 - email={}", requestDto.getMemberId());
                     return new CustomException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        Long memberId = member.getId();
-        log.info("관리자 - 회원 조회 성공: 이메일={}, DB ID={}, 이름={}",
-                requestDto.getMemberId(), memberId, member.getMemberName());
+        Long userId = user.getId();
+        log.info("관리자 - 회원 조회 성공: 이메일={}, DB ID={}, 닉네임={}",
+                requestDto.getMemberId(), userId, user.getNickname());
 
-        boolean sent = sseService.sendToUser(memberId, "message", requestDto.getMessage());
+        boolean sent = sseService.sendToUser(userId, "message", requestDto.getMessage());
 
         if (sent) {
             log.info("관리자 - 알림 전송 성공: DB ID={}, 이메일={}, 메시지={}",
-                    memberId, requestDto.getMemberId(), requestDto.getMessage());
+                    userId, requestDto.getMemberId(), requestDto.getMessage());
             return ResponseEntity.ok(ApiResponse.res(200, "알림이 성공적으로 전송되었습니다."));
         } else {
             log.warn("관리자 - 알림 전송 실패: SSE 연결 없음 - DB ID={}, 이메일={}, 현재 연결된 사용자 수={}",
-                    memberId, requestDto.getMemberId(), sseService.getConnectedUserCount());
+                    userId, requestDto.getMemberId(), sseService.getConnectedUserCount());
             return ResponseEntity.status(404)
                     .body(ApiResponse.error(404,
                             String.format("해당 사용자(이메일: %s, DB ID: %d)가 SSE에 연결되어 있지 않습니다. 먼저 /sse/connect에 연결해주세요.",
-                                    requestDto.getMemberId(), memberId)));
+                                    requestDto.getMemberId(), userId)));
         }
     }
 
@@ -119,23 +122,23 @@ public class AdminController {
     @PostMapping("/send/diary")
     public ResponseEntity<ApiResponse<Void>> sendDiaryNotification(
             @Parameter(description = "일기 알림 전송 요청 정보", required = true) @Valid @RequestBody AdminDiaryNotificationRequestDto requestDto) {
-        log.info("관리자 - 일기 알림 전송 요청: memberId(이메일)={}", requestDto.getMemberId());
+        log.info("관리자 - 일기 알림 전송 요청: email={}", requestDto.getMemberId());
 
         // 이메일로 회원 찾기
-        Member member = memberRepository.findByMemberId(requestDto.getMemberId())
+        User user = userRepository.findByEmail(requestDto.getMemberId())
                 .orElseThrow(() -> {
-                    log.warn("관리자 - 일기 알림 전송 실패: 회원을 찾을 수 없음 - memberId(이메일)={}", requestDto.getMemberId());
+                    log.warn("관리자 - 일기 알림 전송 실패: 회원을 찾을 수 없음 - email={}", requestDto.getMemberId());
                     return new CustomException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        Long memberId = member.getId();
-        log.info("관리자 - 회원 조회 성공: 이메일={}, DB ID={}, 이름={}",
-                requestDto.getMemberId(), memberId, member.getMemberName());
+        Long userId = user.getId();
+        log.info("관리자 - 회원 조회 성공: 이메일={}, DB ID={}, 닉네임={}",
+                requestDto.getMemberId(), userId, user.getNickname());
 
         // SSE를 통해 일기 알림 전송
-        sseService.sendDiaryNotification(memberId);
+        sseService.sendDiaryNotification(userId);
 
-        log.info("관리자 - 일기 알림 전송 완료: DB ID={}, 이메일={}", memberId, requestDto.getMemberId());
+        log.info("관리자 - 일기 알림 전송 완료: DB ID={}, 이메일={}", userId, requestDto.getMemberId());
         return ResponseEntity.ok(ApiResponse.res(200, "일기 알림이 성공적으로 전송되었습니다."));
     }
 
@@ -147,27 +150,27 @@ public class AdminController {
     @PostMapping("/send/report")
     public ResponseEntity<ApiResponse<Void>> sendReportNotification(
             @Parameter(description = "리포트 알림 전송 요청 정보", required = true) @Valid @RequestBody AdminReportNotificationRequestDto requestDto) {
-        log.info("관리자 - 리포트 알림 전송 요청: memberId(이메일)={}", requestDto.getMemberId());
+        log.info("관리자 - 리포트 알림 전송 요청: email={}", requestDto.getMemberId());
 
         // 이메일로 회원 찾기
-        Member member = memberRepository.findByMemberId(requestDto.getMemberId())
+        User user = userRepository.findByEmail(requestDto.getMemberId())
                 .orElseThrow(() -> {
-                    log.warn("관리자 - 리포트 알림 전송 실패: 회원을 찾을 수 없음 - memberId(이메일)={}", requestDto.getMemberId());
+                    log.warn("관리자 - 리포트 알림 전송 실패: 회원을 찾을 수 없음 - email={}", requestDto.getMemberId());
                     return new CustomException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        Long memberId = member.getId();
-        log.info("관리자 - 회원 조회 성공: 이메일={}, DB ID={}, 이름={}",
-                requestDto.getMemberId(), memberId, member.getMemberName());
+        Long userId = user.getId();
+        log.info("관리자 - 회원 조회 성공: 이메일={}, DB ID={}, 닉네임={}",
+                requestDto.getMemberId(), userId, user.getNickname());
 
         // 현재 월 가져오기
         int currentMonth = java.time.LocalDate.now().getMonthValue();
 
         // SSE를 통해 리포트 알림 전송 (현재 월 자동 사용)
-        sseService.sendReportNotification(memberId, currentMonth);
+        sseService.sendReportNotification(userId, currentMonth);
 
         log.info("관리자 - 리포트 알림 전송 완료: DB ID={}, 이메일={}, month={}",
-                memberId, requestDto.getMemberId(), currentMonth);
+                userId, requestDto.getMemberId(), currentMonth);
         return ResponseEntity.ok(ApiResponse.res(200, "리포트 알림이 성공적으로 전송되었습니다."));
     }
 
@@ -267,18 +270,18 @@ public class AdminController {
     @Operation(summary = "사용자 역할 변경", description = "특정 사용자의 역할을 변경합니다 (관리자 전용)")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "역할 변경 성공")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "회원을 찾을 수 없음")
-    @PatchMapping("/members/{memberId}/role")
+    @PatchMapping("/members/{userId}/role")
     public ResponseEntity<Map<String, Object>> updateMemberRole(
-            @Parameter(description = "회원 ID", required = true) @PathVariable Long memberId,
+            @Parameter(description = "회원 ID", required = true) @PathVariable Long userId,
             @Parameter(description = "변경할 역할 (USER, GRADUATE, CONTRIBUTOR, ADMIN)", required = true) @RequestParam String role) {
         Map<String, Object> response = new HashMap<>();
         try {
-            log.info("관리자 - 회원 역할 변경: memberId={}, role={}", memberId, role);
-            int updated = jdbcTemplate.update("UPDATE `user` SET role = ? WHERE id = ?", role, memberId);
+            log.info("관리자 - 회원 역할 변경: userId={}, role={}", userId, role);
+            int updated = jdbcTemplate.update("UPDATE `user` SET role = ? WHERE id = ?", role, userId);
             if (updated > 0) {
                 response.put("success", true);
                 response.put("message", "역할이 변경되었습니다.");
-                response.put("memberId", memberId);
+                response.put("userId", userId);
                 response.put("newRole", role);
                 return ResponseEntity.ok(response);
             } else {
@@ -314,6 +317,31 @@ public class AdminController {
             }
         } catch (Exception e) {
             log.error("관리자 설정 실패", e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @Operation(summary = "통계 정보 조회", description = "관리자 대시보드용 통계 정보를 조회합니다")
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getStats() {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Integer totalUsers = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM `user`", Integer.class);
+            Integer activeUsers = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM `user` WHERE status = 'ACTIVE'", Integer.class);
+            Integer adminCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM `user` WHERE role = 'ADMIN'", Integer.class);
+            Integer missionCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM mission", Integer.class);
+
+            response.put("success", true);
+            response.put("totalUsers", totalUsers != null ? totalUsers : 0);
+            response.put("activeUsers", activeUsers != null ? activeUsers : 0);
+            response.put("adminCount", adminCount != null ? adminCount : 0);
+            response.put("missionCount", missionCount != null ? missionCount : 0);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("통계 조회 실패", e);
             response.put("success", false);
             response.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(response);

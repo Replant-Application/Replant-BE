@@ -25,6 +25,8 @@ public class PostResponse {
     private List<String> imageUrls;
     private Boolean hasValidBadge;
     private Long commentCount;
+    private Long likeCount;
+    private Boolean isLiked;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -37,20 +39,36 @@ public class PostResponse {
     }
 
     public static PostResponse from(Post post) {
-        return from(post, 0L);
+        return from(post, 0L, 0L, false);
     }
 
     public static PostResponse from(Post post, Long commentCount) {
+        return from(post, commentCount, 0L, false);
+    }
+
+    public static PostResponse from(Post post, Long commentCount, Long likeCount, Boolean isLiked) {
+        // NPE 방어: User null 체크
+        Long userId = null;
+        String userNickname = null;
+        String userProfileImg = null;
+        if (post.getUser() != null) {
+            userId = post.getUser().getId();
+            userNickname = post.getUser().getNickname();
+            userProfileImg = post.getUser().getProfileImg();
+        }
+
         PostResponseBuilder builder = PostResponse.builder()
                 .id(post.getId())
-                .userId(post.getUser().getId())
-                .userNickname(post.getUser().getNickname())
-                .userProfileImg(post.getUser().getProfileImg())
+                .userId(userId)
+                .userNickname(userNickname)
+                .userProfileImg(userProfileImg)
                 .title(post.getTitle())
                 .content(post.getContent())
                 .imageUrls(parseImageUrls(post.getImageUrls()))
                 .hasValidBadge(post.getHasValidBadge())
                 .commentCount(commentCount)
+                .likeCount(likeCount)
+                .isLiked(isLiked)
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt());
 

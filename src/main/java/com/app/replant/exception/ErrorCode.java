@@ -164,6 +164,7 @@ public enum ErrorCode {
     NOT_COMMENT_AUTHOR(HttpStatus.FORBIDDEN, "P003", "댓글 작성자가 아닙니다"),
     NOT_POST_AUTHOR(HttpStatus.FORBIDDEN, "P004", "작성자만 수정/삭제할 수 있습니다"),
     INVALID_PARENT_COMMENT(HttpStatus.BAD_REQUEST, "P005", "부모 댓글이 올바르지 않습니다"),
+    CANNOT_LIKE_OWN_POST(HttpStatus.BAD_REQUEST, "P006", "자신의 게시글에는 좋아요를 누를 수 없습니다"),
 
     // Recommendation
     RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RC001", "추천을 찾을 수 없습니다"),
@@ -191,7 +192,13 @@ public enum ErrorCode {
     WAKEUP_VERIFICATION_TOO_LATE(HttpStatus.BAD_REQUEST, "WM005", "인증 시간이 지났습니다"),
 
     // Admin Mission
-    ADMIN_ONLY(HttpStatus.FORBIDDEN, "AD001", "관리자만 접근 가능합니다");
+    ADMIN_ONLY(HttpStatus.FORBIDDEN, "AD001", "관리자만 접근 가능합니다"),
+
+    // MissionSet (투두리스트)
+    MISSION_SET_NOT_FOUND(HttpStatus.NOT_FOUND, "MS001", "미션세트를 찾을 수 없습니다"),
+    MISSION_ALREADY_IN_SET(HttpStatus.CONFLICT, "MS002", "이미 미션세트에 포함된 미션입니다"),
+    MISSION_NOT_IN_SET(HttpStatus.NOT_FOUND, "MS003", "미션세트에 해당 미션이 없습니다"),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "MS004", "접근 권한이 없습니다");
 
     private final HttpStatus statusCode;
     private final String errorCode;
