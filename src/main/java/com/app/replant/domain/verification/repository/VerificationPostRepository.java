@@ -15,7 +15,7 @@ public interface VerificationPostRepository extends JpaRepository<VerificationPo
     @Query("SELECT vp FROM VerificationPost vp WHERE " +
            "(:status IS NULL OR vp.status = :status) " +
            "AND (:missionId IS NULL OR vp.userMission.mission.id = :missionId) " +
-           "AND (:customMissionId IS NULL OR vp.userMission.customMission.id = :customMissionId)")
+           "AND (:customMissionId IS NULL OR vp.userMission.mission.id = :customMissionId AND vp.userMission.missionType = 'CUSTOM')")
     Page<VerificationPost> findWithFilters(
         @Param("status") VerificationStatus status,
         @Param("missionId") Long missionId,

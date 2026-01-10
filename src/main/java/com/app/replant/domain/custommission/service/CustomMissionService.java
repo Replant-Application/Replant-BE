@@ -46,6 +46,7 @@ public class CustomMissionService {
                 .worryType(request.getWorryType())
                 .missionType(request.getMissionType())
                 .difficultyLevel(request.getDifficultyLevel())
+                .isChallenge(request.getIsChallenge())
                 .challengeDays(request.getChallengeDays())
                 .deadlineDays(request.getDeadlineDays())
                 .durationDays(request.getDurationDays())
@@ -74,7 +75,7 @@ public class CustomMissionService {
         }
 
         customMission.update(request.getTitle(), request.getDescription(), request.getWorryType(),
-                request.getMissionType(), request.getDifficultyLevel(),
+                request.getMissionType(), request.getDifficultyLevel(), request.getIsChallenge(),
                 request.getChallengeDays(), request.getDeadlineDays(), request.getExpReward(), request.getIsPublic());
         return CustomMissionResponse.from(customMission);
     }

@@ -198,7 +198,12 @@ public enum ErrorCode {
     MISSION_SET_NOT_FOUND(HttpStatus.NOT_FOUND, "MS001", "미션세트를 찾을 수 없습니다"),
     MISSION_ALREADY_IN_SET(HttpStatus.CONFLICT, "MS002", "이미 미션세트에 포함된 미션입니다"),
     MISSION_NOT_IN_SET(HttpStatus.NOT_FOUND, "MS003", "미션세트에 해당 미션이 없습니다"),
-    ACCESS_DENIED(HttpStatus.FORBIDDEN, "MS004", "접근 권한이 없습니다");
+    CANNOT_REVIEW_OWN_SET(HttpStatus.FORBIDDEN, "MS005", "자신의 미션세트에는 리뷰를 작성할 수 없습니다"),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "MS004", "접근 권한이 없습니다"),
+
+    // Routine (루틴 설정)
+    ROUTINE_NOT_FOUND(HttpStatus.NOT_FOUND, "RT001", "루틴 설정을 찾을 수 없습니다"),
+    NOT_ROUTINE_OWNER(HttpStatus.FORBIDDEN, "RT002", "본인의 루틴만 수정/삭제할 수 있습니다");
 
     private final HttpStatus statusCode;
     private final String errorCode;

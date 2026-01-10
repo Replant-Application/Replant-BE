@@ -70,6 +70,11 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V9 마이그레이션 스킵 (이미 적용됨)");
             }
 
+            // V16 마이그레이션: mission.difficulty_level 컬럼 크기 수정
+            log.info("V16 마이그레이션 실행 중...");
+            executeV16Migration(conn);
+            log.info("V16 마이그레이션 완료");
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -284,6 +289,14 @@ public class ManualMigrationRunner implements CommandLineRunner {
             );
 
             log.info("V9 마이그레이션: diary 테이블 created_at, updated_at 컬럼 추가 완료");
+        }
+    }
+
+    private void executeV16Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V16: mission.difficulty_level 컬럼 크기 수정 (커스텀 미션 생성 시 Data truncated 오류 수정)
+            executeIgnore(stmt, "ALTER TABLE `mission` MODIFY COLUMN `difficulty_level` VARCHAR(10)");
+            log.info("V16 마이그레이션: mission.difficulty_level 컬럼 크기 수정 완료");
         }
     }
 

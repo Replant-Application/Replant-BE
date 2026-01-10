@@ -3,6 +3,7 @@ package com.app.replant.domain.missionset.dto;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.missionset.entity.MissionSet;
 import com.app.replant.domain.missionset.entity.MissionSetMission;
+import com.app.replant.domain.missionset.entity.MissionSetReview;
 import lombok.Builder;
 import lombok.Getter;
 

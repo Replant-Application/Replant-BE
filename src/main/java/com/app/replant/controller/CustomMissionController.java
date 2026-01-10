@@ -1,15 +1,14 @@
 package com.app.replant.controller;
 
 import com.app.replant.common.ApiResponse;
-import com.app.replant.domain.custommission.dto.CustomMissionRequest;
-import com.app.replant.domain.custommission.dto.CustomMissionResponse;
-import com.app.replant.domain.custommission.service.CustomMissionService;
+import com.app.replant.domain.mission.dto.MissionRequest;
+import com.app.replant.domain.mission.dto.MissionResponse;
 import com.app.replant.domain.mission.enums.VerificationType;
+import com.app.replant.domain.mission.service.MissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -31,7 +30,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CustomMissionController {
 
-    private final CustomMissionService customMissionService;
+    private final MissionService missionService;
 
     @Operation(summary = "커스텀 미션 목록 조회",
             description = "공개된 커스텀 미션 목록을 조회합니다. 인증 타입으로 필터링 가능합니다.")
@@ -68,11 +67,11 @@ public class CustomMissionController {
                             """)))
     })
     @GetMapping
-    public ApiResponse<Page<CustomMissionResponse>> getCustomMissions(
+    public ApiResponse<Page<MissionResponse>> getCustomMissions(
             @Parameter(description = "인증 타입 필터 (COMMUNITY, GPS, TIME)")
             @RequestParam(required = false) VerificationType verificationType,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<CustomMissionResponse> missions = customMissionService.getCustomMissions(verificationType, pageable);
+        Page<MissionResponse> missions = missionService.getCustomMissions(verificationType, pageable);
         return ApiResponse.success(missions);
     }
 
@@ -83,10 +82,10 @@ public class CustomMissionController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "미션을 찾을 수 없음")
     })
     @GetMapping("/{customMissionId}")
-    public ApiResponse<CustomMissionResponse> getCustomMission(
+    public ApiResponse<MissionResponse> getCustomMission(
             @Parameter(description = "커스텀 미션 ID", example = "1")
             @PathVariable Long customMissionId) {
-        CustomMissionResponse mission = customMissionService.getCustomMission(customMissionId);
+        MissionResponse mission = missionService.getCustomMission(customMissionId);
         return ApiResponse.success(mission);
     }
 
@@ -115,10 +114,10 @@ public class CustomMissionController {
     })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<CustomMissionResponse> createCustomMission(
+    public ApiResponse<MissionResponse> createCustomMission(
             @AuthenticationPrincipal Long userId,
-            @RequestBody @Valid CustomMissionRequest request) {
-        CustomMissionResponse mission = customMissionService.createCustomMission(userId, request);
+            @RequestBody @Valid MissionRequest request) {
+        MissionResponse mission = missionService.createCustomMission(userId, request);
         return ApiResponse.success(mission);
     }
 
@@ -143,12 +142,12 @@ public class CustomMissionController {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "미션을 찾을 수 없음")
     })
     @PutMapping("/{customMissionId}")
-    public ApiResponse<CustomMissionResponse> updateCustomMission(
+    public ApiResponse<MissionResponse> updateCustomMission(
             @Parameter(description = "커스텀 미션 ID", example = "1")
             @PathVariable Long customMissionId,
             @AuthenticationPrincipal Long userId,
-            @RequestBody @Valid CustomMissionRequest request) {
-        CustomMissionResponse mission = customMissionService.updateCustomMission(customMissionId, userId, request);
+            @RequestBody @Valid MissionRequest request) {
+        MissionResponse mission = missionService.updateCustomMission(customMissionId, userId, request);
         return ApiResponse.success(mission);
     }
 
@@ -172,7 +171,7 @@ public class CustomMissionController {
             @Parameter(description = "커스텀 미션 ID", example = "1")
             @PathVariable Long customMissionId,
             @AuthenticationPrincipal Long userId) {
-        customMissionService.deleteCustomMission(customMissionId, userId);
+        missionService.deleteCustomMission(customMissionId, userId);
 
         Map<String, String> result = new HashMap<>();
         result.put("message", "커스텀 미션이 삭제되었습니다.");

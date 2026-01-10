@@ -97,6 +97,18 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     );
 
     /**
+     * 공개 커스텀 미션 목록 조회 (인증 타입 필터)
+     */
+    @Query("SELECT m FROM Mission m WHERE m.missionType = 'CUSTOM' AND m.isPublic = true " +
+           "AND m.isActive = true " +
+           "AND (:verificationType IS NULL OR m.verificationType = :verificationType) " +
+           "ORDER BY m.createdAt DESC")
+    Page<Mission> findCustomMissions(
+        @Param("verificationType") VerificationType verificationType,
+        Pageable pageable
+    );
+
+    /**
      * 커스텀 미션 ID로 조회
      */
     @Query("SELECT m FROM Mission m WHERE m.id = :missionId AND m.missionType = 'CUSTOM'")

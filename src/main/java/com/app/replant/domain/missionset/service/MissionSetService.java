@@ -63,7 +63,7 @@ public class MissionSetService {
                         .build();
 
                 missionSetMissionRepository.save(msm);
-                missionSet.addMission(msm);
+                missionSet.getMissions().add(msm);
             }
         }
 
@@ -182,7 +182,7 @@ public class MissionSetService {
                 .build();
 
         missionSetMissionRepository.save(msm);
-        missionSet.addMission(msm);
+        missionSet.getMissions().add(msm);
 
         log.info("미션세트에 미션 추가: missionSetId={}, missionId={}", missionSetId, request.getMissionId());
         return MissionSetDto.DetailResponse.from(missionSet);
@@ -276,7 +276,7 @@ public class MissionSetService {
                     .build();
 
             missionSetMissionRepository.save(newMsm);
-            newMissionSet.addMission(newMsm);
+            newMissionSet.getMissions().add(newMsm);
         }
 
         // 원본 미션세트의 담은 수 증가

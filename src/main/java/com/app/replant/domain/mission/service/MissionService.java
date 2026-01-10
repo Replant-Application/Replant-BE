@@ -272,6 +272,114 @@ public class MissionService {
         return MissionResponse.from(mission);
     }
 
+    // ============ 커스텀 미션 관리 ============
+
+    /**
+     * 커스텀 미션 목록 조회 (공개된 것만)
+     */
+    public Page<MissionResponse> getCustomMissions(VerificationType verificationType, Pageable pageable) {
+        return missionRepository.findCustomMissions(verificationType, pageable)
+                .map(MissionResponse::from);
+    }
+
+    /**
+     * 커스텀 미션 상세 조회
+     */
+    public MissionResponse getCustomMission(Long missionId) {
+        Mission mission = missionRepository.findById(missionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
+
+        if (!mission.isCustomMission()) {
+            throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
+        }
+
+        return MissionResponse.from(mission);
+    }
+
+    /**
+     * 커스텀 미션 생성
+     */
+    @Transactional
+    public MissionResponse createCustomMission(Long userId, MissionRequest request) {
+        User user = findUserById(userId);
+
+        Mission mission = Mission.customBuilder()
+                .creator(user)
+                .title(request.getTitle())
+                .description(request.getDescription())
+                .worryType(request.getWorryType())
+                .category(request.getCategory())
+                .difficultyLevel(request.getDifficultyLevel())
+                .isChallenge(request.getIsChallenge())
+                .challengeDays(request.getChallengeDays())
+                .deadlineDays(request.getDeadlineDays())
+                .durationDays(request.getDurationDays())
+                .isPublic(request.getIsPublic())
+                .verificationType(request.getVerificationType())
+                .gpsLatitude(request.getGpsLatitude())
+                .gpsLongitude(request.getGpsLongitude())
+                .gpsRadiusMeters(request.getGpsRadiusMeters())
+                .requiredMinutes(request.getRequiredMinutes())
+                .expReward(request.getExpReward())
+                .badgeDurationDays(request.getBadgeDurationDays())
+                .isActive(true)
+                .build();
+
+        Mission saved = missionRepository.save(mission);
+        return MissionResponse.from(saved);
+    }
+
+    /**
+     * 커스텀 미션 수정
+     */
+    @Transactional
+    public MissionResponse updateCustomMission(Long missionId, Long userId, MissionRequest request) {
+        Mission mission = missionRepository.findById(missionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
+
+        if (!mission.isCustomMission()) {
+            throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
+        }
+
+        if (!mission.isCreator(userId)) {
+            throw new CustomException(ErrorCode.NOT_MISSION_CREATOR);
+        }
+
+        mission.updateCustom(
+                request.getTitle(),
+                request.getDescription(),
+                request.getWorryType(),
+                request.getCategory(),
+                request.getDifficultyLevel(),
+                request.getIsChallenge(),
+                request.getChallengeDays(),
+                request.getDeadlineDays(),
+                request.getExpReward(),
+                request.getIsPublic()
+        );
+
+        return MissionResponse.from(mission);
+    }
+
+    /**
+     * 커스텀 미션 삭제
+     */
+    @Transactional
+    public void deleteCustomMission(Long missionId, Long userId) {
+        Mission mission = missionRepository.findById(missionId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
+
+        if (!mission.isCustomMission()) {
+            throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
+        }
+
+        if (!mission.isCreator(userId)) {
+            throw new CustomException(ErrorCode.NOT_MISSION_CREATOR);
+        }
+
+        missionRepository.delete(mission);
+    }
+
     private Mission findMissionById(Long missionId) {
         return missionRepository.findById(missionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));

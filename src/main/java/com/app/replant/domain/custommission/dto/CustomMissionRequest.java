@@ -31,11 +31,14 @@ public class CustomMissionRequest {
     // 난이도: EASY(쉬움), MEDIUM(보통), HARD(어려움)
     private DifficultyLevel difficultyLevel;
 
-    // 챌린지 기간 (일수) - 예: 7일 챌린지면 7, 30일 챌린지면 30
+    // 챌린지 미션 여부 (true: 챌린지 미션, false: 일반 미션)
+    private Boolean isChallenge;
+
+    // 챌린지 기간 (일수) - 챌린지 미션일 때만 사용 (예: 7일 챌린지면 7)
     @Min(value = 1, message = "챌린지 기간은 1일 이상이어야 합니다.")
     private Integer challengeDays;
 
-    // 완료 기한 (일수) - 미션 할당 후 N일 이내 완료해야 함 (기본값: 3)
+    // 완료 기한 (일수) - 일반 미션일 때만 사용 (미션 할당 후 N일 이내 완료)
     @Min(value = 1, message = "완료 기한은 1일 이상이어야 합니다.")
     private Integer deadlineDays;
 

@@ -15,7 +15,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "mission", indexes = {
-    @Index(name = "idx_mission_source", columnList = "mission_source"),
+    @Index(name = "idx_mission_type", columnList = "mission_type"),
     @Index(name = "idx_mission_creator", columnList = "creator_id"),
     @Index(name = "idx_mission_is_active", columnList = "is_active")
 })
@@ -121,6 +121,22 @@ public class Mission {
     @Column(name = "is_public")
     private Boolean isPublic;
 
+    // 챌린지 미션 여부 (true: 챌린지 미션, false: 일반 미션)
+    @Column(name = "is_challenge")
+    private Boolean isChallenge;
+
+    // 챌린지 기간 (일수) - 챌린지 미션일 때만 사용
+    @Column(name = "challenge_days")
+    private Integer challengeDays;
+
+    // 완료 기한 (일수) - 일반 미션일 때만 사용
+    @Column(name = "deadline_days")
+    private Integer deadlineDays;
+
+    // 공식 미션으로 승격 여부 (별점/평가 기반)
+    @Column(name = "is_promoted")
+    private Boolean isPromoted;
+
     // ============ 공식 미션 생성용 빌더 ============
     @Builder(builderMethodName = "officialBuilder")
     private Mission(String title, String description, MissionCategory category, VerificationType verificationType,
@@ -153,10 +169,12 @@ public class Mission {
     // ============ 커스텀 미션 생성용 빌더 ============
     @Builder(builderMethodName = "customBuilder")
     public static Mission createCustomMission(User creator, String title, String description, WorryType worryType,
-                                               MissionCategory category, DifficultyLevel difficultyLevel, Integer durationDays,
-                                               Boolean isPublic, VerificationType verificationType, BigDecimal gpsLatitude,
-                                               BigDecimal gpsLongitude, Integer gpsRadiusMeters, Integer requiredMinutes,
-                                               Integer expReward, Integer badgeDurationDays, Boolean isActive) {
+                                               MissionCategory category, DifficultyLevel difficultyLevel,
+                                               Boolean isChallenge, Integer challengeDays, Integer deadlineDays,
+                                               Integer durationDays, Boolean isPublic, VerificationType verificationType,
+                                               BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
+                                               Integer requiredMinutes, Integer expReward, Integer badgeDurationDays,
+                                               Boolean isActive) {
         Mission mission = new Mission();
         mission.missionType = MissionType.CUSTOM;
         mission.creator = creator;
@@ -165,8 +183,13 @@ public class Mission {
         mission.worryType = worryType;
         mission.category = category != null ? category : MissionCategory.DAILY_LIFE;
         mission.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.LEVEL2;
+        // 챌린지 미션 관련 필드
+        mission.isChallenge = isChallenge != null ? isChallenge : false;
+        mission.challengeDays = mission.isChallenge ? (challengeDays != null ? challengeDays : 7) : null;
+        mission.deadlineDays = mission.isChallenge ? null : (deadlineDays != null ? deadlineDays : 3);
         mission.durationDays = durationDays;
         mission.isPublic = isPublic != null ? isPublic : false;
+        mission.isPromoted = false;  // 기본값: 승격되지 않음
         mission.verificationType = verificationType;
         mission.gpsLatitude = gpsLatitude;
         mission.gpsLongitude = gpsLongitude;
@@ -218,7 +241,8 @@ public class Mission {
 
     // 커스텀 미션 업데이트
     public void updateCustom(String title, String description, WorryType worryType, MissionCategory category,
-                              DifficultyLevel difficultyLevel, Integer expReward, Boolean isPublic) {
+                              DifficultyLevel difficultyLevel, Boolean isChallenge, Integer challengeDays,
+                              Integer deadlineDays, Integer expReward, Boolean isPublic) {
         if (this.missionType != MissionType.CUSTOM) {
             throw new IllegalStateException("커스텀 미션만 이 메서드로 수정할 수 있습니다.");
         }
@@ -227,6 +251,21 @@ public class Mission {
         if (worryType != null) this.worryType = worryType;
         if (category != null) this.category = category;
         if (difficultyLevel != null) this.difficultyLevel = difficultyLevel;
+        if (isChallenge != null) {
+            this.isChallenge = isChallenge;
+            // 챌린지 여부에 따라 기간 필드 조정
+            if (isChallenge) {
+                this.deadlineDays = null;
+            } else {
+                this.challengeDays = null;
+            }
+        }
+        if (challengeDays != null && Boolean.TRUE.equals(this.isChallenge)) {
+            this.challengeDays = challengeDays;
+        }
+        if (deadlineDays != null && Boolean.FALSE.equals(this.isChallenge)) {
+            this.deadlineDays = deadlineDays;
+        }
         if (expReward != null) this.expReward = expReward;
         if (isPublic != null) this.isPublic = isPublic;
     }
@@ -251,5 +290,39 @@ public class Mission {
             return false;
         }
         return this.creator.getId().equals(userId);
+    }
+
+    /**
+     * 완료기한(deadlineDays)에 따른 뱃지 유효기간 계산
+     * - 1일 → 7일
+     * - 3일 → 10일
+     * - 7일 → 14일
+     * - 15일 → 15일
+     * - 30일 → 30일
+     * - 기타 → badgeDurationDays 필드값 또는 기본값 3일
+     */
+    public int calculateBadgeDuration() {
+        // 명시적으로 설정된 badgeDurationDays가 있으면 그대로 사용
+        if (this.badgeDurationDays != null && this.badgeDurationDays > 0) {
+            return this.badgeDurationDays;
+        }
+
+        // deadlineDays 또는 challengeDays 기반으로 계산
+        Integer days = this.deadlineDays != null ? this.deadlineDays :
+                       (this.challengeDays != null ? this.challengeDays : null);
+
+        if (days == null) {
+            return 3; // 기본값
+        }
+
+        // 완료기한에 따른 뱃지 유효기간 매핑
+        return switch (days) {
+            case 1 -> 7;
+            case 3 -> 10;
+            case 7 -> 14;
+            case 15 -> 15;
+            case 30 -> 30;
+            default -> Math.max(days, 3); // 기타 경우 기한과 동일하되 최소 3일
+        };
     }
 }

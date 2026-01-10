@@ -26,8 +26,9 @@ public class CustomMissionResponse {
     private MissionType missionType;        // 미션 타입 (카테고리): DAILY_LIFE, GROWTH, EXERCISE 등
     private DifficultyLevel difficultyLevel; // 난이도 (EASY, MEDIUM, HARD)
 
-    private Integer challengeDays;         // 챌린지 기간 (일수)
-    private Integer deadlineDays;          // 완료 기한 (일수)
+    private Boolean isChallenge;           // 챌린지 미션 여부
+    private Integer challengeDays;         // 챌린지 기간 (일수) - 챌린지 미션일 때만
+    private Integer deadlineDays;          // 완료 기한 (일수) - 일반 미션일 때만
     private Integer durationDays;
     private Boolean isPublic;
     private VerificationType verificationType;
@@ -50,6 +51,7 @@ public class CustomMissionResponse {
                 .worryType(customMission.getWorryType())
                 .missionType(customMission.getMissionType())
                 .difficultyLevel(customMission.getDifficultyLevel())
+                .isChallenge(customMission.getIsChallenge())
                 .challengeDays(customMission.getChallengeDays())
                 .deadlineDays(customMission.getDeadlineDays())
                 .durationDays(customMission.getDurationDays())

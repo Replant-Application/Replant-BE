@@ -17,7 +17,7 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
            "AND (:status IS NULL OR um.status = :status) " +
            "AND (:missionType IS NULL OR " +
            "   (:missionType = 'SYSTEM' AND um.mission IS NOT NULL) OR " +
-           "   (:missionType = 'CUSTOM' AND um.customMission IS NOT NULL))")
+           "   (:missionType = 'CUSTOM' AND um.missionType = 'CUSTOM'))")
     Page<UserMission> findByUserIdWithFilters(
         @Param("userId") Long userId,
         @Param("status") UserMissionStatus status,
@@ -48,7 +48,7 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
      * 특정 커스텀 미션을 최근에 완료한 다른 유저들 조회 (추천용)
      */
     @Query("SELECT um FROM UserMission um " +
-           "WHERE um.customMission.id = :customMissionId " +
+           "WHERE um.mission.id = :customMissionId AND um.missionType = 'CUSTOM' " +
            "AND um.status = 'COMPLETED' " +
            "AND um.user.id != :excludeUserId " +
            "ORDER BY um.createdAt DESC")

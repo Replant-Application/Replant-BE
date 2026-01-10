@@ -317,12 +317,9 @@ public class VerificationController {
      * 미션 제목 가져오기
      */
     private String getMissionTitle(Post post) {
-        if (post.getUserMission() != null) {
-            if (post.getUserMission().getMission() != null) {
-                return post.getUserMission().getMission().getTitle();
-            } else if (post.getUserMission().getCustomMission() != null) {
-                return post.getUserMission().getCustomMission().getTitle();
-            }
+        // 통합된 Mission 엔티티 사용
+        if (post.getUserMission() != null && post.getUserMission().getMission() != null) {
+            return post.getUserMission().getMission().getTitle();
         }
         return "미션";
     }

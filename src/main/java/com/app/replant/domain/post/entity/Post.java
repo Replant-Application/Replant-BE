@@ -205,12 +205,8 @@ public class Post extends BaseEntity {
      * 미션 제목 반환 (인증글일 경우)
      */
     public String getMissionTitle() {
-        if (this.userMission != null) {
-            if (this.userMission.getMission() != null) {
-                return this.userMission.getMission().getTitle();
-            } else if (this.userMission.getCustomMission() != null) {
-                return this.userMission.getCustomMission().getTitle();
-            }
+        if (this.userMission != null && this.userMission.getMission() != null) {
+            return this.userMission.getMission().getTitle();
         }
         return null;
     }
@@ -219,12 +215,8 @@ public class Post extends BaseEntity {
      * 미션 ID 반환 (통합된 미션 ID)
      */
     public Long getMissionId() {
-        if (this.userMission != null) {
-            if (this.userMission.getMission() != null) {
-                return this.userMission.getMission().getId();
-            } else if (this.userMission.getCustomMission() != null) {
-                return this.userMission.getCustomMission().getId();
-            }
+        if (this.userMission != null && this.userMission.getMission() != null) {
+            return this.userMission.getMission().getId();
         }
         return null;
     }
@@ -233,12 +225,8 @@ public class Post extends BaseEntity {
      * 미션 타입 반환 (OFFICIAL / CUSTOM)
      */
     public String getMissionType() {
-        if (this.userMission != null) {
-            if (this.userMission.getMission() != null) {
-                return "OFFICIAL";
-            } else if (this.userMission.getCustomMission() != null) {
-                return "CUSTOM";
-            }
+        if (this.userMission != null && this.userMission.getMission() != null) {
+            return this.userMission.getMission().isOfficialMission() ? "OFFICIAL" : "CUSTOM";
         }
         return null;
     }

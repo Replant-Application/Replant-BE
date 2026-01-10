@@ -2,7 +2,9 @@ package com.app.replant.controller;
 
 import com.app.replant.common.ApiResponse;
 import com.app.replant.domain.missionset.dto.MissionSetDto;
+import com.app.replant.domain.missionset.dto.MissionSetReviewDto;
 import com.app.replant.domain.missionset.service.MissionSetService;
+import com.app.replant.domain.missionset.service.MissionSetReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -28,6 +30,7 @@ import java.util.Map;
 public class MissionSetController {
 
     private final MissionSetService missionSetService;
+    private final MissionSetReviewService reviewService;
 
     @Operation(summary = "미션세트 생성",
             description = "새로운 미션세트(투두리스트)를 생성합니다.")
@@ -159,5 +162,62 @@ public class MissionSetController {
             @AuthenticationPrincipal Long userId) {
         MissionSetDto.DetailResponse response = missionSetService.copyMissionSet(missionSetId, userId);
         return ApiResponse.success(response);
+    }
+
+    // ============ Review Endpoints ============
+
+    @Operation(summary = "리뷰 작성",
+            description = "미션세트에 리뷰를 작성합니다. 자신의 미션세트에는 작성 불가.")
+    @PostMapping("/{missionSetId}/reviews")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<MissionSetReviewDto.Response> createReview(
+            @Parameter(description = "미션세트 ID") @PathVariable Long missionSetId,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody MissionSetReviewDto.CreateRequest request) {
+        MissionSetReviewDto.Response response = reviewService.createReview(missionSetId, userId, request);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "리뷰 목록 조회",
+            description = "미션세트의 리뷰 목록을 조회합니다.")
+    @GetMapping("/{missionSetId}/reviews")
+    public ApiResponse<Page<MissionSetReviewDto.Response>> getReviews(
+            @Parameter(description = "미션세트 ID") @PathVariable Long missionSetId,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<MissionSetReviewDto.Response> response = reviewService.getReviews(missionSetId, pageable);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "내 리뷰 조회",
+            description = "특정 미션세트에 작성한 내 리뷰를 조회합니다.")
+    @GetMapping("/{missionSetId}/reviews/my")
+    public ApiResponse<MissionSetReviewDto.Response> getMyReview(
+            @Parameter(description = "미션세트 ID") @PathVariable Long missionSetId,
+            @AuthenticationPrincipal Long userId) {
+        MissionSetReviewDto.Response response = reviewService.getMyReview(missionSetId, userId);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "리뷰 수정",
+            description = "내가 작성한 리뷰를 수정합니다.")
+    @PutMapping("/reviews/{reviewId}")
+    public ApiResponse<MissionSetReviewDto.Response> updateReview(
+            @Parameter(description = "리뷰 ID") @PathVariable Long reviewId,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody MissionSetReviewDto.UpdateRequest request) {
+        MissionSetReviewDto.Response response = reviewService.updateReview(reviewId, userId, request);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "리뷰 삭제",
+            description = "내가 작성한 리뷰를 삭제합니다.")
+    @DeleteMapping("/reviews/{reviewId}")
+    public ApiResponse<Map<String, String>> deleteReview(
+            @Parameter(description = "리뷰 ID") @PathVariable Long reviewId,
+            @AuthenticationPrincipal Long userId) {
+        reviewService.deleteReview(reviewId, userId);
+        Map<String, String> result = new HashMap<>();
+        result.put("message", "리뷰가 삭제되었습니다.");
+        return ApiResponse.success(result);
     }
 }

@@ -75,10 +75,6 @@ public class VerificationService {
             userMission.getMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.COMMUNITY) {
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
         }
-        if (userMission.getCustomMission() != null &&
-            userMission.getCustomMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.COMMUNITY) {
-            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
-        }
 
         // 이미 인증글이 있는지 확인
         if (postRepository.findByUserMissionId(request.getUserMissionId()).isPresent()) {
@@ -227,7 +223,6 @@ public class VerificationService {
         UserBadge badge = UserBadge.builder()
                 .user(userMission.getUser())
                 .mission(userMission.getMission())
-                .customMission(userMission.getCustomMission())
                 .userMission(userMission)
                 .issuedAt(now)
                 .expiresAt(expiresAt)
@@ -240,8 +235,6 @@ public class VerificationService {
     private Integer getBadgeDurationDays(UserMission userMission) {
         if (userMission.getMission() != null) {
             return userMission.getMission().getBadgeDurationDays();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getBadgeDurationDays();
         }
         return 3;
     }
@@ -249,8 +242,6 @@ public class VerificationService {
     private int getExpReward(UserMission userMission) {
         if (userMission.getMission() != null) {
             return userMission.getMission().getExpReward();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getExpReward();
         }
         return 10;
     }
@@ -271,8 +262,6 @@ public class VerificationService {
     private String getMissionTitle(UserMission userMission) {
         if (userMission.getMission() != null) {
             return userMission.getMission().getTitle();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getTitle();
         }
         return "미션";
     }
@@ -289,10 +278,6 @@ public class VerificationService {
             userMission.getMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.GPS) {
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
         }
-        if (userMission.getCustomMission() != null &&
-            userMission.getCustomMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.GPS) {
-            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
-        }
 
         if (userMission.getStatus() != UserMissionStatus.ASSIGNED) {
             throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
@@ -307,10 +292,6 @@ public class VerificationService {
             targetLat = userMission.getMission().getGpsLatitude();
             targetLng = userMission.getMission().getGpsLongitude();
             radiusMeters = userMission.getMission().getGpsRadiusMeters();
-        } else if (userMission.getCustomMission() != null) {
-            targetLat = userMission.getCustomMission().getGpsLatitude();
-            targetLng = userMission.getCustomMission().getGpsLongitude();
-            radiusMeters = userMission.getCustomMission().getGpsRadiusMeters();
         } else {
             throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
         }
@@ -376,10 +357,6 @@ public class VerificationService {
             userMission.getMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.TIME) {
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
         }
-        if (userMission.getCustomMission() != null &&
-            userMission.getCustomMission().getVerificationType() != com.app.replant.domain.mission.enums.VerificationType.TIME) {
-            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
-        }
 
         if (userMission.getStatus() != UserMissionStatus.ASSIGNED) {
             throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
@@ -388,8 +365,6 @@ public class VerificationService {
         Integer requiredMinutes;
         if (userMission.getMission() != null) {
             requiredMinutes = userMission.getMission().getRequiredMinutes();
-        } else if (userMission.getCustomMission() != null) {
-            requiredMinutes = userMission.getCustomMission().getRequiredMinutes();
         } else {
             throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
         }

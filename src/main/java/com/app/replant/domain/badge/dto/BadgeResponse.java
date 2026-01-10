@@ -49,17 +49,19 @@ public class BadgeResponse {
                 .isExpired(isExpired);
 
         if (userBadge.getMission() != null) {
-            builder.missionType("SYSTEM")
-                    .mission(MissionInfo.builder()
-                            .id(userBadge.getMission().getId())
-                            .title(userBadge.getMission().getTitle())
-                            .build());
-        } else if (userBadge.getCustomMission() != null) {
-            builder.missionType("CUSTOM")
-                    .customMission(CustomMissionInfo.builder()
-                            .id(userBadge.getCustomMission().getId())
-                            .title(userBadge.getCustomMission().getTitle())
-                            .build());
+            if (userBadge.getMission().isOfficialMission()) {
+                builder.missionType("SYSTEM")
+                        .mission(MissionInfo.builder()
+                                .id(userBadge.getMission().getId())
+                                .title(userBadge.getMission().getTitle())
+                                .build());
+            } else {
+                builder.missionType("CUSTOM")
+                        .customMission(CustomMissionInfo.builder()
+                                .id(userBadge.getMission().getId())
+                                .title(userBadge.getMission().getTitle())
+                                .build());
+            }
         }
 
         return builder.build();

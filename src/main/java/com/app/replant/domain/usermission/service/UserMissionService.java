@@ -2,9 +2,8 @@ package com.app.replant.domain.usermission.service;
 
 import com.app.replant.domain.badge.entity.UserBadge;
 import com.app.replant.domain.badge.repository.UserBadgeRepository;
-import com.app.replant.domain.custommission.entity.CustomMission;
-import com.app.replant.domain.custommission.repository.CustomMissionRepository;
 import com.app.replant.domain.mission.entity.Mission;
+import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.enums.VerificationType;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.reant.entity.Reant;
@@ -41,7 +40,6 @@ public class UserMissionService {
     private final MissionVerificationRepository verificationRepository;
     private final UserRepository userRepository;
     private final MissionRepository missionRepository;
-    private final CustomMissionRepository customMissionRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final ReantRepository reantRepository;
     private final RecommendationService recommendationService;
@@ -60,19 +58,29 @@ public class UserMissionService {
     @Transactional
     public UserMissionResponse addCustomMission(Long userId, AddCustomMissionRequest request) {
         User user = findUserById(userId);
-        CustomMission customMission = customMissionRepository.findById(request.getCustomMissionId())
+        Mission mission = missionRepository.findCustomMissionById(request.getCustomMissionId())
                 .orElseThrow(() -> new CustomException(ErrorCode.CUSTOM_MISSION_NOT_FOUND));
 
-        if (!customMission.getIsPublic() && !customMission.isCreator(userId)) {
+        // 커스텀 미션이 아닌 경우 에러
+        if (!mission.isCustomMission()) {
+            throw new CustomException(ErrorCode.CUSTOM_MISSION_NOT_FOUND);
+        }
+
+        // 비공개 미션이고 생성자가 아닌 경우
+        if (!Boolean.TRUE.equals(mission.getIsPublic()) && !mission.isCreator(userId)) {
             throw new CustomException(ErrorCode.CUSTOM_MISSION_NOT_PUBLIC);
         }
 
         LocalDateTime now = LocalDateTime.now();
-        LocalDateTime dueDate = now.plusDays(customMission.getDurationDays());
+        // durationDays 또는 deadlineDays 사용, 없으면 기본 3일
+        int days = mission.getDurationDays() != null ? mission.getDurationDays() :
+                   (mission.getDeadlineDays() != null ? mission.getDeadlineDays() : 3);
+        LocalDateTime dueDate = now.plusDays(days);
 
         UserMission userMission = UserMission.builder()
                 .user(user)
-                .customMission(customMission)
+                .mission(mission)
+                .missionType(MissionType.CUSTOM)
                 .assignedAt(now)
                 .dueDate(dueDate)
                 .status(UserMissionStatus.ASSIGNED)
@@ -235,7 +243,6 @@ public class UserMissionService {
         UserBadge badge = UserBadge.builder()
                 .user(userMission.getUser())
                 .mission(userMission.getMission())
-                .customMission(userMission.getCustomMission())
                 .userMission(userMission)
                 .issuedAt(now)
                 .expiresAt(expiresAt)
@@ -300,66 +307,41 @@ public class UserMissionService {
     }
 
     private VerificationType getVerificationType(UserMission userMission) {
-        if (userMission.getMission() != null) {
-            return userMission.getMission().getVerificationType();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getVerificationType();
+        Mission mission = userMission.getMission();
+        if (mission != null) {
+            return mission.getVerificationType();
         }
         throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
     }
 
     private BigDecimal getGpsLatitude(UserMission userMission) {
-        if (userMission.getMission() != null) {
-            return userMission.getMission().getGpsLatitude();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getGpsLatitude();
-        }
-        return null;
+        Mission mission = userMission.getMission();
+        return mission != null ? mission.getGpsLatitude() : null;
     }
 
     private BigDecimal getGpsLongitude(UserMission userMission) {
-        if (userMission.getMission() != null) {
-            return userMission.getMission().getGpsLongitude();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getGpsLongitude();
-        }
-        return null;
+        Mission mission = userMission.getMission();
+        return mission != null ? mission.getGpsLongitude() : null;
     }
 
     private Integer getGpsRadius(UserMission userMission) {
-        if (userMission.getMission() != null) {
-            return userMission.getMission().getGpsRadiusMeters();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getGpsRadiusMeters();
-        }
-        return 100;
+        Mission mission = userMission.getMission();
+        return mission != null ? mission.getGpsRadiusMeters() : 100;
     }
 
     private Integer getRequiredMinutes(UserMission userMission) {
-        if (userMission.getMission() != null) {
-            return userMission.getMission().getRequiredMinutes();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getRequiredMinutes();
-        }
-        return null;
+        Mission mission = userMission.getMission();
+        return mission != null ? mission.getRequiredMinutes() : null;
     }
 
     private int getExpReward(UserMission userMission) {
-        if (userMission.getMission() != null) {
-            return userMission.getMission().getExpReward();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getExpReward();
-        }
-        return 10;
+        Mission mission = userMission.getMission();
+        return mission != null ? mission.getExpReward() : 10;
     }
 
     private Integer getBadgeDurationDays(UserMission userMission) {
-        if (userMission.getMission() != null) {
-            return userMission.getMission().getBadgeDurationDays();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getBadgeDurationDays();
-        }
-        return 3;
+        Mission mission = userMission.getMission();
+        return mission != null ? mission.calculateBadgeDuration() : 3;
     }
 
     private User findUserById(Long userId) {

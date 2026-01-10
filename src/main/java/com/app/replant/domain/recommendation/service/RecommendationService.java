@@ -121,17 +121,12 @@ public class RecommendationService {
 
         List<UserMission> similarUserMissions;
 
-        // 시스템 미션인 경우
+        // 통합된 미션 참조 사용
         if (completedUserMission.getMission() != null) {
             Long missionId = completedUserMission.getMission().getId();
+            // 공식/커스텀 구분 없이 같은 미션 ID로 조회
             similarUserMissions = userMissionRepository.findRecentCompletedByMissionExcludingUser(
                     missionId, userId, PageRequest.of(0, MAX_RECOMMENDATIONS_PER_MISSION));
-        }
-        // 커스텀 미션인 경우
-        else if (completedUserMission.getCustomMission() != null) {
-            Long customMissionId = completedUserMission.getCustomMission().getId();
-            similarUserMissions = userMissionRepository.findRecentCompletedByCustomMissionExcludingUser(
-                    customMissionId, userId, PageRequest.of(0, MAX_RECOMMENDATIONS_PER_MISSION));
         } else {
             return Collections.emptyList();
         }
@@ -154,7 +149,7 @@ public class RecommendationService {
                     .user(user)
                     .recommendedUser(recommendedUser)
                     .mission(completedUserMission.getMission())
-                    .customMission(completedUserMission.getCustomMission())
+                    .customMission(null)  // 통합된 Mission 사용으로 deprecated
                     .userMission(completedUserMission)
                     .matchReason(matchReason)
                     .expiresAt(expiresAt)
@@ -190,10 +185,9 @@ public class RecommendationService {
      * 미션 타이틀 조회
      */
     private String getMissionTitle(UserMission userMission) {
+        // 통합된 Mission 엔티티 사용
         if (userMission.getMission() != null) {
             return userMission.getMission().getTitle();
-        } else if (userMission.getCustomMission() != null) {
-            return userMission.getCustomMission().getTitle();
         }
         return "Unknown Mission";
     }

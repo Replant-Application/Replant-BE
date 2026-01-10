@@ -77,7 +77,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "JOIN FETCH p.user " +
            "LEFT JOIN FETCH p.userMission um " +
            "LEFT JOIN FETCH um.mission " +
-           "LEFT JOIN FETCH um.customMission " +
+           "" +
            "WHERE p.postType = 'VERIFICATION' " +
            "AND (:status IS NULL OR p.status = :status) " +
            "AND (p.delFlag = false OR p.delFlag IS NULL) " +
@@ -91,7 +91,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
            "JOIN FETCH p.user " +
            "LEFT JOIN FETCH p.userMission um " +
            "LEFT JOIN FETCH um.mission " +
-           "LEFT JOIN FETCH um.customMission " +
+           "" +
            "WHERE p.id = :postId " +
            "AND p.postType = 'VERIFICATION' " +
            "AND (p.delFlag = false OR p.delFlag IS NULL)")

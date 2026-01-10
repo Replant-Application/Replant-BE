@@ -68,4 +68,21 @@ public class MissionRequest {
 
     // 난이도: LEVEL1, LEVEL2, LEVEL3
     private DifficultyLevel difficultyLevel;
+
+    // ============ 커스텀 미션 전용 필드들 ============
+
+    // 미션 기간 (일 수)
+    private Integer durationDays;
+
+    // 공개 여부
+    private Boolean isPublic;
+
+    // 챌린지 미션 여부
+    private Boolean isChallenge;
+
+    // 챌린지 기간 (일수) - 챌린지 미션일 때만
+    private Integer challengeDays;
+
+    // 완료 기한 (일수) - 일반 미션일 때만
+    private Integer deadlineDays;
 }

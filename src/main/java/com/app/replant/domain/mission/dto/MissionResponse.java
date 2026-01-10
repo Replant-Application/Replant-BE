@@ -12,6 +12,7 @@ import java.util.List;
 @Builder
 public class MissionResponse {
     private Long id;
+    private MissionType missionType;  // OFFICIAL or CUSTOM
     private String title;
     private String description;
     // 카테고리: DAILY_LIFE(일상), GROWTH(성장), EXERCISE(운동), STUDY(학습), HEALTH(건강), RELATIONSHIP(관계)
@@ -42,9 +43,20 @@ public class MissionResponse {
     // 난이도
     private DifficultyLevel difficultyLevel;
 
+    // ============ 커스텀 미션 전용 필드들 ============
+    private Long creatorId;
+    private String creatorNickname;
+    private Integer durationDays;
+    private Boolean isPublic;
+    private Boolean isChallenge;
+    private Integer challengeDays;
+    private Integer deadlineDays;
+    private Boolean isPromoted;
+
     public static MissionResponse from(Mission mission) {
-        return MissionResponse.builder()
+        MissionResponseBuilder builder = MissionResponse.builder()
                 .id(mission.getId())
+                .missionType(mission.getMissionType())
                 .title(mission.getTitle())
                 .description(mission.getDescription())
                 .category(mission.getCategory())
@@ -62,13 +74,27 @@ public class MissionResponse {
                 .genderType(mission.getGenderType())
                 .regionType(mission.getRegionType())
                 .placeType(mission.getPlaceType())
-                .difficultyLevel(mission.getDifficultyLevel())
-                .build();
+                .difficultyLevel(mission.getDifficultyLevel());
+
+        // 커스텀 미션 전용 필드
+        if (mission.isCustomMission()) {
+            builder.creatorId(mission.getCreator() != null ? mission.getCreator().getId() : null)
+                    .creatorNickname(mission.getCreator() != null ? mission.getCreator().getNickname() : null)
+                    .durationDays(mission.getDurationDays())
+                    .isPublic(mission.getIsPublic())
+                    .isChallenge(mission.getIsChallenge())
+                    .challengeDays(mission.getChallengeDays())
+                    .deadlineDays(mission.getDeadlineDays())
+                    .isPromoted(mission.getIsPromoted());
+        }
+
+        return builder.build();
     }
 
     public static MissionResponse from(Mission mission, long reviewCount, long qnaCount) {
-        return MissionResponse.builder()
+        MissionResponseBuilder builder = MissionResponse.builder()
                 .id(mission.getId())
+                .missionType(mission.getMissionType())
                 .title(mission.getTitle())
                 .description(mission.getDescription())
                 .category(mission.getCategory())
@@ -88,7 +114,20 @@ public class MissionResponse {
                 .genderType(mission.getGenderType())
                 .regionType(mission.getRegionType())
                 .placeType(mission.getPlaceType())
-                .difficultyLevel(mission.getDifficultyLevel())
-                .build();
+                .difficultyLevel(mission.getDifficultyLevel());
+
+        // 커스텀 미션 전용 필드
+        if (mission.isCustomMission()) {
+            builder.creatorId(mission.getCreator() != null ? mission.getCreator().getId() : null)
+                    .creatorNickname(mission.getCreator() != null ? mission.getCreator().getNickname() : null)
+                    .durationDays(mission.getDurationDays())
+                    .isPublic(mission.getIsPublic())
+                    .isChallenge(mission.getIsChallenge())
+                    .challengeDays(mission.getChallengeDays())
+                    .deadlineDays(mission.getDeadlineDays())
+                    .isPromoted(mission.getIsPromoted());
+        }
+
+        return builder.build();
     }
 }

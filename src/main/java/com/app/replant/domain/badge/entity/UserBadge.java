@@ -1,6 +1,5 @@
 package com.app.replant.domain.badge.entity;
 
-import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.user.entity.User;
@@ -26,13 +25,10 @@ public class UserBadge {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    // 통합된 Mission 참조 (공식/커스텀 미션 모두)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mission_id")
     private Mission mission;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "custom_mission_id")
-    private CustomMission customMission;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_mission_id", nullable = false, unique = true)
@@ -48,10 +44,9 @@ public class UserBadge {
     private LocalDateTime createdAt;
 
     @Builder
-    private UserBadge(User user, Mission mission, CustomMission customMission, UserMission userMission, LocalDateTime issuedAt, LocalDateTime expiresAt) {
+    private UserBadge(User user, Mission mission, UserMission userMission, LocalDateTime issuedAt, LocalDateTime expiresAt) {
         this.user = user;
         this.mission = mission;
-        this.customMission = customMission;
         this.userMission = userMission;
         this.issuedAt = issuedAt != null ? issuedAt : LocalDateTime.now();
         this.expiresAt = expiresAt;

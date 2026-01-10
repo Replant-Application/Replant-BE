@@ -49,11 +49,15 @@ public class CustomMission {
     @Column(name = "difficulty_level", length = 20)
     private DifficultyLevel difficultyLevel;
 
-    // 챌린지 기간 (일수) - 예: 7일 챌린지면 7, 30일 챌린지면 30
+    // 챌린지 미션 여부 (true: 챌린지 미션, false: 일반 미션)
+    @Column(name = "is_challenge", nullable = false)
+    private Boolean isChallenge;
+
+    // 챌린지 기간 (일수) - 챌린지 미션일 때만 사용 (예: 7일 챌린지면 7)
     @Column(name = "challenge_days")
     private Integer challengeDays;
 
-    // 완료 기한 (일수) - 미션 할당 후 N일 이내 완료해야 함 (기본값: 3)
+    // 완료 기한 (일수) - 일반 미션일 때만 사용 (미션 할당 후 N일 이내 완료)
     @Column(name = "deadline_days")
     private Integer deadlineDays;
 
@@ -88,24 +92,31 @@ public class CustomMission {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
+    // 공식 미션으로 승격 여부 (별점/평가 기반으로 나중에 승격 시스템 적용)
+    @Column(name = "is_promoted", nullable = false)
+    private Boolean isPromoted;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
     private CustomMission(User creator, String title, String description, WorryType worryType,
                           MissionType missionType, DifficultyLevel difficultyLevel,
-                          Integer challengeDays, Integer deadlineDays, Integer durationDays,
+                          Boolean isChallenge, Integer challengeDays, Integer deadlineDays, Integer durationDays,
                           Boolean isPublic, VerificationType verificationType,
                           BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
-                          Integer requiredMinutes, Integer expReward, Integer badgeDurationDays, Boolean isActive) {
+                          Integer requiredMinutes, Integer expReward, Integer badgeDurationDays,
+                          Boolean isActive, Boolean isPromoted) {
         this.creator = creator;
         this.title = title;
         this.description = description;
         this.worryType = worryType;
-        this.missionType = missionType; // deprecated - 사용하지 않음
+        this.missionType = missionType;
         this.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.MEDIUM;
-        this.challengeDays = challengeDays != null ? challengeDays : 1;
-        this.deadlineDays = deadlineDays != null ? deadlineDays : 3;
+        this.isChallenge = isChallenge != null ? isChallenge : false;  // 기본값: 일반 미션
+        // 챌린지 미션이면 challengeDays 설정, 일반 미션이면 deadlineDays 설정
+        this.challengeDays = this.isChallenge ? (challengeDays != null ? challengeDays : 7) : null;
+        this.deadlineDays = this.isChallenge ? null : (deadlineDays != null ? deadlineDays : 3);
         this.durationDays = durationDays;
         this.isPublic = isPublic != null ? isPublic : false;
         this.verificationType = verificationType;
@@ -116,6 +127,7 @@ public class CustomMission {
         this.expReward = expReward != null ? expReward : calculateDefaultExpReward(difficultyLevel);
         this.badgeDurationDays = badgeDurationDays != null ? badgeDurationDays : 3;
         this.isActive = isActive != null ? isActive : true;
+        this.isPromoted = isPromoted != null ? isPromoted : false;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -130,8 +142,8 @@ public class CustomMission {
     }
 
     public void update(String title, String description, WorryType worryType, MissionType missionType,
-                       DifficultyLevel difficultyLevel, Integer challengeDays, Integer deadlineDays,
-                       Integer expReward, Boolean isPublic) {
+                       DifficultyLevel difficultyLevel, Boolean isChallenge, Integer challengeDays,
+                       Integer deadlineDays, Integer expReward, Boolean isPublic) {
         if (title != null) {
             this.title = title;
         }
@@ -147,10 +159,19 @@ public class CustomMission {
         if (difficultyLevel != null) {
             this.difficultyLevel = difficultyLevel;
         }
-        if (challengeDays != null) {
+        if (isChallenge != null) {
+            this.isChallenge = isChallenge;
+            // 챌린지 여부에 따라 기간 필드 조정
+            if (isChallenge) {
+                this.deadlineDays = null;
+            } else {
+                this.challengeDays = null;
+            }
+        }
+        if (challengeDays != null && Boolean.TRUE.equals(this.isChallenge)) {
             this.challengeDays = challengeDays;
         }
-        if (deadlineDays != null) {
+        if (deadlineDays != null && Boolean.FALSE.equals(this.isChallenge)) {
             this.deadlineDays = deadlineDays;
         }
         if (expReward != null) {
