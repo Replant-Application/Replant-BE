@@ -5,7 +5,6 @@ import com.app.replant.domain.badge.repository.UserBadgeRepository;
 import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.custommission.repository.CustomMissionRepository;
 import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.enums.VerificationType;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.reant.entity.Reant;
@@ -90,7 +89,8 @@ public class UserMissionService {
                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
 
         LocalDateTime now = LocalDateTime.now();
-        int durationDays = getDurationDays(mission.getType());
+        // durationDays 사용, 없으면 기본 3일
+        int durationDays = mission.getDurationDays() != null ? mission.getDurationDays() : 3;
         LocalDateTime dueDate = now.plusDays(durationDays);
 
         UserMission userMission = UserMission.builder()
@@ -103,14 +103,6 @@ public class UserMissionService {
 
         UserMission saved = userMissionRepository.save(userMission);
         return UserMissionResponse.from(saved);
-    }
-
-    private int getDurationDays(MissionType type) {
-        return switch (type) {
-            case DAILY -> 1;
-            case WEEKLY -> 7;
-            case MONTHLY -> 30;
-        };
     }
 
     @Transactional

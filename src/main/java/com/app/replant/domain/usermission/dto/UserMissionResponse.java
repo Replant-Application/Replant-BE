@@ -2,7 +2,7 @@ package com.app.replant.domain.usermission.dto;
 
 import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.mission.enums.MissionType;
+import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.enums.VerificationType;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 public class UserMissionResponse {
 
     private Long id;
-    private String missionType; // SYSTEM or CUSTOM
+    private String missionType; // OFFICIAL or CUSTOM
     private MissionInfo mission;
     private CustomMissionInfo customMission;
     private LocalDateTime assignedAt;
@@ -28,7 +28,7 @@ public class UserMissionResponse {
     public static class MissionInfo {
         private Long id;
         private String title;
-        private MissionType type;
+        private MissionCategory category;
         private VerificationType verificationType;
         private Integer requiredMinutes;
     }
@@ -51,11 +51,11 @@ public class UserMissionResponse {
 
         if (userMission.getMission() != null) {
             Mission mission = userMission.getMission();
-            builder.missionType("SYSTEM")
+            builder.missionType("OFFICIAL")
                     .mission(MissionInfo.builder()
                             .id(mission.getId())
                             .title(mission.getTitle())
-                            .type(mission.getType())
+                            .category(mission.getCategory())
                             .verificationType(mission.getVerificationType())
                             .requiredMinutes(mission.getRequiredMinutes())
                             .build());

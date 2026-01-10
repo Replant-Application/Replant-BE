@@ -14,8 +14,8 @@ public class MissionResponse {
     private Long id;
     private String title;
     private String description;
-    // 기간: DAILY(일간), WEEKLY(주간), MONTHLY(월간)
-    private MissionType type;
+    // 카테고리: DAILY_LIFE(일상), GROWTH(성장), EXERCISE(운동), STUDY(학습), HEALTH(건강), RELATIONSHIP(관계)
+    private MissionCategory category;
     // 인증방식: TIMER(시간인증), GPS(GPS인증), COMMUNITY(커뮤인증)
     private VerificationType verificationType;
     private BigDecimal gpsLatitude;
@@ -47,7 +47,7 @@ public class MissionResponse {
                 .id(mission.getId())
                 .title(mission.getTitle())
                 .description(mission.getDescription())
-                .type(mission.getType())
+                .category(mission.getCategory())
                 .verificationType(mission.getVerificationType())
                 .gpsLatitude(mission.getGpsLatitude())
                 .gpsLongitude(mission.getGpsLongitude())
@@ -71,7 +71,7 @@ public class MissionResponse {
                 .id(mission.getId())
                 .title(mission.getTitle())
                 .description(mission.getDescription())
-                .type(mission.getType())
+                .category(mission.getCategory())
                 .verificationType(mission.getVerificationType())
                 .gpsLatitude(mission.getGpsLatitude())
                 .gpsLongitude(mission.getGpsLongitude())

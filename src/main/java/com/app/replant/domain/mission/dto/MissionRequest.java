@@ -25,9 +25,9 @@ public class MissionRequest {
     @NotBlank(message = "미션 설명을 입력해주세요")
     private String description;
 
-    // 기간: DAILY(일간), WEEKLY(주간), MONTHLY(월간)
-    @NotNull(message = "미션 타입을 선택해주세요")
-    private MissionType type;
+    // 카테고리: DAILY_LIFE(일상), GROWTH(성장), EXERCISE(운동), STUDY(학습), HEALTH(건강), RELATIONSHIP(관계)
+    @NotNull(message = "미션 카테고리를 선택해주세요")
+    private MissionCategory category;
 
     // 인증방식: TIMER(시간인증), GPS(GPS인증), COMMUNITY(커뮤인증)
     @NotNull(message = "인증 타입을 선택해주세요")

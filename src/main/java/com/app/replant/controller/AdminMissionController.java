@@ -3,7 +3,7 @@ package com.app.replant.controller;
 import com.app.replant.common.ApiResponse;
 import com.app.replant.domain.mission.dto.MissionRequest;
 import com.app.replant.domain.mission.dto.MissionResponse;
-import com.app.replant.domain.mission.enums.MissionType;
+import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.enums.VerificationType;
 import com.app.replant.domain.mission.service.MissionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,11 +38,11 @@ public class AdminMissionController {
     @Operation(summary = "전체 미션 목록 조회 (관리자)")
     @GetMapping
     public ApiResponse<Page<MissionResponse>> getAllMissions(
-            @RequestParam(required = false) MissionType type,
+            @RequestParam(required = false) MissionCategory category,
             @RequestParam(required = false) VerificationType verificationType,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         log.info("관리자 - 전체 미션 조회");
-        Page<MissionResponse> missions = missionService.getMissions(type, verificationType, pageable);
+        Page<MissionResponse> missions = missionService.getMissions(category, verificationType, pageable);
         return ApiResponse.success(missions);
     }
 

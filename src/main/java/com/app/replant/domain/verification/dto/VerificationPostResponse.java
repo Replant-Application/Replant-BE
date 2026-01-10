@@ -12,6 +12,11 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 인증글 응답 DTO
+ * - 좋아요 = 인증 시스템으로 변경
+ * - 미션 정보는 userMission을 통해 접근
+ */
 @Getter
 @Builder
 public class VerificationPostResponse {
@@ -21,80 +26,61 @@ public class VerificationPostResponse {
     private String userNickname;
     private String userProfileImg;
     private Long userMissionId;
-    private String missionType;
-    private MissionInfo mission;
-    private CustomMissionInfo customMission;
-    private String missionTitle;
+    private MissionTag missionTag;  // 미션 정보 (통합)
     private String content;
     private List<String> imageUrls;
     private VerificationStatus status;
-    private Integer approveCount;
-    private Integer rejectCount;
+    private Long likeCount;  // 좋아요 수 (= 인증 투표)
     private Integer commentCount;
     private LocalDateTime createdAt;
-    private String myVote;
+    private LocalDateTime verifiedAt;
 
     @Getter
     @Builder
-    public static class MissionInfo {
+    public static class MissionTag {
         private Long id;
         private String title;
-        private String type;
-    }
-
-    @Getter
-    @Builder
-    public static class CustomMissionInfo {
-        private Long id;
-        private String title;
+        private String type;  // OFFICIAL, CUSTOM
     }
 
     public static VerificationPostResponse from(Post post) {
-        return from(post, null, 0);
+        return from(post, 0L, 0);
     }
 
-    public static VerificationPostResponse from(Post post, String myVote) {
-        return from(post, myVote, 0);
+    public static VerificationPostResponse from(Post post, Long likeCount) {
+        return from(post, likeCount, 0);
     }
 
-    public static VerificationPostResponse from(Post post, String myVote, int commentCount) {
-        // missionTitle 추출
-        String missionTitle = post.getMissionTitle();
-        if (missionTitle == null) {
-            missionTitle = "미션";
-        }
-
+    public static VerificationPostResponse from(Post post, Long likeCount, int commentCount) {
         Long userMissionId = post.getUserMission() != null ? post.getUserMission().getId() : null;
 
         VerificationPostResponseBuilder builder = VerificationPostResponse.builder()
                 .id(post.getId())
-                .userId(post.getUser().getId())
-                .userNickname(post.getUser().getNickname())
-                .userProfileImg(post.getUser().getProfileImg())
+                .userId(post.getUser() != null ? post.getUser().getId() : null)
+                .userNickname(post.getUser() != null ? post.getUser().getNickname() : null)
+                .userProfileImg(post.getUser() != null ? post.getUser().getProfileImg() : null)
                 .userMissionId(userMissionId)
-                .missionTitle(missionTitle)
                 .content(post.getContent())
                 .imageUrls(parseImageUrls(post.getImageUrls()))
                 .status(post.getStatus())
-                .approveCount(post.getApproveCount())
-                .rejectCount(post.getRejectCount())
+                .likeCount(likeCount)
                 .commentCount(commentCount)
                 .createdAt(post.getCreatedAt())
-                .myVote(myVote);
+                .verifiedAt(post.getVerifiedAt());
 
-        if (post.getMission() != null) {
-            builder.missionType("SYSTEM")
-                    .mission(MissionInfo.builder()
-                            .id(post.getMission().getId())
-                            .title(post.getMission().getTitle())
-                            .type(post.getMission().getType().name())
-                            .build());
-        } else if (post.getCustomMission() != null) {
-            builder.missionType("CUSTOM")
-                    .customMission(CustomMissionInfo.builder()
-                            .id(post.getCustomMission().getId())
-                            .title(post.getCustomMission().getTitle())
-                            .build());
+        // 미션 정보 설정 (userMission을 통해 접근)
+        if (post.getUserMission() != null) {
+            Long missionId = post.getMissionId();
+            String missionTitle = post.getMissionTitle();
+            String missionType = post.getMissionType();
+
+            if (missionId != null && missionTitle != null) {
+                builder.missionTag(MissionTag.builder()
+                        .id(missionId)
+                        .title(missionTitle)
+                        .type(missionType)
+                        .build());
+            }
         }
 
         return builder.build();

@@ -17,6 +17,7 @@ DROP TABLE IF EXISTS `notification`;
 DROP TABLE IF EXISTS `chat_message`;
 DROP TABLE IF EXISTS `chat_room`;
 DROP TABLE IF EXISTS `user_recommendation`;
+DROP TABLE IF EXISTS `post_like`;
 DROP TABLE IF EXISTS `comment`;
 DROP TABLE IF EXISTS `post`;
 DROP TABLE IF EXISTS `mission_qna_answer`;
@@ -236,34 +237,59 @@ CREATE TABLE `mission_qna_answer` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
--- 6. COMMUNITY DOMAIN
+-- 6. COMMUNITY DOMAIN (통합 게시판)
 -- =====================================================
 
+-- 게시글 테이블 (일반글 + 인증글 통합)
 CREATE TABLE `post` (
     `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+    `post_type` VARCHAR(20) NOT NULL DEFAULT 'GENERAL',  -- GENERAL: 일반글, VERIFICATION: 인증글
     `user_id` BIGINT NOT NULL,
     `mission_id` BIGINT NULL,
     `custom_mission_id` BIGINT NULL,
+    `mission_source` VARCHAR(20) NULL,  -- OFFICIAL, CUSTOM
     `title` VARCHAR(100) NULL,
     `content` TEXT NOT NULL,
     `image_urls` JSON NULL,
     `has_valid_badge` BOOLEAN NOT NULL DEFAULT FALSE,
+    `del_flag` BOOLEAN NOT NULL DEFAULT FALSE,
+    -- 인증글 전용 필드
+    `user_mission_id` BIGINT NULL UNIQUE,  -- 인증글인 경우 UserMission 참조
+    `status` VARCHAR(20) NULL,  -- PENDING, APPROVED, REJECTED (인증글인 경우)
+    `approve_count` INT NULL DEFAULT 0,
+    `reject_count` INT NULL DEFAULT 0,
+    `verified_at` TIMESTAMP NULL,
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT `fk_post_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_post_mission` FOREIGN KEY (`mission_id`) REFERENCES `mission`(`id`) ON DELETE SET NULL,
-    CONSTRAINT `fk_post_custom_mission` FOREIGN KEY (`custom_mission_id`) REFERENCES `custom_mission`(`id`) ON DELETE SET NULL
+    CONSTRAINT `fk_post_custom_mission` FOREIGN KEY (`custom_mission_id`) REFERENCES `custom_mission`(`id`) ON DELETE SET NULL,
+    CONSTRAINT `fk_post_user_mission` FOREIGN KEY (`user_mission_id`) REFERENCES `user_mission`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- 댓글 테이블 (대댓글 지원)
 CREATE TABLE `comment` (
     `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
     `post_id` BIGINT NOT NULL,
     `user_id` BIGINT NOT NULL,
+    `parent_id` BIGINT NULL,  -- 대댓글인 경우 부모 댓글 ID
     `content` TEXT NOT NULL,
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT `fk_comment_post` FOREIGN KEY (`post_id`) REFERENCES `post`(`id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_comment_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
+    CONSTRAINT `fk_comment_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_comment_parent` FOREIGN KEY (`parent_id`) REFERENCES `comment`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 게시글 좋아요 테이블
+CREATE TABLE `post_like` (
+    `id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+    `post_id` BIGINT NOT NULL,
+    `user_id` BIGINT NOT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY `uk_post_like_post_user` (`post_id`, `user_id`),
+    CONSTRAINT `fk_post_like_post` FOREIGN KEY (`post_id`) REFERENCES `post`(`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_post_like_user` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
@@ -339,7 +365,12 @@ CREATE INDEX `idx_user_badge_user_expires` ON `user_badge`(`user_id`, `expires_a
 CREATE INDEX `idx_verification_post_status` ON `verification_post`(`status`);
 CREATE INDEX `idx_post_user` ON `post`(`user_id`);
 CREATE INDEX `idx_post_mission` ON `post`(`mission_id`);
+CREATE INDEX `idx_post_type` ON `post`(`post_type`);
+CREATE INDEX `idx_post_status` ON `post`(`status`);
 CREATE INDEX `idx_comment_post` ON `comment`(`post_id`);
+CREATE INDEX `idx_comment_parent` ON `comment`(`parent_id`);
+CREATE INDEX `idx_post_like_post` ON `post_like`(`post_id`);
+CREATE INDEX `idx_post_like_user` ON `post_like`(`user_id`);
 CREATE INDEX `idx_chat_message_room` ON `chat_message`(`room_id`);
 CREATE INDEX `idx_notification_user_read` ON `notification`(`user_id`, `is_read`);
 CREATE INDEX `idx_user_recommendation_user_status` ON `user_recommendation`(`user_id`, `status`);

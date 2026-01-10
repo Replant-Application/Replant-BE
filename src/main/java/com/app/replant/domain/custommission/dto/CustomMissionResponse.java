@@ -23,9 +23,11 @@ public class CustomMissionResponse {
 
     // 새로 추가된 필드들 (시스템 미션과 통합)
     private WorryType worryType;           // 고민 종류
-    private MissionType missionType;        // 미션 기간 타입 (DAILY, WEEKLY, MONTHLY)
+    private MissionType missionType;        // 미션 타입 (카테고리): DAILY_LIFE, GROWTH, EXERCISE 등
     private DifficultyLevel difficultyLevel; // 난이도 (EASY, MEDIUM, HARD)
 
+    private Integer challengeDays;         // 챌린지 기간 (일수)
+    private Integer deadlineDays;          // 완료 기한 (일수)
     private Integer durationDays;
     private Boolean isPublic;
     private VerificationType verificationType;
@@ -48,6 +50,8 @@ public class CustomMissionResponse {
                 .worryType(customMission.getWorryType())
                 .missionType(customMission.getMissionType())
                 .difficultyLevel(customMission.getDifficultyLevel())
+                .challengeDays(customMission.getChallengeDays())
+                .deadlineDays(customMission.getDeadlineDays())
                 .durationDays(customMission.getDurationDays())
                 .isPublic(customMission.getIsPublic())
                 .verificationType(customMission.getVerificationType())

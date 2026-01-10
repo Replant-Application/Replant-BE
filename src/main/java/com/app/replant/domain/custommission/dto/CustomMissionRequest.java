@@ -25,11 +25,19 @@ public class CustomMissionRequest {
     // 고민 종류 (선택)
     private WorryType worryType;
 
-    // 미션 기간 타입: DAILY(일간), WEEKLY(주간), MONTHLY(월간)
+    // 미션 타입 (카테고리): DAILY_LIFE(일상), GROWTH(성장), EXERCISE(운동), STUDY(학습), HEALTH(건강), RELATIONSHIP(관계)
     private MissionType missionType;
 
     // 난이도: EASY(쉬움), MEDIUM(보통), HARD(어려움)
     private DifficultyLevel difficultyLevel;
+
+    // 챌린지 기간 (일수) - 예: 7일 챌린지면 7, 30일 챌린지면 30
+    @Min(value = 1, message = "챌린지 기간은 1일 이상이어야 합니다.")
+    private Integer challengeDays;
+
+    // 완료 기한 (일수) - 미션 할당 후 N일 이내 완료해야 함 (기본값: 3)
+    @Min(value = 1, message = "완료 기한은 1일 이상이어야 합니다.")
+    private Integer deadlineDays;
 
     @NotNull(message = "기간은 필수입니다.")
     @Min(value = 1, message = "기간은 1일 이상이어야 합니다.")

@@ -27,10 +27,10 @@ public class Mission {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 미션 출처: OFFICIAL(공식 미션), CUSTOM(커스텀 미션)
+    // 미션 타입: OFFICIAL(공식 미션), CUSTOM(커스텀 미션)
     @Enumerated(EnumType.STRING)
-    @Column(name = "mission_source", nullable = false, length = 20)
-    private MissionSource missionSource;
+    @Column(name = "mission_type", nullable = false, length = 20)
+    private MissionType missionType;
 
     // 커스텀 미션 생성자 (CUSTOM인 경우만 사용)
     @ManyToOne(fetch = FetchType.LAZY)
@@ -43,10 +43,10 @@ public class Mission {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
-    // 기간: DAILY(일간), WEEKLY(주간), MONTHLY(월간)
+    // 카테고리: DAILY_LIFE(일상), GROWTH(성장), EXERCISE(운동), STUDY(학습), HEALTH(건강), RELATIONSHIP(관계)
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private MissionType type;
+    private MissionCategory category;
 
     // 인증방식: TIMER(시간인증), GPS(GPS인증), COMMUNITY(커뮤인증)
     @Enumerated(EnumType.STRING)
@@ -123,15 +123,15 @@ public class Mission {
 
     // ============ 공식 미션 생성용 빌더 ============
     @Builder(builderMethodName = "officialBuilder")
-    private Mission(String title, String description, MissionType type, VerificationType verificationType,
+    private Mission(String title, String description, MissionCategory category, VerificationType verificationType,
                     BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
                     Integer requiredMinutes, Integer expReward, Integer badgeDurationDays, Boolean isActive,
                     WorryType worryType, List<AgeRange> ageRanges, GenderType genderType, RegionType regionType,
                     PlaceType placeType, DifficultyLevel difficultyLevel) {
-        this.missionSource = MissionSource.OFFICIAL;
+        this.missionType = MissionType.OFFICIAL;
         this.title = title;
         this.description = description;
-        this.type = type;
+        this.category = category;
         this.verificationType = verificationType;
         this.gpsLatitude = gpsLatitude;
         this.gpsLongitude = gpsLongitude;
@@ -153,17 +153,17 @@ public class Mission {
     // ============ 커스텀 미션 생성용 빌더 ============
     @Builder(builderMethodName = "customBuilder")
     public static Mission createCustomMission(User creator, String title, String description, WorryType worryType,
-                                               MissionType type, DifficultyLevel difficultyLevel, Integer durationDays,
+                                               MissionCategory category, DifficultyLevel difficultyLevel, Integer durationDays,
                                                Boolean isPublic, VerificationType verificationType, BigDecimal gpsLatitude,
                                                BigDecimal gpsLongitude, Integer gpsRadiusMeters, Integer requiredMinutes,
                                                Integer expReward, Integer badgeDurationDays, Boolean isActive) {
         Mission mission = new Mission();
-        mission.missionSource = MissionSource.CUSTOM;
+        mission.missionType = MissionType.CUSTOM;
         mission.creator = creator;
         mission.title = title;
         mission.description = description;
         mission.worryType = worryType;
-        mission.type = type != null ? type : MissionType.DAILY;
+        mission.category = category != null ? category : MissionCategory.DAILY_LIFE;
         mission.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.LEVEL2;
         mission.durationDays = durationDays;
         mission.isPublic = isPublic != null ? isPublic : false;
@@ -190,17 +190,17 @@ public class Mission {
     }
 
     // 공식 미션 업데이트
-    public void updateOfficial(String title, String description, MissionType type, VerificationType verificationType,
+    public void updateOfficial(String title, String description, MissionCategory category, VerificationType verificationType,
                                 BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
                                 Integer requiredMinutes, Integer expReward, Integer badgeDurationDays,
                                 WorryType worryType, List<AgeRange> ageRanges, GenderType genderType, RegionType regionType,
                                 PlaceType placeType, DifficultyLevel difficultyLevel) {
-        if (this.missionSource != MissionSource.OFFICIAL) {
+        if (this.missionType != MissionType.OFFICIAL) {
             throw new IllegalStateException("공식 미션만 이 메서드로 수정할 수 있습니다.");
         }
         this.title = title;
         this.description = description;
-        this.type = type;
+        this.category = category;
         this.verificationType = verificationType;
         this.gpsLatitude = gpsLatitude;
         this.gpsLongitude = gpsLongitude;
@@ -217,15 +217,15 @@ public class Mission {
     }
 
     // 커스텀 미션 업데이트
-    public void updateCustom(String title, String description, WorryType worryType, MissionType type,
+    public void updateCustom(String title, String description, WorryType worryType, MissionCategory category,
                               DifficultyLevel difficultyLevel, Integer expReward, Boolean isPublic) {
-        if (this.missionSource != MissionSource.CUSTOM) {
+        if (this.missionType != MissionType.CUSTOM) {
             throw new IllegalStateException("커스텀 미션만 이 메서드로 수정할 수 있습니다.");
         }
         if (title != null) this.title = title;
         if (description != null) this.description = description;
         if (worryType != null) this.worryType = worryType;
-        if (type != null) this.type = type;
+        if (category != null) this.category = category;
         if (difficultyLevel != null) this.difficultyLevel = difficultyLevel;
         if (expReward != null) this.expReward = expReward;
         if (isPublic != null) this.isPublic = isPublic;
@@ -237,17 +237,17 @@ public class Mission {
 
     // 공식 미션 여부
     public boolean isOfficialMission() {
-        return this.missionSource == MissionSource.OFFICIAL;
+        return this.missionType == MissionType.OFFICIAL;
     }
 
     // 커스텀 미션 여부
     public boolean isCustomMission() {
-        return this.missionSource == MissionSource.CUSTOM;
+        return this.missionType == MissionType.CUSTOM;
     }
 
     // 커스텀 미션 생성자 확인
     public boolean isCreator(Long userId) {
-        if (this.missionSource != MissionSource.CUSTOM || this.creator == null) {
+        if (this.missionType != MissionType.CUSTOM || this.creator == null) {
             return false;
         }
         return this.creator.getId().equals(userId);

@@ -99,15 +99,8 @@ public class VerificationController {
         return ApiResponse.success(result);
     }
 
-    @Operation(summary = "인증 투표 (좋아요/싫어요)")
-    @PostMapping("/{verificationId}/votes")
-    public ApiResponse<VoteResponse> vote(
-            @PathVariable Long verificationId,
-            @AuthenticationPrincipal Long userId,
-            @RequestBody @Valid VoteRequest request) {
-        VoteResponse response = verificationService.vote(verificationId, userId, request);
-        return ApiResponse.success(response);
-    }
+    // 투표 API 삭제됨 - 좋아요로 대체 (POST /api/community/posts/{postId}/like 사용)
+    // 좋아요 수가 임계값에 도달하면 자동으로 인증 완료됨
 
     @Operation(summary = "GPS 인증 (GPS 타입 미션)")
     @PostMapping("/gps")

@@ -37,8 +37,8 @@ public class MissionService {
     private final UserRepository userRepository;
     private final UserBadgeRepository userBadgeRepository;
 
-    public Page<MissionResponse> getMissions(MissionType type, VerificationType verificationType, Pageable pageable) {
-        return missionRepository.findMissions(type, verificationType, pageable)
+    public Page<MissionResponse> getMissions(MissionCategory category, VerificationType verificationType, Pageable pageable) {
+        return missionRepository.findMissions(category, verificationType, pageable)
                 .map(MissionResponse::from);
     }
 
@@ -46,7 +46,7 @@ public class MissionService {
      * 사용자 맞춤 필터링된 미션 목록 조회
      */
     public Page<MissionResponse> getFilteredMissions(
-            MissionType type,
+            MissionCategory category,
             VerificationType verificationType,
             WorryType worryType,
             AgeRange ageRange,
@@ -55,7 +55,7 @@ public class MissionService {
             DifficultyLevel difficultyLevel,
             Pageable pageable) {
         return missionRepository.findFilteredMissions(
-                type, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable
+                category, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable
         ).map(MissionResponse::from);
     }
 
@@ -81,14 +81,15 @@ public class MissionService {
             throw new CustomException(ErrorCode.REVIEW_ALREADY_EXISTS);
         }
 
-        if (!userBadgeRepository.hasValidBadgeForMission(userId, missionId, LocalDateTime.now())) {
-            throw new CustomException(ErrorCode.BADGE_REQUIRED);
-        }
+        var badge = userBadgeRepository.findValidBadgeForMission(userId, missionId, LocalDateTime.now())
+                .orElseThrow(() -> new CustomException(ErrorCode.BADGE_REQUIRED));
 
         MissionReview review = MissionReview.builder()
                 .mission(mission)
                 .user(user)
+                .badge(badge)
                 .content(request.getContent())
+                .rating(request.getRating())
                 .build();
 
         MissionReview saved = reviewRepository.save(review);
@@ -171,7 +172,7 @@ public class MissionService {
         Mission mission = Mission.officialBuilder()
                 .title(request.getTitle())
                 .description(request.getDescription())
-                .type(request.getType())
+                .category(request.getCategory())
                 .verificationType(request.getVerificationType())
                 .gpsLatitude(request.getGpsLatitude())
                 .gpsLongitude(request.getGpsLongitude())
@@ -200,7 +201,7 @@ public class MissionService {
         mission.updateOfficial(
                 request.getTitle(),
                 request.getDescription(),
-                request.getType(),
+                request.getCategory(),
                 request.getVerificationType(),
                 request.getGpsLatitude(),
                 request.getGpsLongitude(),
@@ -233,7 +234,7 @@ public class MissionService {
                 .map(request -> Mission.officialBuilder()
                         .title(request.getTitle())
                         .description(request.getDescription())
-                        .type(request.getType())
+                        .category(request.getCategory())
                         .verificationType(request.getVerificationType())
                         .gpsLatitude(request.getGpsLatitude())
                         .gpsLongitude(request.getGpsLongitude())

@@ -148,7 +148,7 @@ public class MissionSetDto {
         private Long missionId;
         private String title;
         private String description;
-        private String missionSource;
+        private String missionType;
         private String verificationType;
         private Integer displayOrder;
 
@@ -159,7 +159,7 @@ public class MissionSetDto {
                     .missionId(mission.getId())
                     .title(mission.getTitle())
                     .description(mission.getDescription())
-                    .missionSource(mission.getMissionSource().name())
+                    .missionType(mission.getMissionType().name())
                     .verificationType(mission.getVerificationType().name())
                     .displayOrder(msm.getDisplayOrder())
                     .build();

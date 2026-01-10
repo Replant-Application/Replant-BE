@@ -1,10 +1,5 @@
 package com.app.replant.domain.post.service;
 
-import com.app.replant.domain.badge.repository.UserBadgeRepository;
-import com.app.replant.domain.custommission.entity.CustomMission;
-import com.app.replant.domain.custommission.repository.CustomMissionRepository;
-import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.service.NotificationService;
 import com.app.replant.domain.post.dto.CommentRequest;
@@ -19,6 +14,8 @@ import com.app.replant.domain.post.repository.PostLikeRepository;
 import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
+import com.app.replant.domain.usermission.entity.UserMission;
+import com.app.replant.domain.verification.service.VerificationService;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -30,8 +27,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.Collections;
 
 @Service
 @Transactional(readOnly = true)
@@ -43,11 +44,13 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final PostLikeRepository postLikeRepository;
     private final UserRepository userRepository;
-    private final MissionRepository missionRepository;
-    private final CustomMissionRepository customMissionRepository;
-    private final UserBadgeRepository userBadgeRepository;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final VerificationService verificationService;
+
+    // ========================================
+    // 게시글 CRUD
+    // ========================================
 
     public Page<PostResponse> getPosts(Long missionId, Long customMissionId, Boolean badgeOnly, Pageable pageable) {
         return getPosts(missionId, customMissionId, badgeOnly, pageable, null);
@@ -81,25 +84,12 @@ public class PostService {
         return PostResponse.from(post, commentCount, likeCount, isLiked);
     }
 
+    /**
+     * 일반 게시글 생성
+     */
     @Transactional
     public PostResponse createPost(Long userId, PostRequest request) {
         User user = findUserById(userId);
-        Mission mission = null;
-        CustomMission customMission = null;
-
-        if (request.getMissionId() != null) {
-            mission = missionRepository.findById(request.getMissionId())
-                    .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
-        } else if (request.getCustomMissionId() != null) {
-            customMission = customMissionRepository.findById(request.getCustomMissionId())
-                    .orElseThrow(() -> new CustomException(ErrorCode.CUSTOM_MISSION_NOT_FOUND));
-        }
-
-        // Check if user has valid badge for the mission
-        boolean hasValidBadge = false;
-        if (mission != null) {
-            hasValidBadge = userBadgeRepository.hasValidBadgeForMission(userId, mission.getId(), LocalDateTime.now());
-        }
 
         String imageUrlsJson = null;
         if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
@@ -112,16 +102,13 @@ public class PostService {
 
         Post post = Post.generalBuilder()
                 .user(user)
-                .mission(mission)
-                .customMission(customMission)
                 .title(request.getTitle())
                 .content(request.getContent())
                 .imageUrls(imageUrlsJson)
-                .hasValidBadge(hasValidBadge)
                 .build();
 
         Post saved = postRepository.save(post);
-        return PostResponse.from(saved, 0L);
+        return PostResponse.from(saved, 0L, 0L, false);
     }
 
     @Transactional
@@ -143,7 +130,8 @@ public class PostService {
 
         post.update(request.getTitle(), request.getContent(), imageUrlsJson);
         long commentCount = commentRepository.countByPostId(postId);
-        return PostResponse.from(post, commentCount);
+        long likeCount = postLikeRepository.countByPostId(postId);
+        return PostResponse.from(post, commentCount, likeCount, false);
     }
 
     @Transactional
@@ -154,24 +142,23 @@ public class PostService {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
-        // Soft delete (delFlag를 true로 설정)
         post.softDelete();
     }
 
-    // Comment methods
+    // ========================================
+    // 댓글 CRUD
+    // ========================================
+
     public Page<CommentResponse> getComments(Long postId, Pageable pageable) {
-        // Verify post exists
         findPostById(postId);
-        // 최상위 댓글만 조회하고, 대댓글은 replies로 포함
         List<Comment> comments = commentRepository.findParentCommentsByPostIdWithUser(postId);
         List<CommentResponse> responseList = comments.stream()
                 .map(CommentResponse::fromWithReplies)
-                .collect(java.util.stream.Collectors.toList());
+                .collect(Collectors.toList());
 
-        // 수동 페이징
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), responseList.size());
-        List<CommentResponse> pagedList = start < responseList.size() ? responseList.subList(start, end) : java.util.Collections.emptyList();
+        List<CommentResponse> pagedList = start < responseList.size() ? responseList.subList(start, end) : Collections.emptyList();
 
         return new org.springframework.data.domain.PageImpl<>(pagedList, pageable, responseList.size());
     }
@@ -181,11 +168,9 @@ public class PostService {
         Post post = findPostById(postId);
         User user = findUserById(userId);
 
-        // 부모 댓글 처리
         Comment parentComment = null;
         if (request.getParentId() != null) {
             parentComment = findCommentById(request.getParentId());
-            // 부모 댓글이 같은 게시글에 속하는지 확인
             if (!parentComment.getPost().getId().equals(postId)) {
                 throw new CustomException(ErrorCode.INVALID_PARENT_COMMENT);
             }
@@ -200,68 +185,17 @@ public class PostService {
 
         Comment saved = commentRepository.save(comment);
 
-        // 댓글 알림 발송 (본인 글에 댓글 달면 알림 안 함)
+        // 댓글 알림
         if (!post.getUser().getId().equals(userId)) {
             sendCommentNotification(post.getUser(), user, post);
         }
 
-        // 대댓글인 경우, 부모 댓글 작성자에게도 알림 (본인이 아닌 경우)
+        // 대댓글 알림
         if (parentComment != null && !parentComment.getUser().getId().equals(userId)) {
             sendReplyNotification(parentComment.getUser(), user, post);
         }
 
         return CommentResponse.from(saved);
-    }
-
-    /**
-     * 대댓글 알림 발송
-     */
-    private void sendReplyNotification(User parentCommentAuthor, User replier, Post post) {
-        String title = "댓글에 답글이 달렸습니다";
-        String content = String.format("%s님이 회원님의 댓글에 답글을 달았습니다.",
-                replier.getNickname());
-
-        notificationService.createAndPushNotification(
-                parentCommentAuthor,
-                NotificationType.REPLY,
-                title,
-                content,
-                "POST",
-                post.getId()
-        );
-
-        log.info("답글 알림 발송 - postId={}, replierId={}, parentCommentAuthorId={}",
-                post.getId(), replier.getId(), parentCommentAuthor.getId());
-    }
-
-    /**
-     * 댓글 알림 발송
-     */
-    private void sendCommentNotification(User postAuthor, User commenter, Post post) {
-        String title = "새로운 댓글이 달렸습니다";
-        String content = String.format("%s님이 '%s' 게시글에 댓글을 달았습니다.",
-                commenter.getNickname(), truncateTitle(post.getTitle(), 20));
-
-        notificationService.createAndPushNotification(
-                postAuthor,
-                NotificationType.COMMENT,
-                title,
-                content,
-                "POST",
-                post.getId()
-        );
-
-        log.info("댓글 알림 발송 - postId={}, commenterId={}, postAuthorId={}",
-                post.getId(), commenter.getId(), postAuthor.getId());
-    }
-
-    /**
-     * 제목 자르기 (길면 ... 추가)
-     */
-    private String truncateTitle(String title, int maxLength) {
-        if (title == null) return "게시글";
-        if (title.length() <= maxLength) return title;
-        return title.substring(0, maxLength) + "...";
     }
 
     @Transactional
@@ -287,9 +221,17 @@ public class PostService {
         commentRepository.delete(comment);
     }
 
-    // 좋아요 관련 메서드
+    // ========================================
+    // 좋아요 (= 인증)
+    // ========================================
+
+    /**
+     * 좋아요 토글
+     * - VERIFICATION 타입: 좋아요 수가 임계값 이상이면 자동 인증 + 알림
+     * - GENERAL 타입: 단순 좋아요
+     */
     @Transactional
-    public java.util.Map<String, Object> toggleLike(Long postId, Long userId) {
+    public Map<String, Object> toggleLike(Long postId, Long userId) {
         Post post = findPostById(postId);
         User user = findUserById(userId);
 
@@ -298,13 +240,14 @@ public class PostService {
             throw new CustomException(ErrorCode.CANNOT_LIKE_OWN_POST);
         }
 
-        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        Map<String, Object> result = new HashMap<>();
         boolean isLiked;
+        boolean newlyVerified = false;
 
-        java.util.Optional<PostLike> existingLike = postLikeRepository.findByPostAndUser(post, user);
+        Optional<PostLike> existingLike = postLikeRepository.findByPostAndUser(post, user);
 
         if (existingLike.isPresent()) {
-            // 이미 좋아요 한 경우 -> 좋아요 취소
+            // 좋아요 취소
             postLikeRepository.delete(existingLike.get());
             isLiked = false;
             log.info("좋아요 취소 - postId={}, userId={}", postId, userId);
@@ -318,25 +261,72 @@ public class PostService {
             isLiked = true;
             log.info("좋아요 추가 - postId={}, userId={}", postId, userId);
 
-            // 좋아요 알림 발송 (게시글 작성자에게)
+            // 좋아요 알림
             sendLikeNotification(post.getUser(), user, post);
+
+            // VERIFICATION 타입: 좋아요 = 인증 체크
+            if (post.isVerificationPost()) {
+                long likeCount = postLikeRepository.countByPostId(postId);
+                newlyVerified = post.checkAndApproveByLikes(likeCount);
+
+                if (newlyVerified && post.getUserMission() != null) {
+                    log.info("인증 완료! postId={}, likeCount={}", postId, likeCount);
+                    // 인증 완료 공통 로직 호출 (뱃지, 경험치, 알림 등)
+                    verificationService.completeVerification(post.getUserMission(), post);
+                }
+            }
         }
 
         long likeCount = postLikeRepository.countByPostId(postId);
 
         result.put("isLiked", isLiked);
         result.put("likeCount", likeCount);
+        result.put("verified", newlyVerified);
 
         return result;
     }
 
-    /**
-     * 좋아요 알림 발송
-     */
+    // ========================================
+    // 알림 메서드
+    // ========================================
+
+    private void sendCommentNotification(User postAuthor, User commenter, Post post) {
+        String title = "새로운 댓글이 달렸습니다";
+        String content = String.format("%s님이 '%s' 게시글에 댓글을 달았습니다.",
+                commenter.getNickname(), truncateTitle(post.getTitle(), 20));
+
+        notificationService.createAndPushNotification(
+                postAuthor,
+                NotificationType.COMMENT,
+                title,
+                content,
+                "POST",
+                post.getId()
+        );
+    }
+
+    private void sendReplyNotification(User parentCommentAuthor, User replier, Post post) {
+        String title = "댓글에 답글이 달렸습니다";
+        String content = String.format("%s님이 회원님의 댓글에 답글을 달았습니다.",
+                replier.getNickname());
+
+        notificationService.createAndPushNotification(
+                parentCommentAuthor,
+                NotificationType.REPLY,
+                title,
+                content,
+                "POST",
+                post.getId()
+        );
+    }
+
     private void sendLikeNotification(User postAuthor, User liker, Post post) {
         String title = "게시글에 좋아요가 달렸습니다";
+        String postTitle = post.isVerificationPost() ?
+                (post.getMissionTitle() != null ? post.getMissionTitle() + " 인증" : "미션 인증") :
+                truncateTitle(post.getTitle(), 20);
         String content = String.format("%s님이 '%s' 게시글에 좋아요를 눌렀습니다.",
-                liker.getNickname(), truncateTitle(post.getTitle(), 20));
+                liker.getNickname(), postTitle);
 
         notificationService.createAndPushNotification(
                 postAuthor,
@@ -346,10 +336,17 @@ public class PostService {
                 "POST",
                 post.getId()
         );
-
-        log.info("좋아요 알림 발송 - postId={}, likerId={}, postAuthorId={}",
-                post.getId(), liker.getId(), postAuthor.getId());
     }
+
+    private String truncateTitle(String title, int maxLength) {
+        if (title == null) return "게시글";
+        if (title.length() <= maxLength) return title;
+        return title.substring(0, maxLength) + "...";
+    }
+
+    // ========================================
+    // 헬퍼 메서드
+    // ========================================
 
     private Post findPostById(Long postId) {
         return postRepository.findByIdAndNotDeleted(postId)

@@ -30,17 +30,17 @@ public class MissionController {
     @Operation(summary = "미션 목록 조회")
     @GetMapping
     public ApiResponse<Page<MissionResponse>> getMissions(
-            @RequestParam(required = false) MissionType type,
+            @RequestParam(required = false) MissionCategory category,
             @RequestParam(required = false) VerificationType verificationType,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<MissionResponse> missions = missionService.getMissions(type, verificationType, pageable);
+        Page<MissionResponse> missions = missionService.getMissions(category, verificationType, pageable);
         return ApiResponse.success(missions);
     }
 
     @Operation(summary = "사용자 맞춤 미션 목록 조회 (필터링)")
     @GetMapping("/filtered")
     public ApiResponse<Page<MissionResponse>> getFilteredMissions(
-            @RequestParam(required = false) MissionType type,
+            @RequestParam(required = false) MissionCategory category,
             @RequestParam(required = false) VerificationType verificationType,
             @RequestParam(required = false) WorryType worryType,
             @RequestParam(required = false) AgeRange ageRange,
@@ -49,7 +49,7 @@ public class MissionController {
             @RequestParam(required = false) DifficultyLevel difficultyLevel,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<MissionResponse> missions = missionService.getFilteredMissions(
-                type, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable);
+                category, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable);
         return ApiResponse.success(missions);
     }
 

@@ -1,9 +1,6 @@
 package com.app.replant.domain.post.entity;
 
 import com.app.replant.common.BaseEntity;
-import com.app.replant.domain.custommission.entity.CustomMission;
-import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.mission.enums.MissionSource;
 import com.app.replant.domain.post.enums.PostType;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.usermission.entity.UserMission;
@@ -18,6 +15,14 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 게시글 엔티티 (통합)
+ * - GENERAL: 일반 게시글 (자유 게시판)
+ * - VERIFICATION: 인증 게시글 (미션 인증)
+ *
+ * 좋아요 = 인증 로직:
+ * - VERIFICATION 타입의 좋아요 수가 REQUIRED_LIKES 이상이면 자동 인증 완료
+ */
 @Entity
 @Table(name = "post", indexes = {
     @Index(name = "idx_post_type", columnList = "post_type"),
@@ -27,6 +32,9 @@ import java.util.List;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Post extends BaseEntity {
+
+    // 인증에 필요한 좋아요 수 (설정값)
+    public static final int REQUIRED_LIKES = 1;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,20 +48,12 @@ public class Post extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "mission_id")
-    private Mission mission;
+    // 인증글일 경우 UserMission 참조 (미션 정보는 여기서 가져옴)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_mission_id", unique = true)
+    private UserMission userMission;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "custom_mission_id")
-    private CustomMission customMission;
-
-    // 미션 출처 구분 (SYSTEM / CUSTOM)
-    @Enumerated(EnumType.STRING)
-    @Column(name = "mission_source")
-    private MissionSource missionSource;
-
-    // 커뮤니티 게시글 전용 필드
+    // 일반 게시글 제목 (GENERAL일 때만 사용)
     @Column(length = 100)
     private String title;
 
@@ -63,27 +63,15 @@ public class Post extends BaseEntity {
     @Column(name = "image_urls", columnDefinition = "json")
     private String imageUrls;
 
-    @Column(name = "has_valid_badge")
-    private Boolean hasValidBadge;
-
     @Column(name = "del_flag", nullable = false)
     private Boolean delFlag = false;
 
-    // 인증글 전용 필드
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_mission_id", unique = true)
-    private UserMission userMission;
-
+    // 인증 상태 (VERIFICATION일 때만 사용): PENDING, APPROVED
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
     private VerificationStatus status;
 
-    @Column(name = "approve_count")
-    private Integer approveCount;
-
-    @Column(name = "reject_count")
-    private Integer rejectCount;
-
+    // 인증 완료 시간
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
 
@@ -91,45 +79,46 @@ public class Post extends BaseEntity {
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
 
-    // 일반 게시글 생성용 빌더
+    // 좋아요 관계
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PostLike> likes = new ArrayList<>();
+
+    // ========================================
+    // 생성자 및 빌더
+    // ========================================
+
+    /**
+     * 일반 게시글 생성
+     */
     @Builder(builderMethodName = "generalBuilder")
-    public Post(User user, Mission mission, CustomMission customMission, String title, String content, String imageUrls, Boolean hasValidBadge) {
+    public Post(User user, String title, String content, String imageUrls) {
         this.postType = PostType.GENERAL;
         this.user = user;
-        this.mission = mission;
-        this.customMission = customMission;
         this.title = title;
         this.content = content;
         this.imageUrls = imageUrls;
-        this.hasValidBadge = hasValidBadge != null ? hasValidBadge : false;
         this.delFlag = false;
     }
 
-    // 인증글 생성용 빌더
-    @Builder(builderMethodName = "verificationBuilder")
-    public static Post createVerificationPost(User user, UserMission userMission, String content, String imageUrls, VerificationStatus status) {
+    /**
+     * 인증 게시글 생성
+     */
+    public static Post createVerificationPost(User user, UserMission userMission, String content, String imageUrls) {
         Post post = new Post();
         post.postType = PostType.VERIFICATION;
         post.user = user;
         post.userMission = userMission;
         post.content = content;
         post.imageUrls = imageUrls;
-        post.status = status != null ? status : VerificationStatus.PENDING;
-        post.approveCount = 0;
-        post.rejectCount = 0;
+        post.status = VerificationStatus.PENDING;
         post.delFlag = false;
-        post.hasValidBadge = false;
-
-        // UserMission에서 미션 정보 가져오기
-        if (userMission != null) {
-            post.mission = userMission.getMission();
-            post.customMission = userMission.getCustomMission();
-        }
-
         return post;
     }
 
-    // 커뮤니티 게시글 업데이트
+    // ========================================
+    // 업데이트 메서드
+    // ========================================
+
     public void update(String title, String content, String imageUrls) {
         if (title != null) {
             this.title = title;
@@ -142,17 +131,51 @@ public class Post extends BaseEntity {
         }
     }
 
-    // 인증글 콘텐츠 업데이트
     public void updateVerificationContent(String content, String imageUrls) {
         if (this.postType != PostType.VERIFICATION) {
             throw new IllegalStateException("인증글만 이 메서드로 수정할 수 있습니다.");
         }
-        if (this.status != VerificationStatus.PENDING) {
+        if (this.status == VerificationStatus.APPROVED) {
             throw new IllegalStateException("인증 완료 후에는 수정할 수 없습니다.");
         }
         this.content = content;
         this.imageUrls = imageUrls;
     }
+
+    // ========================================
+    // 인증 관련 메서드 (좋아요 = 인증)
+    // ========================================
+
+    /**
+     * 좋아요 수에 따른 인증 체크
+     * @param likeCount 현재 좋아요 수
+     * @return 인증 완료 여부 (이번에 새로 인증되었으면 true)
+     */
+    public boolean checkAndApproveByLikes(long likeCount) {
+        if (this.postType != PostType.VERIFICATION) {
+            return false;
+        }
+        if (this.status == VerificationStatus.APPROVED) {
+            return false; // 이미 인증됨
+        }
+        if (likeCount >= REQUIRED_LIKES) {
+            this.status = VerificationStatus.APPROVED;
+            this.verifiedAt = LocalDateTime.now();
+            return true; // 새로 인증됨
+        }
+        return false;
+    }
+
+    /**
+     * 인증 완료 여부
+     */
+    public boolean isApproved() {
+        return this.status == VerificationStatus.APPROVED;
+    }
+
+    // ========================================
+    // 유틸리티 메서드
+    // ========================================
 
     public boolean isAuthor(Long userId) {
         return this.user.getId().equals(userId);
@@ -170,77 +193,53 @@ public class Post extends BaseEntity {
         return this.delFlag != null && this.delFlag;
     }
 
-    // 인증 관련 메서드
-    private static final int REQUIRED_APPROVE_COUNT = 1;
-    private static final int REQUIRED_REJECT_COUNT = 3;
-
-    public void addVote(boolean isApprove) {
-        if (this.postType != PostType.VERIFICATION) {
-            throw new IllegalStateException("인증글만 투표할 수 있습니다.");
-        }
-
-        if (isApprove) {
-            this.approveCount++;
-            if (this.approveCount >= REQUIRED_APPROVE_COUNT) {
-                this.status = VerificationStatus.APPROVED;
-                this.verifiedAt = LocalDateTime.now();
-            }
-        } else {
-            this.rejectCount++;
-            if (this.rejectCount >= REQUIRED_REJECT_COUNT) {
-                this.status = VerificationStatus.REJECTED;
-            }
-        }
-    }
-
-    // 인증글 여부 확인
     public boolean isVerificationPost() {
         return this.postType == PostType.VERIFICATION;
     }
 
-    // 일반 게시글 여부 확인
     public boolean isGeneralPost() {
         return this.postType == PostType.GENERAL;
     }
 
-    // 미션 타입 반환 (인증글용) - 문자열 버전 (기존 API 호환)
-    public String getMissionType() {
-        MissionSource source = getMissionSource();
-        return source != null ? source.name() : null;
-    }
-
-    // 미션 출처 반환 (Enum 버전)
-    public MissionSource getMissionSource() {
-        // 명시적으로 설정된 경우
-        if (this.missionSource != null) {
-            return this.missionSource;
-        }
-        // 기존 코드 호환: 필드 기반 추론
-        if (this.mission != null) {
-            return MissionSource.OFFICIAL;
-        } else if (this.customMission != null) {
-            return MissionSource.CUSTOM;
-        }
-        return null;
-    }
-
-    // 미션 제목 반환
+    /**
+     * 미션 제목 반환 (인증글일 경우)
+     */
     public String getMissionTitle() {
-        if (this.mission != null) {
-            return this.mission.getTitle();
-        } else if (this.customMission != null) {
-            return this.customMission.getTitle();
+        if (this.userMission != null) {
+            if (this.userMission.getMission() != null) {
+                return this.userMission.getMission().getTitle();
+            } else if (this.userMission.getCustomMission() != null) {
+                return this.userMission.getCustomMission().getTitle();
+            }
         }
         return null;
     }
 
-    // 공식 미션 여부
-    public boolean isOfficialMission() {
-        return getMissionSource() == MissionSource.OFFICIAL;
+    /**
+     * 미션 ID 반환 (통합된 미션 ID)
+     */
+    public Long getMissionId() {
+        if (this.userMission != null) {
+            if (this.userMission.getMission() != null) {
+                return this.userMission.getMission().getId();
+            } else if (this.userMission.getCustomMission() != null) {
+                return this.userMission.getCustomMission().getId();
+            }
+        }
+        return null;
     }
 
-    // 커스텀 미션 여부
-    public boolean isCustomMission() {
-        return getMissionSource() == MissionSource.CUSTOM;
+    /**
+     * 미션 타입 반환 (OFFICIAL / CUSTOM)
+     */
+    public String getMissionType() {
+        if (this.userMission != null) {
+            if (this.userMission.getMission() != null) {
+                return "OFFICIAL";
+            } else if (this.userMission.getCustomMission() != null) {
+                return "CUSTOM";
+            }
+        }
+        return null;
     }
 }

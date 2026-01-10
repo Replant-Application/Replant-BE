@@ -6,6 +6,7 @@ import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.service.NotificationService;
 import com.app.replant.domain.post.entity.Post;
 import com.app.replant.domain.post.enums.PostType;
+import com.app.replant.domain.post.repository.PostLikeRepository;
 import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.user.entity.User;
@@ -16,9 +17,7 @@ import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.repository.MissionVerificationRepository;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.verification.dto.*;
-import com.app.replant.domain.verification.entity.VerificationVote;
 import com.app.replant.domain.verification.enums.VerificationStatus;
-import com.app.replant.domain.verification.repository.VerificationVoteRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -40,7 +39,7 @@ import java.util.Map;
 public class VerificationService {
 
     private final PostRepository postRepository;
-    private final VerificationVoteRepository verificationVoteRepository;
+    private final PostLikeRepository postLikeRepository;
     private final UserMissionRepository userMissionRepository;
     private final MissionVerificationRepository missionVerificationRepository;
     private final UserRepository userRepository;
@@ -50,21 +49,19 @@ public class VerificationService {
     private final ObjectMapper objectMapper;
 
     public Page<VerificationPostResponse> getVerifications(VerificationStatus status, Long missionId, Long customMissionId, Pageable pageable) {
-        return postRepository.findVerificationPostsWithFilters(status, missionId, customMissionId, pageable)
-                .map(VerificationPostResponse::from);
+        // missionId, customMissionId 파라미터는 하위 호환성을 위해 유지하지만 실제로는 무시됨
+        // 미션 정보는 userMission을 통해 조회
+        return postRepository.findVerificationPostsWithFilters(status, pageable)
+                .map(post -> {
+                    long likeCount = postLikeRepository.countByPostId(post.getId());
+                    return VerificationPostResponse.from(post, likeCount);
+                });
     }
 
     public VerificationPostResponse getVerification(Long postId, Long userId) {
         Post post = findVerificationPostById(postId);
-
-        String myVote = null;
-        if (userId != null) {
-            myVote = verificationVoteRepository.findByPostIdAndUserId(postId, userId)
-                    .map(vote -> vote.getVoteType().name())
-                    .orElse(null);
-        }
-
-        return VerificationPostResponse.from(post, myVote);
+        long likeCount = postLikeRepository.countByPostId(postId);
+        return VerificationPostResponse.from(post, likeCount);
     }
 
     @Transactional
@@ -102,8 +99,8 @@ public class VerificationService {
             }
         }
 
-        // Post.verificationBuilder() 사용
-        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, VerificationStatus.PENDING);
+        // Post.createVerificationPost() 사용 (status는 내부에서 PENDING으로 설정됨)
+        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson);
 
         // UserMission 상태를 PENDING으로 변경
         userMission.updateStatus(UserMissionStatus.PENDING);
@@ -158,96 +155,59 @@ public class VerificationService {
         postRepository.delete(post);
     }
 
+    // ========================================
+    // 인증 완료 공통 로직 (좋아요/GPS/TIME 인증에서 사용)
+    // ========================================
+
+    /**
+     * 인증 완료 처리 (공통)
+     * - MissionVerification 생성
+     * - 뱃지 발급
+     * - 경험치 보상
+     * - 알림 발송
+     */
     @Transactional
-    public VoteResponse vote(Long postId, Long userId, VoteRequest request) {
-        Post post = findVerificationPostById(postId);
-        User voter = findUserById(userId);
+    public void completeVerification(UserMission userMission, Post post) {
+        User user = userMission.getUser();
 
-        // 본인 글 투표 방지 (NPE 방어: User null 체크)
-        if (post.getUser() != null && post.getUser().getId().equals(userId)) {
-            throw new CustomException(ErrorCode.SELF_VOTE_NOT_ALLOWED);
-        }
+        // UserMission 상태 완료
+        userMission.complete();
+        log.info("UserMission 완료 처리 - userMissionId={}", userMission.getId());
 
-        // 중복 투표 방지
-        if (verificationVoteRepository.existsByPostIdAndUserId(postId, userId)) {
-            throw new CustomException(ErrorCode.ALREADY_VOTED);
-        }
-
-        // PENDING 상태만 투표 가능
-        if (post.getStatus() != VerificationStatus.PENDING) {
-            throw new CustomException(ErrorCode.VOTING_NOT_ALLOWED);
-        }
-
-        // 투표 저장
-        VerificationVote vote = VerificationVote.builder()
+        // MissionVerification 생성
+        MissionVerification verification = MissionVerification.builder()
+                .userMission(userMission)
                 .post(post)
-                .user(voter)
-                .voteType(request.getVote())
+                .verifiedAt(LocalDateTime.now())
                 .build();
+        missionVerificationRepository.save(verification);
 
-        verificationVoteRepository.save(vote);
+        // 뱃지 발급
+        createBadge(userMission);
 
-        // 투표 알림 발송 (NPE 방어: User null 체크)
-        if (post.getUser() != null) {
-            sendVoteNotification(post.getUser(), voter, post, request.getVote());
-        }
+        // 경험치 보상
+        int expReward = getExpReward(userMission);
+        reantRepository.findByUserId(user.getId())
+                .ifPresent(reant -> reant.addExp(expReward));
 
-        // 카운트 증가 및 상태 변경
-        boolean isApprove = request.getVote() == VerificationVote.VoteType.APPROVE;
-        post.addVote(isApprove);
+        // 알림 발송
+        sendVerificationApprovedNotification(user, userMission);
 
-        // 승인되었을 경우 UserMission 완료 처리
-        if (post.getStatus() == VerificationStatus.APPROVED) {
-            UserMission userMission = post.getUserMission();
-            userMission.updateStatus(UserMissionStatus.COMPLETED);
-
-            // MissionVerification 생성
-            MissionVerification verification = MissionVerification.builder()
-                    .userMission(userMission)
-                    .post(post)  // Post로 연결
-                    .verifiedAt(LocalDateTime.now())
-                    .build();
-            missionVerificationRepository.save(verification);
-
-            // 뱃지 발급
-            createBadge(userMission);
-
-            // 경험치 보상 (NPE 방어: User null 체크)
-            int expReward = getExpReward(userMission);
-            if (post.getUser() != null) {
-                reantRepository.findByUserId(post.getUser().getId())
-                        .ifPresent(reant -> reant.addExp(expReward));
-
-                // 인증 완료 알림 발송
-                sendVerificationApprovedNotification(post.getUser(), userMission);
-
-                log.info("커뮤니티 인증 승인 완료 - userId={}, userMissionId={}", post.getUser().getId(), userMission.getId());
-            }
-        }
-
-        // 거절되었을 경우 알림 발송
-        if (post.getStatus() == VerificationStatus.REJECTED) {
-            sendVerificationRejectedNotification(post.getUser(), post.getUserMission());
-        }
-
-        String message;
-        if (post.getStatus() == VerificationStatus.APPROVED) {
-            message = "인증이 승인되었습니다.";
-        } else if (post.getStatus() == VerificationStatus.REJECTED) {
-            message = "인증이 거절되었습니다.";
-        } else {
-            message = "투표가 완료되었습니다.";
-        }
-
-        return VoteResponse.builder()
-                .verificationId(postId)
-                .vote(request.getVote())
-                .approveCount(post.getApproveCount())
-                .rejectCount(post.getRejectCount())
-                .status(post.getStatus())
-                .message(message)
-                .build();
+        log.info("인증 완료 - userId={}, userMissionId={}, expReward={}",
+                user.getId(), userMission.getId(), expReward);
     }
+
+    /**
+     * 인증 완료 처리 (Post 없는 경우 - GPS/TIME 인증용)
+     */
+    @Transactional
+    public void completeVerification(UserMission userMission) {
+        completeVerification(userMission, null);
+    }
+
+    // ========================================
+    // 헬퍼 메서드
+    // ========================================
 
     private Post findVerificationPostById(Long postId) {
         return postRepository.findVerificationPostById(postId)
@@ -308,19 +268,6 @@ public class VerificationService {
         );
     }
 
-    private void sendVerificationRejectedNotification(User user, UserMission userMission) {
-        String missionTitle = getMissionTitle(userMission);
-
-        notificationService.createAndPushNotification(
-                user,
-                NotificationType.VERIFICATION_REJECTED,
-                "미션 인증이 거절되었습니다",
-                String.format("'%s' 미션 인증이 커뮤니티에서 거절되었습니다. 다시 인증을 시도해주세요.", missionTitle),
-                "USER_MISSION",
-                userMission.getId()
-        );
-    }
-
     private String getMissionTitle(UserMission userMission) {
         if (userMission.getMission() != null) {
             return userMission.getMission().getTitle();
@@ -328,33 +275,6 @@ public class VerificationService {
             return userMission.getCustomMission().getTitle();
         }
         return "미션";
-    }
-
-    private void sendVoteNotification(User postAuthor, User voter, Post post, VerificationVote.VoteType voteType) {
-        String missionTitle = getMissionTitle(post.getUserMission());
-        String voteAction = voteType == VerificationVote.VoteType.APPROVE ? "응원" : "반대";
-
-        String title = "인증글에 투표가 있습니다";
-        String content = String.format("%s님이 '%s' 인증글에 %s 투표를 했습니다.",
-                voter.getNickname(), truncateMissionTitle(missionTitle, 15), voteAction);
-
-        notificationService.createAndPushNotification(
-                postAuthor,
-                NotificationType.VOTE,
-                title,
-                content,
-                "VERIFICATION",
-                post.getId()
-        );
-
-        log.info("투표 알림 발송 - postId={}, voterId={}, postAuthorId={}, voteType={}",
-                post.getId(), voter.getId(), postAuthor.getId(), voteType);
-    }
-
-    private String truncateMissionTitle(String title, int maxLength) {
-        if (title == null) return "미션";
-        if (title.length() <= maxLength) return title;
-        return title.substring(0, maxLength) + "...";
     }
 
     // GPS 인증
@@ -415,29 +335,15 @@ public class VerificationService {
             log.info("GPS 거리 검증 성공 - distance={}m, allowedRadius={}m", distance, allowedRadius);
         }
 
-        // GPS 인증 성공 처리
-        userMission.updateStatus(UserMissionStatus.COMPLETED);
-
-        MissionVerification verification = MissionVerification.builder()
-                .userMission(userMission)
-                .verifiedAt(LocalDateTime.now())
-                .build();
-        missionVerificationRepository.save(verification);
-
-        createBadge(userMission);
-
-        int expReward = getExpReward(userMission);
-        reantRepository.findByUserId(userId)
-                .ifPresent(reant -> reant.addExp(expReward));
-
-        sendVerificationApprovedNotification(user, userMission);
+        // GPS 인증 성공 처리 - 공통 로직 사용
+        completeVerification(userMission);
 
         log.info("GPS 인증 완료 - userId={}, userMissionId={}, lat={}, lng={}", userId, userMissionId, latitude, longitude);
 
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("success", true);
         result.put("message", "GPS 인증이 완료되었습니다.");
-        result.put("expReward", expReward);
+        result.put("expReward", getExpReward(userMission));
         return result;
     }
 
@@ -508,28 +414,15 @@ public class VerificationService {
             log.info("시간 검증 성공 - actualMinutes={}분, requiredMinutes={}분", actualMinutes, requiredMinutes);
         }
 
-        userMission.updateStatus(UserMissionStatus.COMPLETED);
-
-        MissionVerification verification = MissionVerification.builder()
-                .userMission(userMission)
-                .verifiedAt(LocalDateTime.now())
-                .build();
-        missionVerificationRepository.save(verification);
-
-        createBadge(userMission);
-
-        int expReward = getExpReward(userMission);
-        reantRepository.findByUserId(userId)
-                .ifPresent(reant -> reant.addExp(expReward));
-
-        sendVerificationApprovedNotification(user, userMission);
+        // 시간 인증 성공 처리 - 공통 로직 사용
+        completeVerification(userMission);
 
         log.info("시간 인증 완료 - userId={}, userMissionId={}", userId, userMissionId);
 
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("success", true);
         result.put("message", "시간 인증이 완료되었습니다.");
-        result.put("expReward", expReward);
+        result.put("expReward", getExpReward(userMission));
         return result;
     }
 

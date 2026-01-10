@@ -11,6 +11,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 게시글 응답 DTO (단순화)
+ */
 @Getter
 @Builder
 public class PostResponse {
@@ -20,28 +23,32 @@ public class PostResponse {
     private Long userId;
     private String userNickname;
     private String userProfileImg;
+
+    // 미션 정보 (인증글일 경우)
     private MissionTag missionTag;
+
     private String title;
     private String content;
     private List<String> imageUrls;
-    private Boolean hasValidBadge;
-    private Long commentCount;
+
+    // 좋아요/댓글 수
     private Long likeCount;
+    private Long commentCount;
     private Boolean isLiked;
+
+    // 인증 상태 (VERIFICATION일 경우)
+    private String status;  // PENDING, APPROVED
+    private LocalDateTime verifiedAt;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    // 인증글 전용 필드
-    private String status;  // PENDING, APPROVED, REJECTED (인증글인 경우)
-    private Integer approveCount;
-    private Integer rejectCount;
-    private LocalDateTime verifiedAt;
 
     @Getter
     @Builder
     public static class MissionTag {
         private Long id;
         private String title;
-        private String type; // "SYSTEM" or "CUSTOM"
+        private String type; // OFFICIAL, CUSTOM
     }
 
     public static PostResponse from(Post post) {
@@ -72,30 +79,27 @@ public class PostResponse {
                 .title(post.getTitle())
                 .content(post.getContent())
                 .imageUrls(parseImageUrls(post.getImageUrls()))
-                .hasValidBadge(post.getHasValidBadge())
-                .commentCount(commentCount)
                 .likeCount(likeCount)
+                .commentCount(commentCount)
                 .isLiked(isLiked)
-                .createdAt(post.getCreatedAt())
-                .updatedAt(post.getUpdatedAt())
-                // 인증글 전용 필드
                 .status(post.getStatus() != null ? post.getStatus().name() : null)
-                .approveCount(post.getApproveCount())
-                .rejectCount(post.getRejectCount())
-                .verifiedAt(post.getVerifiedAt());
+                .verifiedAt(post.getVerifiedAt())
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt());
 
-        if (post.getMission() != null) {
-            builder.missionTag(MissionTag.builder()
-                    .id(post.getMission().getId())
-                    .title(post.getMission().getTitle())
-                    .type("OFFICIAL")
-                    .build());
-        } else if (post.getCustomMission() != null) {
-            builder.missionTag(MissionTag.builder()
-                    .id(post.getCustomMission().getId())
-                    .title(post.getCustomMission().getTitle())
-                    .type("CUSTOM")
-                    .build());
+        // 미션 정보 설정 (인증글일 경우 userMission에서 가져옴)
+        if (post.getUserMission() != null) {
+            Long missionId = post.getMissionId();
+            String missionTitle = post.getMissionTitle();
+            String missionType = post.getMissionType();
+
+            if (missionId != null && missionTitle != null) {
+                builder.missionTag(MissionTag.builder()
+                        .id(missionId)
+                        .title(missionTitle)
+                        .type(missionType)
+                        .build());
+            }
         }
 
         return builder.build();

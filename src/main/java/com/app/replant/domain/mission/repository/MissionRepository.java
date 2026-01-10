@@ -18,10 +18,10 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     // ============================================
 
     @Query("SELECT m FROM Mission m WHERE m.isActive = true " +
-           "AND (:type IS NULL OR m.type = :type) " +
+           "AND (:category IS NULL OR m.category = :category) " +
            "AND (:verificationType IS NULL OR m.verificationType = :verificationType)")
     Page<Mission> findMissions(
-        @Param("type") MissionType type,
+        @Param("category") MissionCategory category,
         @Param("verificationType") VerificationType verificationType,
         Pageable pageable
     );
@@ -34,8 +34,8 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
      * 공식 미션 목록 조회 (사용자 맞춤 필터링)
      */
     @Query("SELECT DISTINCT m FROM Mission m LEFT JOIN m.ageRanges ar " +
-           "WHERE m.isActive = true AND m.missionSource = 'OFFICIAL' " +
-           "AND (:type IS NULL OR m.type = :type) " +
+           "WHERE m.isActive = true AND m.missionType = 'OFFICIAL' " +
+           "AND (:category IS NULL OR m.category = :category) " +
            "AND (:verificationType IS NULL OR m.verificationType = :verificationType) " +
            "AND (:worryType IS NULL OR m.worryType = :worryType) " +
            "AND (:ageRange IS NULL OR ar = :ageRange) " +
@@ -43,7 +43,7 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            "AND (:regionType IS NULL OR m.regionType = :regionType OR m.regionType = 'ALL') " +
            "AND (:difficultyLevel IS NULL OR m.difficultyLevel = :difficultyLevel)")
     Page<Mission> findOfficialMissions(
-        @Param("type") MissionType type,
+        @Param("category") MissionCategory category,
         @Param("verificationType") VerificationType verificationType,
         @Param("worryType") WorryType worryType,
         @Param("ageRange") AgeRange ageRange,
@@ -54,21 +54,21 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     );
 
     /**
-     * 타입별 활성화된 공식 미션 목록 조회
+     * 카테고리별 활성화된 공식 미션 목록 조회
      */
-    @Query("SELECT m FROM Mission m WHERE m.isActive = true AND m.missionSource = 'OFFICIAL' AND m.type = :type")
-    List<Mission> findActiveOfficialByType(@Param("type") MissionType type);
+    @Query("SELECT m FROM Mission m WHERE m.isActive = true AND m.missionType = 'OFFICIAL' AND m.category = :category")
+    List<Mission> findActiveOfficialByCategory(@Param("category") MissionCategory category);
 
     /**
-     * 타입별 활성화된 공식 미션 개수
+     * 카테고리별 활성화된 공식 미션 개수
      */
-    @Query("SELECT COUNT(m) FROM Mission m WHERE m.isActive = true AND m.missionSource = 'OFFICIAL' AND m.type = :type")
-    long countActiveOfficialByType(@Param("type") MissionType type);
+    @Query("SELECT COUNT(m) FROM Mission m WHERE m.isActive = true AND m.missionType = 'OFFICIAL' AND m.category = :category")
+    long countActiveOfficialByCategory(@Param("category") MissionCategory category);
 
     /**
      * 공식 미션 ID로 조회
      */
-    @Query("SELECT m FROM Mission m WHERE m.id = :missionId AND m.missionSource = 'OFFICIAL'")
+    @Query("SELECT m FROM Mission m WHERE m.id = :missionId AND m.missionType = 'OFFICIAL'")
     Optional<Mission> findOfficialMissionById(@Param("missionId") Long missionId);
 
     // ============================================
@@ -78,14 +78,14 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     /**
      * 커스텀 미션 목록 조회 (특정 사용자가 생성한)
      */
-    @Query("SELECT m FROM Mission m WHERE m.missionSource = 'CUSTOM' AND m.creator.id = :creatorId " +
+    @Query("SELECT m FROM Mission m WHERE m.missionType = 'CUSTOM' AND m.creator.id = :creatorId " +
            "AND m.isActive = true ORDER BY m.createdAt DESC")
     Page<Mission> findCustomMissionsByCreator(@Param("creatorId") Long creatorId, Pageable pageable);
 
     /**
      * 공개 커스텀 미션 목록 조회
      */
-    @Query("SELECT m FROM Mission m WHERE m.missionSource = 'CUSTOM' AND m.isPublic = true " +
+    @Query("SELECT m FROM Mission m WHERE m.missionType = 'CUSTOM' AND m.isPublic = true " +
            "AND m.isActive = true " +
            "AND (:worryType IS NULL OR m.worryType = :worryType) " +
            "AND (:difficultyLevel IS NULL OR m.difficultyLevel = :difficultyLevel) " +
@@ -99,13 +99,13 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     /**
      * 커스텀 미션 ID로 조회
      */
-    @Query("SELECT m FROM Mission m WHERE m.id = :missionId AND m.missionSource = 'CUSTOM'")
+    @Query("SELECT m FROM Mission m WHERE m.id = :missionId AND m.missionType = 'CUSTOM'")
     Optional<Mission> findCustomMissionById(@Param("missionId") Long missionId);
 
     /**
      * 사용자의 커스텀 미션 개수
      */
-    @Query("SELECT COUNT(m) FROM Mission m WHERE m.missionSource = 'CUSTOM' AND m.creator.id = :creatorId AND m.isActive = true")
+    @Query("SELECT COUNT(m) FROM Mission m WHERE m.missionType = 'CUSTOM' AND m.creator.id = :creatorId AND m.isActive = true")
     long countCustomMissionsByCreator(@Param("creatorId") Long creatorId);
 
     // ============================================
@@ -117,8 +117,8 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
      */
     @Deprecated
     @Query("SELECT DISTINCT m FROM Mission m LEFT JOIN m.ageRanges ar WHERE m.isActive = true " +
-           "AND m.missionSource = 'OFFICIAL' " +
-           "AND (:type IS NULL OR m.type = :type) " +
+           "AND m.missionType = 'OFFICIAL' " +
+           "AND (:category IS NULL OR m.category = :category) " +
            "AND (:verificationType IS NULL OR m.verificationType = :verificationType) " +
            "AND (:worryType IS NULL OR m.worryType = :worryType) " +
            "AND (:ageRange IS NULL OR ar = :ageRange) " +
@@ -126,7 +126,7 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
            "AND (:regionType IS NULL OR m.regionType = :regionType OR m.regionType = 'ALL') " +
            "AND (:difficultyLevel IS NULL OR m.difficultyLevel = :difficultyLevel)")
     Page<Mission> findFilteredMissions(
-        @Param("type") MissionType type,
+        @Param("category") MissionCategory category,
         @Param("verificationType") VerificationType verificationType,
         @Param("worryType") WorryType worryType,
         @Param("ageRange") AgeRange ageRange,
@@ -137,16 +137,16 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
     );
 
     /**
-     * @deprecated Use findActiveOfficialByType instead
+     * @deprecated Use findActiveOfficialByCategory instead
      */
     @Deprecated
-    @Query("SELECT m FROM Mission m WHERE m.isActive = true AND m.missionSource = 'OFFICIAL' AND m.type = :type")
-    List<Mission> findActiveByType(@Param("type") MissionType type);
+    @Query("SELECT m FROM Mission m WHERE m.isActive = true AND m.missionType = 'OFFICIAL' AND m.category = :category")
+    List<Mission> findActiveByCategory(@Param("category") MissionCategory category);
 
     /**
-     * @deprecated Use countActiveOfficialByType instead
+     * @deprecated Use countActiveOfficialByCategory instead
      */
     @Deprecated
-    @Query("SELECT COUNT(m) FROM Mission m WHERE m.isActive = true AND m.missionSource = 'OFFICIAL' AND m.type = :type")
-    long countActiveByType(@Param("type") MissionType type);
+    @Query("SELECT COUNT(m) FROM Mission m WHERE m.isActive = true AND m.missionType = 'OFFICIAL' AND m.category = :category")
+    long countActiveByCategory(@Param("category") MissionCategory category);
 }

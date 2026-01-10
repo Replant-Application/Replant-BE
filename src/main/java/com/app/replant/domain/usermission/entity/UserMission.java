@@ -2,7 +2,7 @@ package com.app.replant.domain.usermission.entity;
 
 import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.mission.enums.MissionSource;
+import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import jakarta.persistence.*;
@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "user_mission", indexes = {
-    @Index(name = "idx_user_mission_source", columnList = "mission_source")
+    @Index(name = "idx_user_mission_type", columnList = "mission_type")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -40,10 +40,10 @@ public class UserMission {
     @JoinColumn(name = "custom_mission_id")
     private CustomMission customMission;
 
-    // 미션 출처 구분 (OFFICIAL / CUSTOM)
+    // 미션 타입 구분 (OFFICIAL / CUSTOM)
     @Enumerated(EnumType.STRING)
-    @Column(name = "mission_source")
-    private MissionSource missionSource;
+    @Column(name = "mission_type")
+    private MissionType missionType;
 
     @Column(name = "assigned_at", nullable = false)
     private LocalDateTime assignedAt;
@@ -60,21 +60,21 @@ public class UserMission {
 
     @Builder
     private UserMission(User user, Mission mission, CustomMission customMission,
-                        MissionSource missionSource, LocalDateTime assignedAt,
+                        MissionType missionType, LocalDateTime assignedAt,
                         LocalDateTime dueDate, UserMissionStatus status) {
         this.user = user;
         this.mission = mission;
         this.customMission = customMission;
 
-        // missionSource 결정 로직
-        if (missionSource != null) {
-            this.missionSource = missionSource;
+        // missionType 결정 로직
+        if (missionType != null) {
+            this.missionType = missionType;
         } else if (mission != null) {
-            // 통합된 Mission 엔티티에서 직접 source 가져오기
-            this.missionSource = mission.getMissionSource();
+            // 통합된 Mission 엔티티에서 직접 type 가져오기
+            this.missionType = mission.getMissionType();
         } else if (customMission != null) {
             // 레거시: customMission 사용 시
-            this.missionSource = MissionSource.CUSTOM;
+            this.missionType = MissionType.CUSTOM;
         }
 
         this.assignedAt = assignedAt != null ? assignedAt : LocalDateTime.now();
@@ -88,11 +88,18 @@ public class UserMission {
     }
 
     /**
+     * 미션 완료 처리
+     */
+    public void complete() {
+        this.status = UserMissionStatus.COMPLETED;
+    }
+
+    /**
      * 공식 미션 여부 확인
      */
     public boolean isOfficialMission() {
-        if (this.missionSource != null) {
-            return this.missionSource == MissionSource.OFFICIAL;
+        if (this.missionType != null) {
+            return this.missionType == MissionType.OFFICIAL;
         }
         // 레거시 호환: mission 엔티티가 있고 공식 미션인 경우
         return this.mission != null && this.mission.isOfficialMission();
@@ -102,8 +109,8 @@ public class UserMission {
      * 커스텀 미션 여부 확인
      */
     public boolean isCustomMission() {
-        if (this.missionSource != null) {
-            return this.missionSource == MissionSource.CUSTOM;
+        if (this.missionType != null) {
+            return this.missionType == MissionType.CUSTOM;
         }
         // 레거시 호환
         return this.customMission != null || (this.mission != null && this.mission.isCustomMission());
@@ -146,18 +153,18 @@ public class UserMission {
     }
 
     /**
-     * 미션 출처 반환
+     * 미션 타입 반환
      */
-    public MissionSource getMissionSource() {
-        if (this.missionSource != null) {
-            return this.missionSource;
+    public MissionType getMissionType() {
+        if (this.missionType != null) {
+            return this.missionType;
         }
         // 자동 추론
         if (this.mission != null) {
-            return this.mission.getMissionSource();
+            return this.mission.getMissionType();
         }
         if (this.customMission != null) {
-            return MissionSource.CUSTOM;
+            return MissionType.CUSTOM;
         }
         return null;
     }

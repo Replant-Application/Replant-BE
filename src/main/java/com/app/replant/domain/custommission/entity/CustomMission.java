@@ -39,7 +39,7 @@ public class CustomMission {
     @Column(name = "worry_type", length = 30)
     private WorryType worryType;
 
-    // 미션 기간 타입: DAILY(일간), WEEKLY(주간), MONTHLY(월간)
+    // 미션 타입 (카테고리): DAILY_LIFE(일상), GROWTH(성장), EXERCISE(운동), STUDY(학습), HEALTH(건강), RELATIONSHIP(관계)
     @Enumerated(EnumType.STRING)
     @Column(name = "mission_type", length = 20)
     private MissionType missionType;
@@ -48,6 +48,14 @@ public class CustomMission {
     @Enumerated(EnumType.STRING)
     @Column(name = "difficulty_level", length = 20)
     private DifficultyLevel difficultyLevel;
+
+    // 챌린지 기간 (일수) - 예: 7일 챌린지면 7, 30일 챌린지면 30
+    @Column(name = "challenge_days")
+    private Integer challengeDays;
+
+    // 완료 기한 (일수) - 미션 할당 후 N일 이내 완료해야 함 (기본값: 3)
+    @Column(name = "deadline_days")
+    private Integer deadlineDays;
 
     @Column(name = "duration_days", nullable = false)
     private Integer durationDays;
@@ -85,16 +93,19 @@ public class CustomMission {
 
     @Builder
     private CustomMission(User creator, String title, String description, WorryType worryType,
-                          MissionType missionType, DifficultyLevel difficultyLevel, Integer durationDays,
-                          Boolean isPublic, VerificationType verificationType, BigDecimal gpsLatitude,
-                          BigDecimal gpsLongitude, Integer gpsRadiusMeters, Integer requiredMinutes,
-                          Integer expReward, Integer badgeDurationDays, Boolean isActive) {
+                          MissionType missionType, DifficultyLevel difficultyLevel,
+                          Integer challengeDays, Integer deadlineDays, Integer durationDays,
+                          Boolean isPublic, VerificationType verificationType,
+                          BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
+                          Integer requiredMinutes, Integer expReward, Integer badgeDurationDays, Boolean isActive) {
         this.creator = creator;
         this.title = title;
         this.description = description;
         this.worryType = worryType;
-        this.missionType = missionType != null ? missionType : MissionType.DAILY;
+        this.missionType = missionType; // deprecated - 사용하지 않음
         this.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.MEDIUM;
+        this.challengeDays = challengeDays != null ? challengeDays : 1;
+        this.deadlineDays = deadlineDays != null ? deadlineDays : 3;
         this.durationDays = durationDays;
         this.isPublic = isPublic != null ? isPublic : false;
         this.verificationType = verificationType;
@@ -119,7 +130,8 @@ public class CustomMission {
     }
 
     public void update(String title, String description, WorryType worryType, MissionType missionType,
-                       DifficultyLevel difficultyLevel, Integer expReward, Boolean isPublic) {
+                       DifficultyLevel difficultyLevel, Integer challengeDays, Integer deadlineDays,
+                       Integer expReward, Boolean isPublic) {
         if (title != null) {
             this.title = title;
         }
@@ -134,6 +146,12 @@ public class CustomMission {
         }
         if (difficultyLevel != null) {
             this.difficultyLevel = difficultyLevel;
+        }
+        if (challengeDays != null) {
+            this.challengeDays = challengeDays;
+        }
+        if (deadlineDays != null) {
+            this.deadlineDays = deadlineDays;
         }
         if (expReward != null) {
             this.expReward = expReward;
