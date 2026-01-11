@@ -1,5 +1,11 @@
 package com.app.replant.domain.chat.repository;
 
+/*
+ * TODO: 채팅 기능 구현 시 주석 해제
+ * 현재 채팅 기능은 미사용으로 Repository 비활성화 상태
+ */
+
+/*
 import com.app.replant.domain.chat.entity.ChatMessage;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,3 +29,4 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @Query("SELECT COUNT(cm) FROM ChatMessage cm WHERE cm.room.id = :roomId AND cm.isRead = false AND cm.sender.id != :userId")
     long countUnreadMessages(@Param("roomId") Long roomId, @Param("userId") Long userId);
 }
+*/

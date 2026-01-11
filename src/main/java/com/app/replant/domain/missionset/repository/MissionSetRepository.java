@@ -88,4 +88,21 @@ public interface MissionSetRepository extends JpaRepository<MissionSet, Long> {
            "LEFT JOIN FETCH msm.mission " +
            "WHERE ms.id = :id AND ms.setType = 'TODOLIST' AND ms.isActive = true")
     Optional<MissionSet> findTodoListByIdWithMissions(@Param("id") Long id);
+
+    // 공유 가능한 투두리스트 조회 (비공개 상태인 것만)
+    @Query("SELECT ms FROM MissionSet ms WHERE ms.creator = :creator AND ms.setType = 'TODOLIST' " +
+           "AND ms.isPublic = false AND ms.isActive = true ORDER BY ms.createdAt DESC")
+    List<MissionSet> findPrivateTodoListsByCreator(@Param("creator") User creator);
+
+    // ID로 미션세트 조회 (setType 필터링 없음) - 공유/공유해제용
+    @Query("SELECT DISTINCT ms FROM MissionSet ms " +
+           "LEFT JOIN FETCH ms.missions msm " +
+           "LEFT JOIN FETCH msm.mission " +
+           "WHERE ms.id = :id AND ms.isActive = true")
+    Optional<MissionSet> findByIdForShare(@Param("id") Long id);
+
+    // 비공개 미션세트 목록 조회 (setType 필터링 없음)
+    @Query("SELECT ms FROM MissionSet ms WHERE ms.creator = :creator " +
+           "AND ms.isPublic = false AND ms.isActive = true ORDER BY ms.createdAt DESC")
+    List<MissionSet> findPrivateMissionSetsByCreator(@Param("creator") User creator);
 }

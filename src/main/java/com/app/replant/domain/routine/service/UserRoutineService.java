@@ -93,7 +93,11 @@ public class UserRoutineService {
             if (isSamePeriod(existing.getPeriodStart(), periodStart, periodType)) {
                 // 같은 기간 - 업데이트
                 existing.update(
+                        request.getTitle(),
+                        request.getDescription(),
                         request.getValueText(),
+                        request.getValueTimeStart(),
+                        request.getValueTimeEnd(),
                         request.getValueTime(),
                         request.getValueNumber(),
                         request.getValueLatitude(),
@@ -115,7 +119,11 @@ public class UserRoutineService {
                 .periodType(periodType)
                 .periodStart(periodStart)
                 .periodEnd(periodEnd)
+                .title(request.getTitle())
+                .description(request.getDescription())
                 .valueText(request.getValueText())
+                .valueTimeStart(request.getValueTimeStart())
+                .valueTimeEnd(request.getValueTimeEnd())
                 .valueTime(request.getValueTime())
                 .valueNumber(request.getValueNumber())
                 .valueLatitude(request.getValueLatitude())
@@ -155,7 +163,7 @@ public class UserRoutineService {
             throw new CustomException(ErrorCode.NOT_ROUTINE_OWNER);
         }
 
-        routine.update(null, null, null, null, null, enabled, routine.getNotificationTime());
+        routine.update(null, null, null, null, null, null, null, null, null, enabled, routine.getNotificationTime());
         return UserRoutineResponse.from(routine);
     }
 

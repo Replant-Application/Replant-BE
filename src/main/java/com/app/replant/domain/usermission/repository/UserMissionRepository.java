@@ -62,4 +62,12 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
      */
     @Query("SELECT um FROM UserMission um WHERE um.user.id = :userId ORDER BY um.createdAt DESC")
     Page<UserMission> findMissionHistoryByUserId(@Param("userId") Long userId, Pageable pageable);
+
+    /**
+     * 특정 유저와 미션으로 UserMission 조회 (ASSIGNED 상태만)
+     */
+    @Query("SELECT um FROM UserMission um WHERE um.user.id = :userId AND um.mission.id = :missionId AND um.status = 'ASSIGNED'")
+    Optional<UserMission> findByUserIdAndMissionIdAndStatusAssigned(
+            @Param("userId") Long userId,
+            @Param("missionId") Long missionId);
 }

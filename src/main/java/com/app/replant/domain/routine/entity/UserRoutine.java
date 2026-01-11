@@ -49,11 +49,27 @@ public class UserRoutine {
     @Column(name = "period_end")
     private LocalDate periodEnd;
 
+    // 루틴 제목 (사용자 지정 이름)
+    @Column(name = "title", length = 100)
+    private String title;
+
+    // 루틴 설명
+    @Column(name = "description", length = 500)
+    private String description;
+
     // 텍스트 값 (다짐, 장소명 등)
     @Column(name = "value_text", length = 500)
     private String valueText;
 
-    // 시간 값 (기상시간 등)
+    // 시작 시간 (기상시간, 공부시작시간 등)
+    @Column(name = "value_time_start")
+    private LocalTime valueTimeStart;
+
+    // 종료 시간 (공부종료시간 등)
+    @Column(name = "value_time_end")
+    private LocalTime valueTimeEnd;
+
+    // 시간 값 (기존 호환용 - deprecated, valueTimeStart 사용 권장)
     @Column(name = "value_time")
     private LocalTime valueTime;
 
@@ -90,7 +106,9 @@ public class UserRoutine {
     @Builder
     private UserRoutine(User user, RoutineType routineType, PeriodType periodType,
                         LocalDate periodStart, LocalDate periodEnd,
-                        String valueText, LocalTime valueTime, Integer valueNumber,
+                        String title, String description,
+                        String valueText, LocalTime valueTimeStart, LocalTime valueTimeEnd,
+                        LocalTime valueTime, Integer valueNumber,
                         Double valueLatitude, Double valueLongitude,
                         Boolean notificationEnabled, LocalTime notificationTime) {
         this.user = user;
@@ -98,7 +116,11 @@ public class UserRoutine {
         this.periodType = periodType;
         this.periodStart = periodStart;
         this.periodEnd = periodEnd;
+        this.title = title;
+        this.description = description;
         this.valueText = valueText;
+        this.valueTimeStart = valueTimeStart;
+        this.valueTimeEnd = valueTimeEnd;
         this.valueTime = valueTime;
         this.valueNumber = valueNumber;
         this.valueLatitude = valueLatitude;
@@ -110,10 +132,16 @@ public class UserRoutine {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void update(String valueText, LocalTime valueTime, Integer valueNumber,
+    public void update(String title, String description,
+                       String valueText, LocalTime valueTimeStart, LocalTime valueTimeEnd,
+                       LocalTime valueTime, Integer valueNumber,
                        Double valueLatitude, Double valueLongitude,
                        Boolean notificationEnabled, LocalTime notificationTime) {
+        if (title != null) this.title = title;
+        if (description != null) this.description = description;
         if (valueText != null) this.valueText = valueText;
+        if (valueTimeStart != null) this.valueTimeStart = valueTimeStart;
+        if (valueTimeEnd != null) this.valueTimeEnd = valueTimeEnd;
         if (valueTime != null) this.valueTime = valueTime;
         if (valueNumber != null) this.valueNumber = valueNumber;
         if (valueLatitude != null) this.valueLatitude = valueLatitude;

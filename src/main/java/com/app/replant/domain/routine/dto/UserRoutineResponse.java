@@ -17,14 +17,22 @@ public class UserRoutineResponse {
     private Long id;
     private RoutineType routineType;
     private String routineTypeName;  // 표시용 이름
+    private String inputType;        // time, time_range, place, text, number
+    private String defaultDescription;
     private PeriodType periodType;
     private String periodTypeName;   // 표시용 이름
     private LocalDate periodStart;
     private LocalDate periodEnd;
 
+    // 루틴 제목 및 설명
+    private String title;
+    private String description;
+
     // 값들
     private String valueText;
-    private LocalTime valueTime;
+    private LocalTime valueTimeStart;
+    private LocalTime valueTimeEnd;
+    private LocalTime valueTime;  // 기존 호환용
     private Integer valueNumber;
     private Double valueLatitude;
     private Double valueLongitude;
@@ -42,11 +50,17 @@ public class UserRoutineResponse {
                 .id(routine.getId())
                 .routineType(routine.getRoutineType())
                 .routineTypeName(routine.getRoutineType().getDisplayName())
+                .inputType(routine.getRoutineType().getInputType())
+                .defaultDescription(routine.getRoutineType().getDefaultDescription())
                 .periodType(routine.getPeriodType())
                 .periodTypeName(routine.getPeriodType().getDisplayName())
                 .periodStart(routine.getPeriodStart())
                 .periodEnd(routine.getPeriodEnd())
+                .title(routine.getTitle())
+                .description(routine.getDescription())
                 .valueText(routine.getValueText())
+                .valueTimeStart(routine.getValueTimeStart())
+                .valueTimeEnd(routine.getValueTimeEnd())
                 .valueTime(routine.getValueTime())
                 .valueNumber(routine.getValueNumber())
                 .valueLatitude(routine.getValueLatitude())

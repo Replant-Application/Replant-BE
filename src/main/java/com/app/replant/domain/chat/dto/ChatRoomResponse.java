@@ -1,5 +1,11 @@
 package com.app.replant.domain.chat.dto;
 
+/*
+ * TODO: 채팅 기능 구현 시 주석 해제
+ * 현재 채팅 기능은 미사용으로 DTO 비활성화 상태
+ */
+
+/*
 import com.app.replant.domain.chat.entity.ChatRoom;
 import com.app.replant.domain.user.entity.User;
 import lombok.Builder;
@@ -102,3 +108,4 @@ public class ChatRoomResponse {
         return response;
     }
 }
+*/

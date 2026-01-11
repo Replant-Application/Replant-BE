@@ -4,6 +4,8 @@ package com.app.replant.controller;
 import com.app.replant.common.ApiResponse;
 import com.app.replant.controller.dto.*;
 import com.app.replant.domain.user.entity.User;
+import com.app.replant.domain.user.enums.Gender;
+import com.app.replant.domain.user.enums.MetropolitanArea;
 import com.app.replant.domain.user.enums.OAuthProvider;
 import com.app.replant.domain.user.security.UserDetail;
 import com.app.replant.domain.user.service.OAuthService;
@@ -21,6 +23,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Tag(name = "인증", description = "회원가입, 로그인, 토큰 관련 API")
 @RestController
@@ -230,6 +237,32 @@ public class AuthController {
 
         String message = response.isNewUser() ? "회원가입이 완료되었습니다." : "로그인에 성공했습니다.";
         return ResponseEntity.ok(ApiResponse.res(200, message, response));
+    }
+
+    @Operation(summary = "광역자치단체 목록 조회", description = "회원가입 시 선택 가능한 지역(광역자치단체) 목록을 조회합니다")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
+    @GetMapping("regions")
+    public ResponseEntity<ApiResponse<List<Map<String, String>>>> getRegions() {
+        List<Map<String, String>> regions = Arrays.stream(MetropolitanArea.values())
+                .map(area -> Map.of(
+                        "code", area.name(),
+                        "name", area.getDisplayName()
+                ))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.res(200, "지역 목록을 조회했습니다", regions));
+    }
+
+    @Operation(summary = "성별 목록 조회", description = "회원가입 시 선택 가능한 성별 목록을 조회합니다")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
+    @GetMapping("genders")
+    public ResponseEntity<ApiResponse<List<Map<String, String>>>> getGenders() {
+        List<Map<String, String>> genders = Arrays.stream(Gender.values())
+                .map(gender -> Map.of(
+                        "code", gender.name(),
+                        "name", gender == Gender.MALE ? "남성" : "여성"
+                ))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.res(200, "성별 목록을 조회했습니다", genders));
     }
 
 }

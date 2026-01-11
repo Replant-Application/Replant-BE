@@ -57,6 +57,10 @@ public class CustomMissionRequest {
     private Integer gpsRadiusMeters;
     private Integer requiredMinutes;
 
+    // 시간 미션용 시작/종료 시간 (HH:mm 형식)
+    private String startTime;
+    private String endTime;
+
     // 경험치 보상 (선택 - 난이도에 따라 자동 계산 가능)
     @Min(value = 0, message = "경험치는 0 이상이어야 합니다.")
     private Integer expReward;

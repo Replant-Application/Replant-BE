@@ -4,6 +4,7 @@ import com.app.replant.common.BaseEntity;
 import com.app.replant.domain.mission.enums.PlaceType;
 import com.app.replant.domain.mission.enums.WorryType;
 import com.app.replant.domain.user.enums.Gender;
+import com.app.replant.domain.user.enums.MetropolitanArea;
 import com.app.replant.domain.user.enums.UserRole;
 import com.app.replant.domain.user.enums.UserStatus;
 import jakarta.persistence.*;
@@ -93,9 +94,10 @@ public class User extends BaseEntity {
     @Column(name = "worry_type", length = 20)
     private WorryType worryType;
 
-    // 지역 (서울, 경기, 인천 등)
-    @Column(name = "region", length = 50)
-    private String region;
+    // 지역 (광역자치단체)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "region", length = 20)
+    private MetropolitanArea region;
 
     // 선호 장소: HOME(집), OUTDOOR(야외), INDOOR(실내)
     @Enumerated(EnumType.STRING)
@@ -115,7 +117,7 @@ public class User extends BaseEntity {
     @Builder
     private User(String email, String nickname, String password, String phone, LocalDate birthDate,
                  Gender gender, String profileImg, UserRole role, UserStatus status,
-                 WorryType worryType, String region, PlaceType preferredPlaceType) {
+                 WorryType worryType, MetropolitanArea region, PlaceType preferredPlaceType) {
         this.email = email;
         this.nickname = nickname;
         this.password = password;
@@ -132,7 +134,7 @@ public class User extends BaseEntity {
     }
 
     public void updateProfile(String nickname, LocalDate birthDate, Gender gender, String profileImg,
-                              WorryType worryType, String region, PlaceType preferredPlaceType) {
+                              WorryType worryType, MetropolitanArea region, PlaceType preferredPlaceType) {
         if (nickname != null) {
             this.nickname = nickname;
         }

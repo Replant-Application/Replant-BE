@@ -65,6 +65,13 @@ public class Mission {
     @Column(name = "required_minutes")
     private Integer requiredMinutes;
 
+    // 시간 미션용 시작/종료 시간 (HH:mm 형식)
+    @Column(name = "start_time", length = 5)
+    private String startTime;
+
+    @Column(name = "end_time", length = 5)
+    private String endTime;
+
     @Column(name = "exp_reward", nullable = false)
     private Integer expReward;
 
@@ -173,7 +180,8 @@ public class Mission {
                                                Boolean isChallenge, Integer challengeDays, Integer deadlineDays,
                                                Integer durationDays, Boolean isPublic, VerificationType verificationType,
                                                BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
-                                               Integer requiredMinutes, Integer expReward, Integer badgeDurationDays,
+                                               Integer requiredMinutes, String startTime, String endTime,
+                                               Integer expReward, Integer badgeDurationDays,
                                                Boolean isActive) {
         Mission mission = new Mission();
         mission.missionType = MissionType.CUSTOM;
@@ -195,6 +203,8 @@ public class Mission {
         mission.gpsLongitude = gpsLongitude;
         mission.gpsRadiusMeters = gpsRadiusMeters != null ? gpsRadiusMeters : 100;
         mission.requiredMinutes = requiredMinutes;
+        mission.startTime = startTime;
+        mission.endTime = endTime;
         mission.expReward = expReward != null ? expReward : calculateDefaultExpReward(difficultyLevel);
         mission.badgeDurationDays = badgeDurationDays != null ? badgeDurationDays : 3;
         mission.isActive = isActive != null ? isActive : true;

@@ -4,6 +4,7 @@ import com.app.replant.domain.custommission.dto.CustomMissionRequest;
 import com.app.replant.domain.custommission.dto.CustomMissionResponse;
 import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.custommission.repository.CustomMissionRepository;
+import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.enums.VerificationType;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
@@ -44,7 +45,7 @@ public class CustomMissionService {
                 .title(request.getTitle())
                 .description(request.getDescription())
                 .worryType(request.getWorryType())
-                .missionType(request.getMissionType())
+                .missionType(MissionType.CUSTOM)  // 커스텀 미션은 항상 CUSTOM 타입
                 .difficultyLevel(request.getDifficultyLevel())
                 .isChallenge(request.getIsChallenge())
                 .challengeDays(request.getChallengeDays())
@@ -56,6 +57,8 @@ public class CustomMissionService {
                 .gpsLongitude(request.getGpsLongitude())
                 .gpsRadiusMeters(request.getGpsRadiusMeters())
                 .requiredMinutes(request.getRequiredMinutes())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
                 .expReward(request.getExpReward())
                 .badgeDurationDays(request.getBadgeDurationDays())
                 .isActive(true)
@@ -63,6 +66,9 @@ public class CustomMissionService {
                 .build();
 
         CustomMission saved = customMissionRepository.save(customMission);
+
+        log.info("커스텀 미션 생성 완료: id={}, title={}, userId={}, missionType=CUSTOM",
+                saved.getId(), saved.getTitle(), userId);
 
         return CustomMissionResponse.from(saved);
     }
@@ -75,8 +81,9 @@ public class CustomMissionService {
             throw new CustomException(ErrorCode.NOT_MISSION_CREATOR);
         }
 
+        // missionType은 항상 CUSTOM으로 유지되어야 하므로 null 전달 (변경 불가)
         customMission.update(request.getTitle(), request.getDescription(), request.getWorryType(),
-                request.getMissionType(), request.getDifficultyLevel(), request.getIsChallenge(),
+                null, request.getDifficultyLevel(), request.getIsChallenge(),
                 request.getChallengeDays(), request.getDeadlineDays(), request.getExpReward(), request.getIsPublic());
         return CustomMissionResponse.from(customMission);
     }

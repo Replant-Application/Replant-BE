@@ -1,7 +1,8 @@
 package com.app.replant.domain.recommendation.service;
 
-import com.app.replant.domain.chat.entity.ChatRoom;
-import com.app.replant.domain.chat.repository.ChatRoomRepository;
+// TODO: 채팅 기능 구현 시 주석 해제
+// import com.app.replant.domain.chat.entity.ChatRoom;
+// import com.app.replant.domain.chat.repository.ChatRoomRepository;
 import com.app.replant.domain.recommendation.dto.AcceptRecommendationResponse;
 import com.app.replant.domain.recommendation.dto.RecommendationResponse;
 import com.app.replant.domain.recommendation.entity.UserRecommendation;
@@ -29,7 +30,8 @@ import java.util.stream.Collectors;
 public class RecommendationService {
 
     private final UserRecommendationRepository userRecommendationRepository;
-    private final ChatRoomRepository chatRoomRepository;
+    // TODO: 채팅 기능 구현 시 주석 해제
+    // private final ChatRoomRepository chatRoomRepository;
     private final UserMissionRepository userMissionRepository;
     private final ObjectMapper objectMapper;
 
@@ -62,34 +64,33 @@ public class RecommendationService {
 
         recommendation.accept();
 
-        // Create ChatRoom
-        User user = recommendation.getUser();
+        // TODO: 채팅 기능 구현 시 ChatRoom 생성 로직 활성화
+        // User user = recommendation.getUser();
+        // User recommendedUser = recommendation.getRecommendedUser();
+        // ChatRoom chatRoom = ChatRoom.builder()
+        //         .recommendation(recommendation)
+        //         .user1(user)
+        //         .user2(recommendedUser)
+        //         .isActive(true)
+        //         .build();
+        // ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
+        // User otherUser = savedChatRoom.getOtherUser(userId);
+
         User recommendedUser = recommendation.getRecommendedUser();
-
-        ChatRoom chatRoom = ChatRoom.builder()
-                .recommendation(recommendation)
-                .user1(user)
-                .user2(recommendedUser)
-                .isActive(true)
-                .build();
-
-        ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
-
-        User otherUser = savedChatRoom.getOtherUser(userId);
 
         return AcceptRecommendationResponse.builder()
                 .recommendationId(recommendationId)
                 .status("ACCEPTED")
                 .chatRoom(AcceptRecommendationResponse.ChatRoomInfo.builder()
-                        .id(savedChatRoom.getId())
+                        .id(null)  // TODO: 채팅 기능 구현 시 실제 채팅방 ID로 변경
                         .otherUser(AcceptRecommendationResponse.OtherUserInfo.builder()
-                                .id(otherUser.getId())
-                                .nickname(otherUser.getNickname())
-                                .profileImg(otherUser.getProfileImg())
+                                .id(recommendedUser.getId())
+                                .nickname(recommendedUser.getNickname())
+                                .profileImg(recommendedUser.getProfileImg())
                                 .build())
-                        .createdAt(savedChatRoom.getCreatedAt())
+                        .createdAt(LocalDateTime.now())
                         .build())
-                .message("추천을 수락하고 채팅방이 생성되었습니다.")
+                .message("추천을 수락했습니다.")
                 .build();
     }
 

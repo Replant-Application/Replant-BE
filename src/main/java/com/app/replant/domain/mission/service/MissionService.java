@@ -16,6 +16,7 @@ import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
@@ -325,7 +327,16 @@ public class MissionService {
                 .isActive(true)
                 .build();
 
+        log.info("=== 커스텀 미션 생성 디버그 ===");
+        log.info("빌드 후 missionType: {}", mission.getMissionType());
+        log.info("빌드 후 creator: {}", mission.getCreator() != null ? mission.getCreator().getId() : "null");
+
         Mission saved = missionRepository.save(mission);
+
+        log.info("저장 후 missionType: {}", saved.getMissionType());
+        log.info("저장 후 creator: {}", saved.getCreator() != null ? saved.getCreator().getId() : "null");
+        log.info("=== 디버그 끝 ===");
+
         return MissionResponse.from(saved);
     }
 

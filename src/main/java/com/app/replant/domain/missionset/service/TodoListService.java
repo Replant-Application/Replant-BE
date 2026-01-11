@@ -12,6 +12,9 @@ import com.app.replant.domain.missionset.repository.MissionSetMissionRepository;
 import com.app.replant.domain.missionset.repository.MissionSetRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
+import com.app.replant.domain.usermission.entity.UserMission;
+import com.app.replant.domain.usermission.enums.UserMissionStatus;
+import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,6 +38,7 @@ public class TodoListService {
     private final MissionSetMissionRepository missionSetMissionRepository;
     private final MissionRepository missionRepository;
     private final UserRepository userRepository;
+    private final UserMissionRepository userMissionRepository;
 
     private static final int RANDOM_OFFICIAL_COUNT = 3;
     private static final int CUSTOM_MISSION_COUNT = 2;
@@ -112,6 +117,9 @@ public class TodoListService {
 
         // 랜덤 공식 미션 추가
         int order = 0;
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime defaultDueDate = now.plusDays(7); // 기본 마감일 7일
+
         for (Mission mission : randomMissions) {
             MissionSetMission msm = MissionSetMission.todoMissionBuilder()
                     .missionSet(todoList)
@@ -120,6 +128,20 @@ public class TodoListService {
                     .missionSource(MissionSource.RANDOM_OFFICIAL)
                     .build();
             todoList.getMissions().add(msm);
+
+            // UserMission 생성 - 투두리스트에 추가된 미션을 나의 미션에도 추가
+            LocalDateTime dueDate = mission.getDurationDays() != null
+                    ? now.plusDays(mission.getDurationDays())
+                    : defaultDueDate;
+            UserMission userMission = UserMission.builder()
+                    .user(user)
+                    .mission(mission)
+                    .missionType(mission.getMissionType())
+                    .assignedAt(now)
+                    .dueDate(dueDate)
+                    .status(UserMissionStatus.ASSIGNED)
+                    .build();
+            userMissionRepository.save(userMission);
         }
 
         // 커스텀 미션 추가
@@ -131,11 +153,26 @@ public class TodoListService {
                     .missionSource(MissionSource.CUSTOM_SELECTED)
                     .build();
             todoList.getMissions().add(msm);
+
+            // UserMission 생성 - 투두리스트에 추가된 미션을 나의 미션에도 추가
+            LocalDateTime dueDate = mission.getDurationDays() != null
+                    ? now.plusDays(mission.getDurationDays())
+                    : (mission.getDeadlineDays() != null ? now.plusDays(mission.getDeadlineDays()) : defaultDueDate);
+            UserMission userMission = UserMission.builder()
+                    .user(user)
+                    .mission(mission)
+                    .missionType(mission.getMissionType())
+                    .assignedAt(now)
+                    .dueDate(dueDate)
+                    .status(UserMissionStatus.ASSIGNED)
+                    .build();
+            userMissionRepository.save(userMission);
         }
 
         missionSetRepository.save(todoList);
 
-        log.info("투두리스트 생성 완료: id={}, userId={}", todoList.getId(), userId);
+        log.info("투두리스트 생성 완료: id={}, userId={}, UserMission {}개 생성됨",
+                todoList.getId(), userId, TOTAL_MISSION_COUNT);
         return TodoListDto.DetailResponse.from(todoList);
     }
 
@@ -205,6 +242,10 @@ public class TodoListService {
         // 미션 완료 처리
         targetMission.complete();
 
+        // UserMission도 완료 처리
+        userMissionRepository.findByUserIdAndMissionIdAndStatusAssigned(userId, missionId)
+                .ifPresent(UserMission::complete);
+
         // 투두리스트 완료 카운트 증가
         todoList.incrementCompletedCount();
 
@@ -256,5 +297,64 @@ public class TodoListService {
 
         todoList.archiveTodoList();
         log.info("투두리스트 보관 완료: todoListId={}, userId={}", todoListId, userId);
+    }
+
+    /**
+     * 투두리스트 공유 (isPublic = true로 전환)
+     * 투두 공유 탭에서 내 투두리스트를 선택하여 공개로 전환
+     */
+    @Transactional
+    public TodoListDto.DetailResponse shareTodoList(Long todoListId, Long userId) {
+        MissionSet todoList = missionSetRepository.findByIdForShare(todoListId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+        // 본인만 공유 가능
+        if (!todoList.isCreator(userId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+
+        // 이미 공개된 투두리스트인지 확인
+        if (Boolean.TRUE.equals(todoList.getIsPublic())) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 공유된 투두리스트입니다.");
+        }
+
+        // 공개로 전환
+        todoList.update(null, null, true);
+        log.info("투두리스트 공유 완료: todoListId={}, userId={}", todoListId, userId);
+
+        return TodoListDto.DetailResponse.from(todoList);
+    }
+
+    /**
+     * 투두리스트 공유 해제 (isPublic = false로 전환)
+     */
+    @Transactional
+    public TodoListDto.DetailResponse unshareTodoList(Long todoListId, Long userId) {
+        MissionSet todoList = missionSetRepository.findByIdForShare(todoListId)
+                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+        // 본인만 공유 해제 가능
+        if (!todoList.isCreator(userId)) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED);
+        }
+
+        // 비공개로 전환
+        todoList.update(null, null, false);
+        log.info("투두리스트 공유 해제 완료: todoListId={}, userId={}", todoListId, userId);
+
+        return TodoListDto.DetailResponse.from(todoList);
+    }
+
+    /**
+     * 공유 가능한 내 투두리스트 목록 조회 (비공개 상태인 것만)
+     */
+    public List<TodoListDto.SimpleResponse> getShareableTodoLists(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        return missionSetRepository.findPrivateMissionSetsByCreator(user)
+                .stream()
+                .map(TodoListDto.SimpleResponse::from)
+                .collect(Collectors.toList());
     }
 }

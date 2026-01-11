@@ -40,7 +40,7 @@ public class UserResponse {
                 .role(user.getRole())
                 // 사용자 맞춤 정보
                 .worryType(user.getWorryType())
-                .region(user.getRegion())
+                .region(user.getRegion() != null ? user.getRegion().name() : null)
                 .preferredPlaceType(user.getPreferredPlaceType())
                 .build();
     }

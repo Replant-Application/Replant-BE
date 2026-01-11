@@ -1,5 +1,11 @@
 package com.app.replant.controller;
 
+/*
+ * TODO: 채팅 기능 구현 시 주석 해제
+ * 현재 채팅 기능은 미사용으로 Controller 비활성화 상태
+ */
+
+/*
 import com.app.replant.common.ApiResponse;
 import com.app.replant.domain.chat.dto.ChatMessageRequest;
 import com.app.replant.domain.chat.dto.ChatMessageResponse;
@@ -79,3 +85,4 @@ public class ChatController {
         return ApiResponse.success(result);
     }
 }
+*/

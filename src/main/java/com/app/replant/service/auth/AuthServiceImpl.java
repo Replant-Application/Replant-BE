@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 @Service
@@ -67,11 +68,20 @@ public class AuthServiceImpl implements AuthService {
             // 4. 비밀번호 암호화 및 회원 저장
             String encodedPassword = passwordEncoder.encode(joinDto.getPassword());
 
+            // 출생연도를 LocalDate로 변환 (1월 1일 기준)
+            LocalDate birthDate = null;
+            if (joinDto.getBirthYear() != null) {
+                birthDate = LocalDate.of(joinDto.getBirthYear(), 1, 1);
+            }
+
             User user = User.builder()
                     .email(joinDto.getId())
                     .nickname(joinDto.getName())
                     .password(encodedPassword)
                     .phone(joinDto.getPhone())
+                    .birthDate(birthDate)
+                    .gender(joinDto.getGender())
+                    .region(joinDto.getRegion())
                     .role(UserRole.USER)
                     .status(UserStatus.ACTIVE)
                     .build();

@@ -147,4 +147,48 @@ public class TodoListController {
         todoListService.archiveTodoList(todoListId, userId);
         return ApiResponse.success(null);
     }
+
+    // ============ 투두 공유 관련 API ============
+
+    @Operation(summary = "공유 가능한 투두리스트 목록",
+            description = "투두 공유 탭에서 공유할 수 있는 내 투두리스트 목록을 조회합니다. (비공개 상태인 것만)")
+    @GetMapping("/shareable")
+    public ApiResponse<List<TodoListDto.SimpleResponse>> getShareableTodoLists(
+            @AuthenticationPrincipal Long userId) {
+        List<TodoListDto.SimpleResponse> response = todoListService.getShareableTodoLists(userId);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "투두리스트 공유",
+            description = "투두리스트를 공개로 전환하여 투두 공유 탭에 공유합니다.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "공유 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "이미 공유된 투두리스트"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "투두리스트를 찾을 수 없음")
+    })
+    @PutMapping("/{todoListId}/share")
+    public ApiResponse<TodoListDto.DetailResponse> shareTodoList(
+            @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
+            @AuthenticationPrincipal Long userId) {
+        TodoListDto.DetailResponse response = todoListService.shareTodoList(todoListId, userId);
+        return ApiResponse.success(response);
+    }
+
+    @Operation(summary = "투두리스트 공유 해제",
+            description = "공유된 투두리스트를 비공개로 전환합니다.")
+    @ApiResponses(value = {
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "공유 해제 성공"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 필요"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "투두리스트를 찾을 수 없음")
+    })
+    @PutMapping("/{todoListId}/unshare")
+    public ApiResponse<TodoListDto.DetailResponse> unshareTodoList(
+            @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
+            @AuthenticationPrincipal Long userId) {
+        TodoListDto.DetailResponse response = todoListService.unshareTodoList(todoListId, userId);
+        return ApiResponse.success(response);
+    }
 }
