@@ -46,7 +46,7 @@ public class SecondaryDataSourceConfig {
 
         Map<String, String> jpaProperties = new HashMap<>();
         jpaProperties.put("hibernate.dialect", "org.hibernate.dialect.MySQLDialect");
-        jpaProperties.put("hibernate.hbm2ddl.auto", "update");  // 누락된 테이블 자동 생성
+        jpaProperties.put("hibernate.hbm2ddl.auto", "none");  // Flyway로 스키마 관리 (검증 비활성화)
         jpaProperties.put("hibernate.format_sql", "true");
         jpaProperties.put("hibernate.show_sql", "true");
 
