@@ -283,16 +283,12 @@ public class VerificationService {
             throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
         }
 
-        // GPS 거리 검증
-        java.math.BigDecimal targetLat;
-        java.math.BigDecimal targetLng;
-        Integer radiusMeters;
+        // GPS 거리 검증 (현재 GPS 인증 미사용)
+        java.math.BigDecimal targetLat = null;
+        java.math.BigDecimal targetLng = null;
+        Integer radiusMeters = null;
 
-        if (userMission.getMission() != null) {
-            targetLat = userMission.getMission().getGpsLatitude();
-            targetLng = userMission.getMission().getGpsLongitude();
-            radiusMeters = userMission.getMission().getGpsRadiusMeters();
-        } else {
+        if (userMission.getMission() == null) {
             throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
         }
 

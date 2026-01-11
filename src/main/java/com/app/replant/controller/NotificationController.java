@@ -70,4 +70,17 @@ public class NotificationController {
 
         return ApiResponse.success(result);
     }
+
+    @Operation(summary = "알림 삭제 (Soft Delete)")
+    @DeleteMapping("/{notificationId}")
+    public ApiResponse<Map<String, String>> deleteNotification(
+            @PathVariable Long notificationId,
+            @AuthenticationPrincipal Long userId) {
+        notificationService.deleteNotification(notificationId, userId);
+
+        Map<String, String> result = new HashMap<>();
+        result.put("message", "알림이 삭제되었습니다.");
+
+        return ApiResponse.success(result);
+    }
 }

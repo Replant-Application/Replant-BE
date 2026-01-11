@@ -5,7 +5,6 @@ import com.app.replant.domain.mission.enums.*;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Getter
@@ -17,11 +16,8 @@ public class MissionResponse {
     private String description;
     // 카테고리: DAILY_LIFE(일상), GROWTH(성장), EXERCISE(운동), STUDY(학습), HEALTH(건강), RELATIONSHIP(관계)
     private MissionCategory category;
-    // 인증방식: TIMER(시간인증), GPS(GPS인증), COMMUNITY(커뮤인증)
+    // 인증방식: TIMER(시간인증), COMMUNITY(커뮤인증)
     private VerificationType verificationType;
-    private BigDecimal gpsLatitude;
-    private BigDecimal gpsLongitude;
-    private Integer gpsRadiusMeters;
     private Integer requiredMinutes;
     private Integer expReward;
     private Integer badgeDurationDays;
@@ -61,9 +57,6 @@ public class MissionResponse {
                 .description(mission.getDescription())
                 .category(mission.getCategory())
                 .verificationType(mission.getVerificationType())
-                .gpsLatitude(mission.getGpsLatitude())
-                .gpsLongitude(mission.getGpsLongitude())
-                .gpsRadiusMeters(mission.getGpsRadiusMeters())
                 .requiredMinutes(mission.getRequiredMinutes())
                 .expReward(mission.getExpReward())
                 .badgeDurationDays(mission.getBadgeDurationDays())
@@ -99,9 +92,6 @@ public class MissionResponse {
                 .description(mission.getDescription())
                 .category(mission.getCategory())
                 .verificationType(mission.getVerificationType())
-                .gpsLatitude(mission.getGpsLatitude())
-                .gpsLongitude(mission.getGpsLongitude())
-                .gpsRadiusMeters(mission.getGpsRadiusMeters())
                 .requiredMinutes(mission.getRequiredMinutes())
                 .expReward(mission.getExpReward())
                 .badgeDurationDays(mission.getBadgeDurationDays())

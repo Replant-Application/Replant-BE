@@ -44,6 +44,15 @@ public class NotificationService {
         return notificationRepository.markAllAsRead(userId);
     }
 
+    /**
+     * 알림 삭제 (Soft Delete)
+     */
+    @Transactional
+    public void deleteNotification(Long notificationId, Long userId) {
+        Notification notification = findNotificationByIdAndUserId(notificationId, userId);
+        notification.softDelete();
+    }
+
     private Notification findNotificationByIdAndUserId(Long notificationId, Long userId) {
         return notificationRepository.findByIdAndUserId(notificationId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));

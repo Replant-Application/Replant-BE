@@ -1,6 +1,6 @@
 package com.app.replant.domain.post.entity;
 
-import com.app.replant.common.BaseEntity;
+import com.app.replant.common.SoftDeletableEntity;
 import com.app.replant.domain.post.enums.CommentTargetType;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
@@ -8,6 +8,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,9 +19,10 @@ import java.util.List;
     @Index(name = "idx_comment_parent_id", columnList = "parent_id"),
     @Index(name = "idx_comment_target", columnList = "target_type, target_id")
 })
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Comment extends BaseEntity {
+public class Comment extends SoftDeletableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

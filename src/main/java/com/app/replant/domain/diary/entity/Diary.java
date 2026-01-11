@@ -1,24 +1,24 @@
 package com.app.replant.domain.diary.entity;
 
+import com.app.replant.common.SoftDeletableEntity;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "diary", indexes = {
     @Index(name = "idx_diary_user_date", columnList = "user_id, date")
 })
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Diary {
+public class Diary extends SoftDeletableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -60,14 +60,6 @@ public class Diary {
 
     @Column(name = "is_private")
     private Boolean isPrivate; // 비공개 여부
-
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt; // 생성일시
-
-    @UpdateTimestamp
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt; // 수정일시
 
     @Builder
     public Diary(User user, LocalDate date, String emotion, Integer mood, String emotions, String emotionFactors,
@@ -114,5 +106,12 @@ public class Diary {
         if (isPrivate != null) {
             this.isPrivate = isPrivate;
         }
+    }
+
+    /**
+     * 다이어리 소유자 확인
+     */
+    public boolean isOwner(Long userId) {
+        return this.user.getId().equals(userId);
     }
 }

@@ -1,5 +1,6 @@
 package com.app.replant.domain.missionset.entity;
 
+import com.app.replant.common.SoftDeletableEntity;
 import com.app.replant.domain.missionset.enums.MissionSetType;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
 import com.app.replant.domain.user.entity.User;
@@ -8,6 +9,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -24,9 +26,10 @@ import java.util.List;
     @Index(name = "idx_mission_set_added_count", columnList = "added_count"),
     @Index(name = "idx_mission_set_type", columnList = "set_type")
 })
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MissionSet {
+public class MissionSet extends SoftDeletableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

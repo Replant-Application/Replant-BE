@@ -9,7 +9,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Getter
@@ -29,14 +28,9 @@ public class MissionRequest {
     @NotNull(message = "미션 카테고리를 선택해주세요")
     private MissionCategory category;
 
-    // 인증방식: TIMER(시간인증), GPS(GPS인증), COMMUNITY(커뮤인증)
+    // 인증방식: TIMER(시간인증), COMMUNITY(커뮤인증)
     @NotNull(message = "인증 타입을 선택해주세요")
     private VerificationType verificationType;
-
-    // GPS 인증용 필드
-    private BigDecimal gpsLatitude;
-    private BigDecimal gpsLongitude;
-    private Integer gpsRadiusMeters;
 
     // 시간 인증용 필드
     private Integer requiredMinutes;

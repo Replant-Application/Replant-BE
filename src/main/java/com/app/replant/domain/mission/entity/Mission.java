@@ -8,14 +8,13 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "mission", indexes = {
-    @Index(name = "idx_mission_source", columnList = "mission_source"),
+    @Index(name = "idx_mission_type", columnList = "mission_type"),
     @Index(name = "idx_mission_creator", columnList = "creator_id"),
     @Index(name = "idx_mission_is_active", columnList = "is_active")
 })
@@ -29,7 +28,7 @@ public class Mission {
 
     // 미션 타입: OFFICIAL(공식 미션), CUSTOM(커스텀 미션)
     @Enumerated(EnumType.STRING)
-    @Column(name = "mission_source", nullable = false, length = 20)
+    @Column(name = "mission_type", nullable = false, length = 20)
     private MissionType missionType;
 
     // 커스텀 미션 생성자 (CUSTOM인 경우만 사용)
@@ -48,19 +47,10 @@ public class Mission {
     @Column(nullable = false, length = 20)
     private MissionCategory category;
 
-    // 인증방식: TIMER(시간인증), GPS(GPS인증), COMMUNITY(커뮤인증)
+    // 인증방식: TIMER(시간인증), COMMUNITY(커뮤인증)
     @Enumerated(EnumType.STRING)
     @Column(name = "verification_type", nullable = false, length = 20)
     private VerificationType verificationType;
-
-    @Column(name = "gps_latitude", precision = 10, scale = 8)
-    private BigDecimal gpsLatitude;
-
-    @Column(name = "gps_longitude", precision = 11, scale = 8)
-    private BigDecimal gpsLongitude;
-
-    @Column(name = "gps_radius_meters")
-    private Integer gpsRadiusMeters;
 
     @Column(name = "required_minutes")
     private Integer requiredMinutes;
@@ -147,7 +137,6 @@ public class Mission {
     // ============ 공식 미션 생성용 빌더 ============
     @Builder(builderMethodName = "officialBuilder")
     private Mission(String title, String description, MissionCategory category, VerificationType verificationType,
-                    BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
                     Integer requiredMinutes, Integer expReward, Integer badgeDurationDays, Boolean isActive,
                     WorryType worryType, List<AgeRange> ageRanges, GenderType genderType, RegionType regionType,
                     PlaceType placeType, DifficultyLevel difficultyLevel) {
@@ -156,9 +145,6 @@ public class Mission {
         this.description = description;
         this.category = category;
         this.verificationType = verificationType;
-        this.gpsLatitude = gpsLatitude;
-        this.gpsLongitude = gpsLongitude;
-        this.gpsRadiusMeters = gpsRadiusMeters != null ? gpsRadiusMeters : 100;
         this.requiredMinutes = requiredMinutes;
         this.expReward = expReward != null ? expReward : 10;
         this.badgeDurationDays = badgeDurationDays != null ? badgeDurationDays : 3;
@@ -179,7 +165,6 @@ public class Mission {
                                                MissionCategory category, DifficultyLevel difficultyLevel,
                                                Boolean isChallenge, Integer challengeDays, Integer deadlineDays,
                                                Integer durationDays, Boolean isPublic, VerificationType verificationType,
-                                               BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
                                                Integer requiredMinutes, String startTime, String endTime,
                                                Integer expReward, Integer badgeDurationDays,
                                                Boolean isActive) {
@@ -199,9 +184,6 @@ public class Mission {
         mission.isPublic = isPublic != null ? isPublic : false;
         mission.isPromoted = false;  // 기본값: 승격되지 않음
         mission.verificationType = verificationType;
-        mission.gpsLatitude = gpsLatitude;
-        mission.gpsLongitude = gpsLongitude;
-        mission.gpsRadiusMeters = gpsRadiusMeters != null ? gpsRadiusMeters : 100;
         mission.requiredMinutes = requiredMinutes;
         mission.startTime = startTime;
         mission.endTime = endTime;
@@ -224,7 +206,6 @@ public class Mission {
 
     // 공식 미션 업데이트
     public void updateOfficial(String title, String description, MissionCategory category, VerificationType verificationType,
-                                BigDecimal gpsLatitude, BigDecimal gpsLongitude, Integer gpsRadiusMeters,
                                 Integer requiredMinutes, Integer expReward, Integer badgeDurationDays,
                                 WorryType worryType, List<AgeRange> ageRanges, GenderType genderType, RegionType regionType,
                                 PlaceType placeType, DifficultyLevel difficultyLevel) {
@@ -235,9 +216,6 @@ public class Mission {
         this.description = description;
         this.category = category;
         this.verificationType = verificationType;
-        this.gpsLatitude = gpsLatitude;
-        this.gpsLongitude = gpsLongitude;
-        this.gpsRadiusMeters = gpsRadiusMeters != null ? gpsRadiusMeters : 100;
         this.requiredMinutes = requiredMinutes;
         this.expReward = expReward != null ? expReward : 10;
         this.badgeDurationDays = badgeDurationDays != null ? badgeDurationDays : 3;

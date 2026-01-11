@@ -1,3 +1,9 @@
+# ===========================================
+# Replant Backend Application Configuration
+# 모든 민감한 정보는 .env 파일에서 로드됩니다
+# spring-dotenv 라이브러리 사용: ${env.변수명}
+# ===========================================
+
 server:
   port: 3000
   timezone: Asia/Seoul
@@ -6,24 +12,14 @@ spring:
   application:
     name: Replant-BE
 
-  # Primary DataSource (H2) - 비활성화됨
-#  datasource:
-#    primary:
-#      jdbc-url: ${DB1_URL}
-#      username: ${DB1_USERNAME}
-#      password: ${DB1_PASSWORD}
-#      driver-class-name: org.h2.Driver
-#      connection-timeout: 30000
-#      maximum-pool-size: 10
-#      minimum-idle: 5
-#      pool-name: H2-HikariPool
-
-    # Primary DataSource (MariaDB)
+  # ===========================================
+  # DataSource 설정 (MariaDB) - .env에서 로드
+  # ===========================================
   datasource:
     secondary:
-      jdbc-url: ${DB1_URL}
-      username: ${DB1_USERNAME}
-      password: ${DB1_PASSWORD}
+      jdbc-url: ${env.DB1_URL}
+      username: ${env.DB1_USERNAME}
+      password: ${env.DB1_PASSWORD}
       driver-class-name: com.mysql.cj.jdbc.Driver
       connection-timeout: 30000
       maximum-pool-size: 10
@@ -44,17 +40,12 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
-  #      location: /home/ubuntu/files
-
   jackson:
     time-zone: Asia/Seoul
 
   jpa:
     hibernate:
-      ddl-auto: update  # 누락된 테이블 자동 생성
-    # database-platform은 각 DataSource Config에서 설정
-
-    # jpa format
+      ddl-auto: update
     properties:
       hibernate:
         format_sql: true
@@ -62,7 +53,7 @@ spring:
 
   # Flyway 설정
   flyway:
-    enabled: true
+    enabled: false
     baseline-on-migrate: true
     baseline-version: 0
     locations: classpath:db/migration
@@ -70,44 +61,62 @@ spring:
     out-of-order: false
     clean-disabled: false
 
-  # Redis 설정 (선택적 - 연결 실패 시 인메모리 폴백 사용)
+  # ===========================================
+  # Redis 설정 - .env에서 로드
+  # ===========================================
   data:
     redis:
-      host: ${REDIS_URL:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      host: ${env.REDIS_URL:localhost}
+      port: ${env.REDIS_PORT:6379}
+      password: ${env.REDIS_PASSWORD:}
       timeout: 2000ms
       connect-timeout: 2000ms
+
   # Redis 자동설정 오류 무시
   autoconfigure:
     exclude:
       - org.springframework.boot.actuate.autoconfigure.data.redis.RedisHealthContributorAutoConfiguration
 
-  # log
+  # Log 설정
   output:
     ansi:
       enabled: always
 
-  # Mail 설정 (Gmail SMTP)
+  # ===========================================
+  # Mail 설정 (Gmail SMTP) - .env에서 로드
+  # ===========================================
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${GOOGLE_MAIL}
-    password: ${GOOGLE_APP_PASSWORD}
+    username: ${env.GOOGLE_MAIL}
+    password: ${env.GOOGLE_APP_PASSWORD}
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
       mail.smtp.starttls.required: true
-jwt:
-  secret: ${JWT}
 
+# ===========================================
+# JWT 설정 - .env에서 로드
+# ===========================================
+jwt:
+  secret: ${env.JWT}
+
+# ===========================================
+# AWS S3 설정 - .env에서 로드
+# ===========================================
 aws:
   s3:
-    bucket: ${S3_BUCKET}
-    accessKey: ${S3_ACCESS_KEY}
-    secretKey: ${S3_SECRET_KEY}
-    client: ${S3_CLIENT}
-    region: ${S3_REGION}
+    bucket: ${env.S3_BUCKET:replant-bucket}
+    accessKey: ${env.S3_ACCESS_KEY}
+    secretKey: ${env.S3_SECRET_KEY}
+    client: ${env.S3_CLIENT:cloud5-s3}
+    region: ${env.S3_REGION:ap-northeast-2}
+
+# ===========================================
+# Frontend URL 설정 (CORS) - .env에서 로드
+# ===========================================
+frontend:
+  url: ${env.FRONTEND_URL:http://localhost:8081}
 
 # Swagger/OpenAPI 설정
 springdoc:
@@ -124,9 +133,9 @@ management:
   endpoints:
     web:
       exposure:
-        include: "health,info,metrics"  # 보안: 필요한 엔드포인트만 노출
+        include: "health,info,metrics"
       base-path: /actuator
   endpoint:
     health:
-      show-details: when-authorized  # 보안: 인증된 사용자만 상세 정보 조회 가능
-      roles: "ADMIN"  # ADMIN 롤만 상세 정보 조회
+      show-details: when-authorized
+      roles: "ADMIN"

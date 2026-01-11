@@ -315,18 +315,18 @@ public class UserMissionService {
     }
 
     private BigDecimal getGpsLatitude(UserMission userMission) {
-        Mission mission = userMission.getMission();
-        return mission != null ? mission.getGpsLatitude() : null;
+        // GPS 인증 기능 미사용
+        return null;
     }
 
     private BigDecimal getGpsLongitude(UserMission userMission) {
-        Mission mission = userMission.getMission();
-        return mission != null ? mission.getGpsLongitude() : null;
+        // GPS 인증 기능 미사용
+        return null;
     }
 
     private Integer getGpsRadius(UserMission userMission) {
-        Mission mission = userMission.getMission();
-        return mission != null ? mission.getGpsRadiusMeters() : 100;
+        // GPS 인증 기능 미사용
+        return 100;
     }
 
     private Integer getRequiredMinutes(UserMission userMission) {

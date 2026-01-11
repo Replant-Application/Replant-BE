@@ -4,6 +4,7 @@ import com.app.replant.common.ApiResponse;
 import com.app.replant.common.dto.PageResponse;
 import com.app.replant.domain.diary.dto.DiaryRequest;
 import com.app.replant.domain.diary.dto.DiaryResponse;
+import com.app.replant.domain.diary.dto.DiaryStatsResponse;
 import com.app.replant.domain.diary.service.DiaryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Tag(name = "Diary", description = "다이어리 API")
@@ -66,7 +68,43 @@ public class DiaryController {
         return ApiResponse.success(diary);
     }
 
-    @Operation(summary = "다이어리 삭제")
+    @Operation(summary = "다이어리 상세 조회")
+    @GetMapping("/{diaryId}")
+    public ApiResponse<DiaryResponse> getDiary(
+            @PathVariable Long diaryId,
+            @AuthenticationPrincipal Long userId) {
+        DiaryResponse diary = diaryService.getDiary(diaryId, userId);
+        return ApiResponse.success(diary);
+    }
+
+    @Operation(summary = "다이어리 수정")
+    @PutMapping("/{diaryId}")
+    public ApiResponse<DiaryResponse> updateDiary(
+            @PathVariable Long diaryId,
+            @AuthenticationPrincipal Long userId,
+            @RequestBody @Valid DiaryRequest request) {
+        DiaryResponse diary = diaryService.updateDiary(diaryId, userId, request);
+        return ApiResponse.success(diary);
+    }
+
+    @Operation(summary = "기간별 다이어리 조회")
+    @GetMapping("/range")
+    public ApiResponse<List<DiaryResponse>> getDiariesByRange(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        List<DiaryResponse> diaries = diaryService.getDiariesByRange(userId, startDate, endDate);
+        return ApiResponse.success(diaries);
+    }
+
+    @Operation(summary = "다이어리 통계 조회")
+    @GetMapping("/stats")
+    public ApiResponse<DiaryStatsResponse> getDiaryStats(@AuthenticationPrincipal Long userId) {
+        DiaryStatsResponse stats = diaryService.getDiaryStats(userId);
+        return ApiResponse.success(stats);
+    }
+
+    @Operation(summary = "다이어리 삭제 (Soft Delete)")
     @DeleteMapping("/{diaryId}")
     public ApiResponse<Map<String, String>> deleteDiary(
             @PathVariable Long diaryId,

@@ -176,9 +176,6 @@ public class MissionService {
                 .description(request.getDescription())
                 .category(request.getCategory())
                 .verificationType(request.getVerificationType())
-                .gpsLatitude(request.getGpsLatitude())
-                .gpsLongitude(request.getGpsLongitude())
-                .gpsRadiusMeters(request.getGpsRadiusMeters())
                 .requiredMinutes(request.getRequiredMinutes())
                 .expReward(request.getExpReward())
                 .badgeDurationDays(request.getBadgeDurationDays())
@@ -205,9 +202,6 @@ public class MissionService {
                 request.getDescription(),
                 request.getCategory(),
                 request.getVerificationType(),
-                request.getGpsLatitude(),
-                request.getGpsLongitude(),
-                request.getGpsRadiusMeters(),
                 request.getRequiredMinutes(),
                 request.getExpReward(),
                 request.getBadgeDurationDays(),
@@ -238,9 +232,6 @@ public class MissionService {
                         .description(request.getDescription())
                         .category(request.getCategory())
                         .verificationType(request.getVerificationType())
-                        .gpsLatitude(request.getGpsLatitude())
-                        .gpsLongitude(request.getGpsLongitude())
-                        .gpsRadiusMeters(request.getGpsRadiusMeters())
                         .requiredMinutes(request.getRequiredMinutes())
                         .expReward(request.getExpReward())
                         .badgeDurationDays(request.getBadgeDurationDays())
@@ -318,25 +309,16 @@ public class MissionService {
                 .durationDays(request.getDurationDays())
                 .isPublic(request.getIsPublic())
                 .verificationType(request.getVerificationType())
-                .gpsLatitude(request.getGpsLatitude())
-                .gpsLongitude(request.getGpsLongitude())
-                .gpsRadiusMeters(request.getGpsRadiusMeters())
                 .requiredMinutes(request.getRequiredMinutes())
                 .expReward(request.getExpReward())
                 .badgeDurationDays(request.getBadgeDurationDays())
                 .isActive(true)
                 .build();
 
-        log.info("=== 커스텀 미션 생성 디버그 ===");
-        log.info("빌드 후 missionType: {}", mission.getMissionType());
-        log.info("빌드 후 creator: {}", mission.getCreator() != null ? mission.getCreator().getId() : "null");
+        log.info("커스텀 미션 생성: title={}, missionType={}, userId={}",
+                mission.getTitle(), mission.getMissionType(), userId);
 
         Mission saved = missionRepository.save(mission);
-
-        log.info("저장 후 missionType: {}", saved.getMissionType());
-        log.info("저장 후 creator: {}", saved.getCreator() != null ? saved.getCreator().getId() : "null");
-        log.info("=== 디버그 끝 ===");
-
         return MissionResponse.from(saved);
     }
 

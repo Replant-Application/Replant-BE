@@ -2,6 +2,7 @@ package com.app.replant.domain.diary.service;
 
 import com.app.replant.domain.diary.dto.DiaryRequest;
 import com.app.replant.domain.diary.dto.DiaryResponse;
+import com.app.replant.domain.diary.dto.DiaryStatsResponse;
 import com.app.replant.domain.diary.entity.Diary;
 import com.app.replant.domain.diary.repository.DiaryRepository;
 import com.app.replant.domain.user.entity.User;
@@ -129,13 +130,82 @@ public class DiaryService {
     }
 
     /**
-     * 다이어리 삭제
+     * 다이어리 단건 조회
+     */
+    public DiaryResponse getDiary(Long diaryId, Long userId) {
+        Diary diary = findDiaryByIdAndUserId(diaryId, userId);
+        return DiaryResponse.from(diary);
+    }
+
+    /**
+     * 다이어리 수정
+     */
+    @Transactional
+    public DiaryResponse updateDiary(Long diaryId, Long userId, DiaryRequest request) {
+        Diary diary = findDiaryByIdAndUserId(diaryId, userId);
+
+        // List<String>을 JSON 문자열로 변환
+        String emotionsJson = convertListToJson(request.getEmotions());
+        String emotionFactorsJson = convertListToJson(request.getEmotionFactors());
+        String imageUrlsJson = convertListToJson(request.getImageUrls());
+
+        diary.update(
+                request.getEmotion(),
+                request.getMood(),
+                emotionsJson,
+                emotionFactorsJson,
+                request.getContent(),
+                request.getWeather(),
+                request.getLocation(),
+                imageUrlsJson,
+                request.getIsPrivate()
+        );
+
+        log.info("다이어리 수정 완료 - userId={}, diaryId={}", userId, diaryId);
+        return DiaryResponse.from(diary);
+    }
+
+    /**
+     * 기간별 다이어리 조회
+     */
+    public List<DiaryResponse> getDiariesByRange(Long userId, LocalDate startDate, LocalDate endDate) {
+        return diaryRepository.findByUserIdAndDateBetween(userId, startDate, endDate)
+                .stream()
+                .map(DiaryResponse::from)
+                .toList();
+    }
+
+    /**
+     * 다이어리 통계 조회
+     */
+    public DiaryStatsResponse getDiaryStats(Long userId) {
+        long totalCount = diaryRepository.countByUserId(userId);
+
+        // 감정별 통계 집계
+        List<Object[]> emotionCounts = diaryRepository.countByEmotion(userId);
+        java.util.Map<String, Long> emotionStats = new java.util.HashMap<>();
+        for (Object[] row : emotionCounts) {
+            String emotion = (String) row[0];
+            Long count = (Long) row[1];
+            if (emotion != null) {
+                emotionStats.put(emotion, count);
+            }
+        }
+
+        return DiaryStatsResponse.builder()
+                .totalCount(totalCount)
+                .emotionStats(emotionStats)
+                .build();
+    }
+
+    /**
+     * 다이어리 삭제 (Soft Delete)
      */
     @Transactional
     public void deleteDiary(Long diaryId, Long userId) {
         Diary diary = findDiaryByIdAndUserId(diaryId, userId);
-        diaryRepository.delete(diary);
-        log.info("다이어리 삭제 완료 - userId={}, diaryId={}", userId, diaryId);
+        diary.softDelete();
+        log.info("다이어리 삭제 완료 (Soft Delete) - userId={}, diaryId={}", userId, diaryId);
     }
 
     private Diary findDiaryByIdAndUserId(Long diaryId, Long userId) {

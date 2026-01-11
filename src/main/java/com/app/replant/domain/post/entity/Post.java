@@ -75,6 +75,10 @@ public class Post extends BaseEntity {
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
 
+    // 유효한 배지 보유 여부 (DB 컬럼 호환용)
+    @Column(name = "has_valid_badge", nullable = false)
+    private Boolean hasValidBadge = false;
+
     // 댓글 관계
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
@@ -98,6 +102,7 @@ public class Post extends BaseEntity {
         this.content = content;
         this.imageUrls = imageUrls;
         this.delFlag = false;
+        this.hasValidBadge = false;
     }
 
     /**
@@ -112,6 +117,7 @@ public class Post extends BaseEntity {
         post.imageUrls = imageUrls;
         post.status = VerificationStatus.PENDING;
         post.delFlag = false;
+        post.hasValidBadge = false;
         return post;
     }
 

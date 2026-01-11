@@ -170,7 +170,7 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
      * 랜덤 비챌린지 공식 미션 조회 (투두리스트용)
      * isChallenge가 false이거나 null인 공식 미션을 랜덤으로 조회
      */
-    @Query(value = "SELECT * FROM mission m WHERE m.mission_source = 'OFFICIAL' " +
+    @Query(value = "SELECT * FROM mission m WHERE m.mission_type = 'OFFICIAL' " +
            "AND m.is_active = true AND (m.is_challenge = false OR m.is_challenge IS NULL) " +
            "ORDER BY RAND() LIMIT :count", nativeQuery = true)
     List<Mission> findRandomOfficialNonChallengeMissions(@Param("count") int count);

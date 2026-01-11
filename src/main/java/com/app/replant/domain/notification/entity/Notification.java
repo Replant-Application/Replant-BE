@@ -1,19 +1,22 @@
 package com.app.replant.domain.notification.entity;
 
+import com.app.replant.common.SoftDeletableEntity;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "notification")
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Notification {
+public class Notification extends SoftDeletableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,9 +44,6 @@ public class Notification {
     @Column(name = "is_read", nullable = false)
     private Boolean isRead;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
     @Builder
     public Notification(User user, String type, String title, String content, String referenceType, Long referenceId) {
         this.user = user;
@@ -53,10 +53,16 @@ public class Notification {
         this.referenceType = referenceType;
         this.referenceId = referenceId;
         this.isRead = false;
-        this.createdAt = LocalDateTime.now();
     }
 
     public void markAsRead() {
         this.isRead = true;
+    }
+
+    /**
+     * 알림 소유자 확인
+     */
+    public boolean isOwner(Long userId) {
+        return this.user.getId().equals(userId);
     }
 }

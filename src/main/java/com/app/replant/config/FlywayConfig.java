@@ -3,22 +3,25 @@ package com.app.replant.config;
 import lombok.extern.slf4j.Slf4j;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.ResultSet;
 import java.sql.Statement;
 
 /**
  * Flyway 설정
  * - MariaDB (secondary) 데이터소스에 대한 마이그레이션 관리
  * - 베이스라인 설정 및 마이그레이션 전략 정의
+ * - spring.flyway.enabled=true 일 때만 활성화
  */
 @Slf4j
 @Configuration
+@ConditionalOnProperty(name = "spring.flyway.enabled", havingValue = "true", matchIfMissing = false)
 public class FlywayConfig {
 
     /**
