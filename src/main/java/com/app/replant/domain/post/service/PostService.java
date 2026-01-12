@@ -15,7 +15,6 @@ import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
-import com.app.replant.domain.verification.service.VerificationService;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +45,6 @@ public class PostService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
-    private final VerificationService verificationService;
 
     // ========================================
     // 게시글 CRUD
@@ -269,10 +267,8 @@ public class PostService {
                 long likeCount = postLikeRepository.countByPostId(postId);
                 newlyVerified = post.checkAndApproveByLikes(likeCount);
 
-                if (newlyVerified && post.getUserMission() != null) {
+                if (newlyVerified) {
                     log.info("인증 완료! postId={}, likeCount={}", postId, likeCount);
-                    // 인증 완료 공통 로직 호출 (뱃지, 경험치, 알림 등)
-                    verificationService.completeVerification(post.getUserMission(), post);
                 }
             }
         }

@@ -8,7 +8,6 @@ import com.app.replant.domain.mission.enums.VerificationType;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
-import com.app.replant.domain.recommendation.service.RecommendationService;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.dto.*;
@@ -42,7 +41,6 @@ public class UserMissionService {
     private final MissionRepository missionRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final ReantRepository reantRepository;
-    private final RecommendationService recommendationService;
 
     public Page<UserMissionResponse> getUserMissions(Long userId, UserMissionStatus status, String missionType, Pageable pageable) {
         return userMissionRepository.findByUserIdWithFilters(userId, status, missionType, pageable)
@@ -150,13 +148,6 @@ public class UserMissionService {
 
         // 뱃지 발급
         UserBadge badge = createBadge(userMission);
-
-        // 유사 유저 추천 생성
-        try {
-            recommendationService.generateRecommendationsForCompletedMission(userMission);
-        } catch (Exception e) {
-            log.error("유사 유저 추천 생성 실패 - userMissionId={}", userMission.getId(), e);
-        }
 
         return buildVerifyResponse(userMission, verification, expReward, badge);
     }
