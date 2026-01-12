@@ -6,6 +6,9 @@ import com.app.replant.domain.post.dto.CommentRequest;
 import com.app.replant.domain.post.dto.CommentResponse;
 import com.app.replant.domain.post.dto.PostRequest;
 import com.app.replant.domain.post.dto.PostResponse;
+import com.app.replant.domain.post.dto.VerificationPostRequest;
+import com.app.replant.domain.post.enums.PostType;
+import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.post.entity.Comment;
 import com.app.replant.domain.post.entity.Post;
 import com.app.replant.domain.post.entity.PostLike;
@@ -43,6 +46,7 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final PostLikeRepository postLikeRepository;
     private final UserRepository userRepository;
+    private final UserMissionRepository userMissionRepository;
     private final NotificationService notificationService;
     private final com.app.replant.domain.usermission.service.UserMissionService userMissionService;
     private final ObjectMapper objectMapper;
@@ -109,6 +113,70 @@ public class PostService {
 
         Post saved = postRepository.save(post);
         return PostResponse.from(saved, 0L, 0L, false);
+    }
+
+    /**
+     * 인증 게시글 생성 (VERIFICATION 타입)
+     */
+    @Transactional
+    public PostResponse createVerificationPost(Long userId, VerificationPostRequest request) {
+        User user = findUserById(userId);
+
+        // UserMission 조회
+        UserMission userMission = userMissionRepository.findByIdAndUserId(request.getUserMissionId(), userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
+
+        // 이미 해당 미션에 대한 인증글이 있는지 확인
+        if (postRepository.findByUserMissionId(userMission.getId()).isPresent()) {
+            throw new CustomException(ErrorCode.VERIFICATION_ALREADY_EXISTS);
+        }
+
+        String imageUrlsJson = null;
+        if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
+            try {
+                imageUrlsJson = objectMapper.writeValueAsString(request.getImageUrls());
+            } catch (JsonProcessingException e) {
+                throw new CustomException(ErrorCode.INVALID_IMAGE_DATA);
+            }
+        }
+
+        // VERIFICATION 타입 게시글 생성
+        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson);
+
+        Post saved = postRepository.save(post);
+        log.info("인증 게시글 생성 - postId={}, userMissionId={}, userId={}", saved.getId(), userMission.getId(), userId);
+        return PostResponse.from(saved, 0L, 0L, false);
+    }
+
+    /**
+     * 인증 게시글 목록 조회 (VERIFICATION 타입만)
+     */
+    public Page<PostResponse> getVerificationPosts(String status, Pageable pageable, Long currentUserId) {
+        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+
+        return postRepository.findVerificationPostsWithFilters(status, pageable)
+                .map(post -> {
+                    long commentCount = commentRepository.countByPostId(post.getId());
+                    long likeCount = postLikeRepository.countByPostId(post.getId());
+                    boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
+                    return PostResponse.from(post, commentCount, likeCount, isLiked);
+                });
+    }
+
+    /**
+     * 인증 게시글 상세 조회
+     */
+    public PostResponse getVerificationPost(Long postId, Long currentUserId) {
+        Post post = postRepository.findVerificationPostById(postId)
+                .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+
+        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+
+        long commentCount = commentRepository.countByPostId(postId);
+        long likeCount = postLikeRepository.countByPostId(postId);
+        boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
+
+        return PostResponse.from(post, commentCount, likeCount, isLiked);
     }
 
     @Transactional
