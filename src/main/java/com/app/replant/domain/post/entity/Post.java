@@ -2,9 +2,9 @@ package com.app.replant.domain.post.entity;
 
 import com.app.replant.common.BaseEntity;
 import com.app.replant.domain.post.enums.PostType;
+import com.app.replant.domain.post.enums.VerificationStatus;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.usermission.entity.UserMission;
-import com.app.replant.domain.verification.enums.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -25,9 +25,9 @@ import java.util.List;
  */
 @Entity
 @Table(name = "post", indexes = {
-    @Index(name = "idx_post_type", columnList = "post_type"),
-    @Index(name = "idx_post_user_id", columnList = "user_id"),
-    @Index(name = "idx_post_status", columnList = "status")
+        @Index(name = "idx_post_type", columnList = "post_type"),
+        @Index(name = "idx_post_user_id", columnList = "user_id"),
+        @Index(name = "idx_post_status", columnList = "status")
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -154,6 +154,7 @@ public class Post extends BaseEntity {
 
     /**
      * 좋아요 수에 따른 인증 체크
+     * 
      * @param likeCount 현재 좋아요 수
      * @return 인증 완료 여부 (이번에 새로 인증되었으면 true)
      */

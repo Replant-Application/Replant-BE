@@ -1,6 +1,5 @@
 package com.app.replant.service.auth;
 
-
 import com.app.replant.controller.dto.*;
 import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
@@ -104,7 +103,7 @@ public class AuthServiceImpl implements AuthService {
             throw e;
         } catch (Exception e) {
             log.error("회원가입 중 서버 오류 발생", e);
-            throw new CustomException(ErrorCode.SIGNIN_FAIL);
+            throw new RuntimeException(e.getMessage()); // 디버깅을 위해 원본 예외 메시지 노출
         }
     }
 
@@ -126,7 +125,6 @@ public class AuthServiceImpl implements AuthService {
         // 사용 가능한 이메일
         return true;
     }
-
 
     @Override
     @Transactional
@@ -182,10 +180,6 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-
-
-
-
     @Override
     @Transactional
     public TokenDto refresh(TokenRequestDto tokenRequestDto) {
@@ -224,18 +218,18 @@ public class AuthServiceImpl implements AuthService {
     public void logout(String email, String accessToken) {
         // 1. AccessToken의 남은 유효기간 계산
         long remainingSeconds = tokenProvider.getRemainingExpirationTime(accessToken);
-        
+
         // 2. AccessToken을 블랙리스트에 등록 (남은 유효기간만큼)
         if (remainingSeconds > 0) {
             tokenBlacklistService.addToBlacklist(accessToken, remainingSeconds);
         }
-        
+
         // 3. Redis에서 Refresh Token 삭제
         refreshTokenService.deleteRefreshToken(email);
-        
+
         log.info("로그아웃 완료: {} (AccessToken 블랙리스트 등록, 남은 유효기간: {}초)", email, remainingSeconds);
     }
-    
+
     /**
      * 비밀번호 재설정 (임시 비밀번호 발급)
      */
@@ -259,8 +253,7 @@ public class AuthServiceImpl implements AuthService {
         // 4. 임시 비밀번호 생성 및 이메일 발송
         String tempPassword = mailService.sendTemporaryPassword(
                 resetPasswordDto.getMemberId(),
-                user.getNickname()
-        );
+                user.getNickname());
         log.info("임시 비밀번호 발급 및 이메일 발송 완료: {}", resetPasswordDto.getMemberId());
 
         // 6. DB에 임시 비밀번호 저장 (암호화)
@@ -270,7 +263,7 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("비밀번호 재설정 완료: {}", resetPasswordDto.getMemberId());
     }
-    
+
     /**
      * 비밀번호 변경 (기존 비밀번호 확인 후 변경)
      */

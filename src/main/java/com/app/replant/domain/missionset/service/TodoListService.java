@@ -17,6 +17,7 @@ import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
+import com.app.replant.domain.badge.repository.UserBadgeRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,7 @@ public class TodoListService {
         private final MissionRepository missionRepository;
         private final UserRepository userRepository;
         private final UserMissionRepository userMissionRepository;
+        private final UserBadgeRepository userBadgeRepository;
 
         private static final int RANDOM_OFFICIAL_COUNT = 3;
         private static final int CUSTOM_MISSION_COUNT = 2;
@@ -501,6 +503,15 @@ public class TodoListService {
                 // 이미 리뷰를 작성했는지 확인
                 if (reviewRepository.existsByMissionSetAndUser(todoList, user)) {
                         throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 리뷰를 작성했습니다.");
+                }
+
+                // 뱃지 보유 여부 확인 (투두리스트 내 미션 중 하나라도 뱃지가 있어야 함)
+                boolean hasBadge = todoList.getMissions().stream()
+                                .anyMatch(msm -> userBadgeRepository.hasValidBadgeForMission(userId,
+                                                msm.getMission().getId(), LocalDateTime.now()));
+
+                if (!hasBadge) {
+                        throw new CustomException(ErrorCode.BADGE_REQUIRED, "이 투두리스트의 미션 뱃지를 획득해야 리뷰를 작성할 수 있습니다.");
                 }
 
                 // 리뷰 생성

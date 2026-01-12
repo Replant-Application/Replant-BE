@@ -15,7 +15,6 @@ import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
-import com.app.replant.domain.verification.service.VerificationService;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -45,8 +44,8 @@ public class PostService {
     private final PostLikeRepository postLikeRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final com.app.replant.domain.usermission.service.UserMissionService userMissionService;
     private final ObjectMapper objectMapper;
-    private final VerificationService verificationService;
 
     // ========================================
     // 게시글 CRUD
@@ -56,7 +55,8 @@ public class PostService {
         return getPosts(missionId, customMissionId, badgeOnly, pageable, null);
     }
 
-    public Page<PostResponse> getPosts(Long missionId, Long customMissionId, Boolean badgeOnly, Pageable pageable, Long currentUserId) {
+    public Page<PostResponse> getPosts(Long missionId, Long customMissionId, Boolean badgeOnly, Pageable pageable,
+            Long currentUserId) {
         boolean badgeFilter = badgeOnly != null && badgeOnly;
         User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
 
@@ -158,7 +158,8 @@ public class PostService {
 
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), responseList.size());
-        List<CommentResponse> pagedList = start < responseList.size() ? responseList.subList(start, end) : Collections.emptyList();
+        List<CommentResponse> pagedList = start < responseList.size() ? responseList.subList(start, end)
+                : Collections.emptyList();
 
         return new org.springframework.data.domain.PageImpl<>(pagedList, pageable, responseList.size());
     }
@@ -271,8 +272,11 @@ public class PostService {
 
                 if (newlyVerified && post.getUserMission() != null) {
                     log.info("인증 완료! postId={}, likeCount={}", postId, likeCount);
-                    // 인증 완료 공통 로직 호출 (뱃지, 경험치, 알림 등)
-                    verificationService.completeVerification(post.getUserMission(), post);
+                    // 인증 완료 처리 (뱃지, 경험치 등)
+                    userMissionService.completeMissionVerification(post.getUserMission());
+
+                    // 알림 전송
+                    sendVerificationSuccessNotification(post.getUser(), post);
                 }
             }
         }
@@ -301,8 +305,7 @@ public class PostService {
                 title,
                 content,
                 "POST",
-                post.getId()
-        );
+                post.getId());
     }
 
     private void sendReplyNotification(User parentCommentAuthor, User replier, Post post) {
@@ -316,15 +319,14 @@ public class PostService {
                 title,
                 content,
                 "POST",
-                post.getId()
-        );
+                post.getId());
     }
 
     private void sendLikeNotification(User postAuthor, User liker, Post post) {
         String title = "게시글에 좋아요가 달렸습니다";
-        String postTitle = post.isVerificationPost() ?
-                (post.getMissionTitle() != null ? post.getMissionTitle() + " 인증" : "미션 인증") :
-                truncateTitle(post.getTitle(), 20);
+        String postTitle = post.isVerificationPost()
+                ? (post.getMissionTitle() != null ? post.getMissionTitle() + " 인증" : "미션 인증")
+                : truncateTitle(post.getTitle(), 20);
         String content = String.format("%s님이 '%s' 게시글에 좋아요를 눌렀습니다.",
                 liker.getNickname(), postTitle);
 
@@ -334,13 +336,28 @@ public class PostService {
                 title,
                 content,
                 "POST",
-                post.getId()
-        );
+                post.getId());
+    }
+
+    private void sendVerificationSuccessNotification(User postAuthor, Post post) {
+        String title = "미션 인증이 완료되었습니다!";
+        String content = String.format("'%s' 미션 인증이 완료되어 뱃지를 획득했습니다.",
+                post.getMissionTitle() != null ? post.getMissionTitle() : "미션");
+
+        notificationService.createAndPushNotification(
+                postAuthor,
+                NotificationType.VERIFICATION_APPROVED,
+                title,
+                content,
+                "POST",
+                post.getId());
     }
 
     private String truncateTitle(String title, int maxLength) {
-        if (title == null) return "게시글";
-        if (title.length() <= maxLength) return title;
+        if (title == null)
+            return "게시글";
+        if (title.length() <= maxLength)
+            return title;
         return title.substring(0, maxLength) + "...";
     }
 

@@ -8,7 +8,6 @@ import com.app.replant.domain.mission.enums.VerificationType;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
-import com.app.replant.domain.recommendation.service.RecommendationService;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.dto.*;
@@ -42,9 +41,9 @@ public class UserMissionService {
     private final MissionRepository missionRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final ReantRepository reantRepository;
-    private final RecommendationService recommendationService;
 
-    public Page<UserMissionResponse> getUserMissions(Long userId, UserMissionStatus status, String missionType, Pageable pageable) {
+    public Page<UserMissionResponse> getUserMissions(Long userId, UserMissionStatus status, String missionType,
+            Pageable pageable) {
         return userMissionRepository.findByUserIdWithFilters(userId, status, missionType, pageable)
                 .map(UserMissionResponse::from);
     }
@@ -73,8 +72,8 @@ public class UserMissionService {
 
         LocalDateTime now = LocalDateTime.now();
         // durationDays 또는 deadlineDays 사용, 없으면 기본 3일
-        int days = mission.getDurationDays() != null ? mission.getDurationDays() :
-                   (mission.getDeadlineDays() != null ? mission.getDeadlineDays() : 3);
+        int days = mission.getDurationDays() != null ? mission.getDurationDays()
+                : (mission.getDeadlineDays() != null ? mission.getDeadlineDays() : 3);
         LocalDateTime dueDate = now.plusDays(days);
 
         UserMission userMission = UserMission.builder()
@@ -111,6 +110,28 @@ public class UserMissionService {
 
         UserMission saved = userMissionRepository.save(userMission);
         return UserMissionResponse.from(saved);
+    }
+
+    @Transactional
+    public void completeMissionVerification(UserMission userMission) {
+        if (userMission.getStatus() == UserMissionStatus.COMPLETED) {
+            return;
+        }
+
+        // 미션 완료 처리
+        userMission.updateStatus(UserMissionStatus.COMPLETED);
+
+        // 보상 지급
+        User user = userMission.getUser();
+        int expReward = getExpReward(userMission);
+
+        reantRepository.findByUserId(user.getId())
+                .ifPresent(reant -> reant.addExp(expReward));
+
+        // 뱃지 발급
+        createBadge(userMission);
+
+        log.info("Social Verification Completed: userMissionId={}, userId={}", userMission.getId(), user.getId());
     }
 
     @Transactional
@@ -151,12 +172,9 @@ public class UserMissionService {
         // 뱃지 발급
         UserBadge badge = createBadge(userMission);
 
-        // 유사 유저 추천 생성
-        try {
-            recommendationService.generateRecommendationsForCompletedMission(userMission);
-        } catch (Exception e) {
-            log.error("유사 유저 추천 생성 실패 - userMissionId={}", userMission.getId(), e);
-        }
+        // 유사 유저 추천 생성 (RecommendationService 삭제로 인해 임시 비활성화)
+        // TODO: 추천 시스템 재구현 시 활성화
+        log.debug("유사 유저 추천 기능 비활성화됨 - userMissionId={}", userMission.getId());
 
         return buildVerifyResponse(userMission, verification, expReward, badge);
     }
@@ -187,8 +205,7 @@ public class UserMissionService {
                 request.getLatitude(),
                 request.getLongitude(),
                 targetLat,
-                targetLon
-        );
+                targetLon);
 
         if (distance > radiusMeters) {
             throw new CustomException(ErrorCode.GPS_OUT_OF_RANGE,
@@ -252,7 +269,7 @@ public class UserMissionService {
     }
 
     private VerifyMissionResponse buildVerifyResponse(UserMission userMission, MissionVerification verification,
-                                                       int expReward, UserBadge badge) {
+            int expReward, UserBadge badge) {
         VerifyMissionResponse.VerificationInfo verificationInfo = null;
 
         if (verification.getGpsLatitude() != null) {
