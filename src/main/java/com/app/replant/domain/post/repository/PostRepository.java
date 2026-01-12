@@ -25,19 +25,31 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     /**
      * 모든 게시글 조회 (GENERAL + VERIFICATION)
      */
-    @Query("SELECT p FROM Post p WHERE " +
-           "(p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') AND " +
-           "(p.delFlag = false OR p.delFlag IS NULL) " +
-           "ORDER BY p.createdAt DESC")
+    @Query(value = "SELECT p FROM Post p " +
+           "JOIN FETCH p.user " +
+           "LEFT JOIN FETCH p.userMission um " +
+           "LEFT JOIN FETCH um.mission " +
+           " " +
+           "WHERE (p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') " +
+           "AND (p.delFlag = false OR p.delFlag IS NULL)",
+           countQuery = "SELECT COUNT(p) FROM Post p " +
+           "WHERE (p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') " +
+           "AND (p.delFlag = false OR p.delFlag IS NULL)")
     Page<Post> findAllPosts(Pageable pageable);
 
     /**
      * 게시글 목록 조회 (하위 호환성 - 파라미터 무시)
      */
-    @Query("SELECT p FROM Post p WHERE " +
-           "(p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') AND " +
-           "(p.delFlag = false OR p.delFlag IS NULL) " +
-           "ORDER BY p.createdAt DESC")
+    @Query(value = "SELECT p FROM Post p " +
+           "JOIN FETCH p.user " +
+           "LEFT JOIN FETCH p.userMission um " +
+           "LEFT JOIN FETCH um.mission " +
+           " " +
+           "WHERE (p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') " +
+           "AND (p.delFlag = false OR p.delFlag IS NULL)",
+           countQuery = "SELECT COUNT(p) FROM Post p " +
+           "WHERE (p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') " +
+           "AND (p.delFlag = false OR p.delFlag IS NULL)")
     Page<Post> findWithFilters(
         @Param("missionId") Long missionId,
         @Param("customMissionId") Long customMissionId,
@@ -48,10 +60,16 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     /**
      * 커뮤니티 게시글 조회 (하위 호환성)
      */
-    @Query("SELECT p FROM Post p WHERE " +
-           "(p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') AND " +
-           "(p.delFlag = false OR p.delFlag IS NULL) " +
-           "ORDER BY p.createdAt DESC")
+    @Query(value = "SELECT p FROM Post p " +
+           "JOIN FETCH p.user " +
+           "LEFT JOIN FETCH p.userMission um " +
+           "LEFT JOIN FETCH um.mission " +
+           " " +
+           "WHERE (p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') " +
+           "AND (p.delFlag = false OR p.delFlag IS NULL)",
+           countQuery = "SELECT COUNT(p) FROM Post p " +
+           "WHERE (p.postType = 'GENERAL' OR p.postType = 'VERIFICATION') " +
+           "AND (p.delFlag = false OR p.delFlag IS NULL)")
     Page<Post> findCommunityPostsWithFilters(
         @Param("missionId") Long missionId,
         @Param("customMissionId") Long customMissionId,
@@ -104,7 +122,12 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // 단건 조회
     // ========================================
 
-    @Query("SELECT p FROM Post p WHERE p.id = :postId AND (p.delFlag = false OR p.delFlag IS NULL)")
+    @Query("SELECT p FROM Post p " +
+           "JOIN FETCH p.user " +
+           "LEFT JOIN FETCH p.userMission um " +
+           "LEFT JOIN FETCH um.mission " +
+           " " +
+           "WHERE p.id = :postId AND (p.delFlag = false OR p.delFlag IS NULL)")
     Optional<Post> findByIdAndNotDeleted(@Param("postId") Long postId);
 
     @Query("SELECT p FROM Post p WHERE p.id = :postId AND p.user.id = :userId AND (p.delFlag = false OR p.delFlag IS NULL)")

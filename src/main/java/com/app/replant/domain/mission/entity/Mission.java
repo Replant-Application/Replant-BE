@@ -159,8 +159,7 @@ public class Mission {
         this.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.LEVEL1;
     }
 
-    // ============ 커스텀 미션 생성용 빌더 ============
-    @Builder(builderMethodName = "customBuilder")
+    // ============ 커스텀 미션 생성용 Static Factory Method ============
     public static Mission createCustomMission(User creator, String title, String description, WorryType worryType,
                                                MissionCategory category, DifficultyLevel difficultyLevel,
                                                Boolean isChallenge, Integer challengeDays, Integer deadlineDays,
@@ -169,6 +168,7 @@ public class Mission {
                                                Integer expReward, Integer badgeDurationDays,
                                                Boolean isActive) {
         Mission mission = new Mission();
+        // 커스텀 미션이므로 반드시 CUSTOM으로 설정
         mission.missionType = MissionType.CUSTOM;
         mission.creator = creator;
         mission.title = title;
@@ -192,6 +192,20 @@ public class Mission {
         mission.isActive = isActive != null ? isActive : true;
         mission.createdAt = LocalDateTime.now();
         return mission;
+    }
+
+    // 하위 호환성을 위한 빌더 (Deprecated)
+    @Deprecated
+    @Builder(builderMethodName = "customBuilder")
+    private static Mission customBuilderMethod(User creator, String title, String description, WorryType worryType,
+                                                MissionCategory category, DifficultyLevel difficultyLevel,
+                                                Boolean isChallenge, Integer challengeDays, Integer deadlineDays,
+                                                Integer durationDays, Boolean isPublic, VerificationType verificationType,
+                                                Integer requiredMinutes, String startTime, String endTime,
+                                                Integer expReward, Integer badgeDurationDays, Boolean isActive) {
+        return createCustomMission(creator, title, description, worryType, category, difficultyLevel,
+                isChallenge, challengeDays, deadlineDays, durationDays, isPublic, verificationType,
+                requiredMinutes, startTime, endTime, expReward, badgeDurationDays, isActive);
     }
 
     // 난이도에 따른 기본 경험치 계산

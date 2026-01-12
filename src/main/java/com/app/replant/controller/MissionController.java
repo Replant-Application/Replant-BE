@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 
-@Tag(name = "Mission", description = "시스템 미션 API")
+@Tag(name = "Mission", description = "공식 미션 API")
 @RestController
 @RequestMapping("/api/missions")
 @RequiredArgsConstructor

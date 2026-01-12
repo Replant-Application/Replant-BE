@@ -296,24 +296,27 @@ public class MissionService {
     public MissionResponse createCustomMission(Long userId, MissionRequest request) {
         User user = findUserById(userId);
 
-        Mission mission = Mission.customBuilder()
-                .creator(user)
-                .title(request.getTitle())
-                .description(request.getDescription())
-                .worryType(request.getWorryType())
-                .category(request.getCategory())
-                .difficultyLevel(request.getDifficultyLevel())
-                .isChallenge(request.getIsChallenge())
-                .challengeDays(request.getChallengeDays())
-                .deadlineDays(request.getDeadlineDays())
-                .durationDays(request.getDurationDays())
-                .isPublic(request.getIsPublic())
-                .verificationType(request.getVerificationType())
-                .requiredMinutes(request.getRequiredMinutes())
-                .expReward(request.getExpReward())
-                .badgeDurationDays(request.getBadgeDurationDays())
-                .isActive(true)
-                .build();
+        // Static Factory Method를 직접 호출하여 missionType이 확실히 CUSTOM으로 설정되도록 함
+        Mission mission = Mission.createCustomMission(
+                user,                               // creator
+                request.getTitle(),                 // title
+                request.getDescription(),           // description
+                request.getWorryType(),             // worryType
+                request.getCategory(),              // category
+                request.getDifficultyLevel(),       // difficultyLevel
+                request.getIsChallenge(),           // isChallenge
+                request.getChallengeDays(),         // challengeDays
+                request.getDeadlineDays(),          // deadlineDays
+                request.getDurationDays(),          // durationDays
+                request.getIsPublic(),              // isPublic
+                request.getVerificationType(),      // verificationType
+                request.getRequiredMinutes(),       // requiredMinutes
+                null,                               // startTime
+                null,                               // endTime
+                request.getExpReward(),             // expReward
+                request.getBadgeDurationDays(),     // badgeDurationDays
+                true                                // isActive
+        );
 
         log.info("커스텀 미션 생성: title={}, missionType={}, userId={}",
                 mission.getTitle(), mission.getMissionType(), userId);

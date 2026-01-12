@@ -13,10 +13,19 @@ import java.util.Optional;
 
 public interface UserBadgeRepository extends JpaRepository<UserBadge, Long> {
 
-    @Query("SELECT ub FROM UserBadge ub WHERE ub.user.id = :userId AND ub.expiresAt > :now")
+    @Query("SELECT ub FROM UserBadge ub " +
+           "LEFT JOIN FETCH ub.mission " +
+           "LEFT JOIN FETCH ub.userMission um " +
+           "LEFT JOIN FETCH um.mission " +
+           "WHERE ub.user.id = :userId AND ub.expiresAt > :now")
     List<UserBadge> findValidBadgesByUserId(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
-    @Query("SELECT ub FROM UserBadge ub WHERE ub.user.id = :userId")
+    @Query(value = "SELECT ub FROM UserBadge ub " +
+           "LEFT JOIN FETCH ub.mission " +
+           "LEFT JOIN FETCH ub.userMission um " +
+           "LEFT JOIN FETCH um.mission " +
+           "WHERE ub.user.id = :userId",
+           countQuery = "SELECT COUNT(ub) FROM UserBadge ub WHERE ub.user.id = :userId")
     Page<UserBadge> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
     @Query("SELECT CASE WHEN COUNT(ub) > 0 THEN true ELSE false END " +
