@@ -83,6 +83,11 @@ public interface TodoListRepository extends JpaRepository<TodoList, Long> {
             "AND tl.todolistStatus = 'ACTIVE' AND tl.isActive = true")
     long countActiveTodoListsByCreator(@Param("creator") User creator);
 
+    // 사용자의 모든 투두리스트 개수 (상태 무관, 기존 가입자 판단용)
+    @Query("SELECT COUNT(tl) FROM TodoList tl WHERE tl.creator = :creator AND tl.setType = 'TODOLIST' " +
+            "AND tl.isActive = true")
+    long countAllTodoListsByCreator(@Param("creator") User creator);
+
     // 투두리스트 상세 조회 (미션 목록 포함)
     @Query("SELECT DISTINCT tl FROM TodoList tl " +
             "LEFT JOIN FETCH tl.missions tlm " +

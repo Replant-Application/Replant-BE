@@ -31,6 +31,9 @@ public class RedisConfig {
     @Value("${spring.data.redis.port:6379}")
     private int redisPort;
 
+    @Value("${spring.data.redis.password:}")
+    private String redisPassword;
+
     @Value("${spring.data.redis.timeout:2000ms}")
     private Duration timeout;
 
@@ -42,6 +45,12 @@ public class RedisConfig {
     public RedisConnectionFactory redisConnectionFactory() {
         try {
             RedisStandaloneConfiguration config = new RedisStandaloneConfiguration(redisHost, redisPort);
+            
+            // 비밀번호가 설정되어 있으면 설정
+            if (redisPassword != null && !redisPassword.isEmpty()) {
+                config.setPassword(redisPassword);
+                log.info("Redis 비밀번호 설정됨");
+            }
 
             LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
                     .commandTimeout(timeout)

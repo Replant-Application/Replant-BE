@@ -44,9 +44,7 @@ public class TodoListService {
         private final UserMissionRepository userMissionRepository;
         private final UserBadgeRepository userBadgeRepository;
 
-        private static final int RANDOM_OFFICIAL_COUNT = 3;
-        private static final int CUSTOM_MISSION_COUNT = 2;
-        private static final int TOTAL_MISSION_COUNT = 5;
+        private static final int RANDOM_OFFICIAL_COUNT = 3; // 필수 공식 미션 개수
 
         /**
          * 투두리스트 초기화 - 랜덤 공식 미션 3개 조회
@@ -94,28 +92,30 @@ public class TodoListService {
 
         /**
          * 투두리스트 생성
-         * 랜덤 공식 미션 3개 + 사용자 선택 커스텀 미션 2개
+         * 필수 공식 미션 3개 + 선택 커스텀 미션 (0개 이상)
          */
         @Transactional
         public TodoListDto.DetailResponse createTodoList(Long userId, TodoListDto.CreateRequest request) {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-                // 검증: 랜덤 미션 3개, 커스텀 미션 2개
+                // 검증: 필수 공식 미션 3개 필수
                 if (request.getRandomMissionIds() == null
                                 || request.getRandomMissionIds().size() != RANDOM_OFFICIAL_COUNT) {
                         throw new CustomException(ErrorCode.INVALID_REQUEST,
-                                        "랜덤 공식 미션은 정확히 " + RANDOM_OFFICIAL_COUNT + "개여야 합니다.");
+                                        "필수 공식 미션은 정확히 " + RANDOM_OFFICIAL_COUNT + "개여야 합니다.");
                 }
-                if (request.getCustomMissionIds() == null
-                                || request.getCustomMissionIds().size() != CUSTOM_MISSION_COUNT) {
-                        throw new CustomException(ErrorCode.INVALID_REQUEST,
-                                        "커스텀 미션은 정확히 " + CUSTOM_MISSION_COUNT + "개여야 합니다.");
-                }
+
+                // 커스텀 미션은 0개 이상 허용 (null이면 빈 리스트로 처리)
+                List<Long> customMissionIds = request.getCustomMissionIds() != null 
+                                ? request.getCustomMissionIds() 
+                                : java.util.Collections.emptyList();
 
                 // 미션들 조회
                 List<Mission> randomMissions = missionRepository.findByIdIn(request.getRandomMissionIds());
-                List<Mission> customMissions = missionRepository.findByIdIn(request.getCustomMissionIds());
+                List<Mission> customMissions = customMissionIds.isEmpty() 
+                                ? java.util.Collections.emptyList()
+                                : missionRepository.findByIdIn(customMissionIds);
 
                 // 검증: 챌린지 미션이 포함되어 있지 않은지 확인
                 for (Mission mission : randomMissions) {
@@ -131,12 +131,13 @@ public class TodoListService {
                         }
                 }
 
-                // 투두리스트 생성
+                // 투두리스트 생성 (총 미션 수 = 필수 3개 + 커스텀 미션 개수)
+                int totalMissionCount = RANDOM_OFFICIAL_COUNT + customMissions.size();
                 TodoList todoList = TodoList.todoListBuilder()
                                 .creator(user)
                                 .title(request.getTitle() != null ? request.getTitle() : "나의 투두리스트")
                                 .description(request.getDescription())
-                                .totalCount(TOTAL_MISSION_COUNT)
+                                .totalCount(totalMissionCount)
                                 .build();
 
                 // 랜덤 공식 미션 추가
@@ -196,8 +197,8 @@ public class TodoListService {
 
                 todoListRepository.save(todoList);
 
-                log.info("투두리스트 생성 완료: id={}, userId={}, UserMission {}개 생성됨",
-                                todoList.getId(), userId, TOTAL_MISSION_COUNT);
+                log.info("투두리스트 생성 완료: id={}, userId={}, 필수 미션 {}개, 커스텀 미션 {}개, 총 {}개",
+                                todoList.getId(), userId, RANDOM_OFFICIAL_COUNT, customMissions.size(), totalMissionCount);
                 return TodoListDto.DetailResponse.from(todoList);
         }
 
@@ -282,16 +283,11 @@ public class TodoListService {
 
         /**
          * 새 투두리스트 생성 가능 여부 확인
-         * 최대 5개의 활성 투두리스트까지 생성 가능
+         * 개수 제한 없음 (신규 가입자 포함, 모든 사용자가 생성 가능)
          */
         public boolean canCreateNewTodoList(Long userId) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-                long activeTodoCount = todoListRepository.countActiveTodoListsByCreator(user);
-
-                // 최대 5개까지 허용
-                return activeTodoCount < 5;
+                // 개수 제한 없음 - 항상 생성 가능
+                return true;
         }
 
         /**

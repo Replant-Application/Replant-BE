@@ -50,7 +50,7 @@ public class TodoListController {
                 return ApiResponse.success(response);
         }
 
-        @Operation(summary = "투두리스트 생성", description = "랜덤 공식 미션 3개 + 커스텀 미션 2개로 투두리스트를 생성합니다.")
+        @Operation(summary = "투두리스트 생성", description = "필수 공식 미션 3개 + 선택 커스텀 미션(0개 이상)으로 투두리스트를 생성합니다.")
         @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = """
                         {
                           "title": "나의 첫 투두리스트",

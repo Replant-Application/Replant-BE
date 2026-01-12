@@ -21,8 +21,8 @@ public class TodoListDto {
     public static class CreateRequest {
         private String title;
         private String description;
-        private List<Long> randomMissionIds; // 랜덤 배정된 공식 미션 3개
-        private List<Long> customMissionIds; // 사용자 선택 커스텀 미션 2개
+        private List<Long> randomMissionIds; // 필수 공식 미션 3개
+        private List<Long> customMissionIds; // 선택 커스텀 미션 (0개 이상)
     }
 
     @Getter
