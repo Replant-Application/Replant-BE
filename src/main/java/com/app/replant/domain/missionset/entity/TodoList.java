@@ -16,8 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 미션세트 (투두리스트) 엔티티
- * 여러 미션을 묶어서 관리할 수 있는 세트
+ * 투두리스트 엔티티
+ * (구 MissionSet)
  */
 @Entity
 @Table(name = "todolist", indexes = {
@@ -29,7 +29,7 @@ import java.util.List;
 @SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MissionSet extends SoftDeletableEntity {
+public class TodoList extends SoftDeletableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -74,6 +74,7 @@ public class MissionSet extends SoftDeletableEntity {
     // ============ 투두리스트용 필드들 ============
 
     // 미션세트 타입: TODOLIST(개인 투두리스트), SHARED(공유 미션세트)
+    // TODO: Enum 이름도 TodoListType으로 변경 고려 가능하나 일단 유지
     @Enumerated(EnumType.STRING)
     @Column(name = "set_type", length = 20)
     private MissionSetType setType;
@@ -92,13 +93,13 @@ public class MissionSet extends SoftDeletableEntity {
     private TodoListStatus todolistStatus;
 
     // 미션세트에 포함된 미션 목록
-    @OneToMany(mappedBy = "missionSet", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "todoList", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC")
-    private List<MissionSetMission> missions = new ArrayList<>();
+    private List<TodoListMission> missions = new ArrayList<>();
 
     // 기존 공유 미션세트용 빌더
     @Builder
-    private MissionSet(User creator, String title, String description, Boolean isPublic) {
+    private TodoList(User creator, String title, String description, Boolean isPublic) {
         this.creator = creator;
         this.title = title;
         this.description = description;
@@ -114,23 +115,23 @@ public class MissionSet extends SoftDeletableEntity {
 
     // 투두리스트 생성용 빌더
     @Builder(builderMethodName = "todoListBuilder")
-    private static MissionSet createTodoList(User creator, String title, String description, Integer totalCount) {
-        MissionSet missionSet = new MissionSet();
-        missionSet.creator = creator;
-        missionSet.title = title;
-        missionSet.description = description;
-        missionSet.isPublic = false;
-        missionSet.addedCount = 0;
-        missionSet.averageRating = 0.0;
-        missionSet.reviewCount = 0;
-        missionSet.isActive = true;
-        missionSet.setType = MissionSetType.TODOLIST;
-        missionSet.completedCount = 0;
-        missionSet.totalCount = totalCount != null ? totalCount : 5;
-        missionSet.todolistStatus = TodoListStatus.ACTIVE;
-        missionSet.createdAt = LocalDateTime.now();
-        missionSet.updatedAt = LocalDateTime.now();
-        return missionSet;
+    private static TodoList createTodoList(User creator, String title, String description, Integer totalCount) {
+        TodoList todoList = new TodoList();
+        todoList.creator = creator;
+        todoList.title = title;
+        todoList.description = description;
+        todoList.isPublic = false;
+        todoList.addedCount = 0;
+        todoList.averageRating = 0.0;
+        todoList.reviewCount = 0;
+        todoList.isActive = true;
+        todoList.setType = MissionSetType.TODOLIST;
+        todoList.completedCount = 0;
+        todoList.totalCount = totalCount != null ? totalCount : 5;
+        todoList.todolistStatus = TodoListStatus.ACTIVE;
+        todoList.createdAt = LocalDateTime.now();
+        todoList.updatedAt = LocalDateTime.now();
+        return todoList;
     }
 
     public void update(String title, String description, Boolean isPublic) {
@@ -170,35 +171,27 @@ public class MissionSet extends SoftDeletableEntity {
         return this.creator.getId().equals(userId);
     }
 
-    public void addMission(MissionSetMission missionSetMission) {
-        this.missions.add(missionSetMission);
+    public void addMission(TodoListMission todoListMission) {
+        this.missions.add(todoListMission);
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void removeMission(MissionSetMission missionSetMission) {
-        this.missions.remove(missionSetMission);
+    public void removeMission(TodoListMission todoListMission) {
+        this.missions.remove(todoListMission);
         this.updatedAt = LocalDateTime.now();
     }
 
     // ============ 투두리스트 관련 메서드들 ============
 
-    /**
-     * 투두리스트 미션 완료 처리
-     */
     public void incrementCompletedCount() {
         if (this.completedCount == null) {
             this.completedCount = 0;
         }
         this.completedCount++;
         this.updatedAt = LocalDateTime.now();
-
-        // 진행률 확인 후 상태 업데이트
         updateTodoListStatusIfNeeded();
     }
 
-    /**
-     * 투두리스트 진행률 계산 (0-100)
-     */
     public int getProgressRate() {
         if (this.totalCount == null || this.totalCount == 0) {
             return 0;
@@ -207,25 +200,16 @@ public class MissionSet extends SoftDeletableEntity {
         return (int) Math.round((double) completed / this.totalCount * 100);
     }
 
-    /**
-     * 새 투두리스트 생성 가능 여부 (80% 이상 완료 시)
-     */
     public boolean canCreateNewTodoList() {
         return getProgressRate() >= 80;
     }
 
-    /**
-     * 투두리스트 상태 업데이트 (80% 이상 완료 시 COMPLETED로 변경)
-     */
     private void updateTodoListStatusIfNeeded() {
         if (this.setType == MissionSetType.TODOLIST && canCreateNewTodoList()) {
             this.todolistStatus = TodoListStatus.COMPLETED;
         }
     }
 
-    /**
-     * 투두리스트 보관처리
-     */
     public void archiveTodoList() {
         if (this.setType == MissionSetType.TODOLIST) {
             this.todolistStatus = TodoListStatus.ARCHIVED;
@@ -233,9 +217,6 @@ public class MissionSet extends SoftDeletableEntity {
         }
     }
 
-    /**
-     * 투두리스트 완료 처리 (모든 미션 완료 시)
-     */
     public void completeTodoList() {
         if (this.setType == MissionSetType.TODOLIST) {
             this.todolistStatus = TodoListStatus.COMPLETED;
@@ -243,9 +224,6 @@ public class MissionSet extends SoftDeletableEntity {
         }
     }
 
-    /**
-     * 투두리스트 여부 확인
-     */
     public boolean isTodoList() {
         return this.setType == MissionSetType.TODOLIST;
     }

@@ -1,8 +1,8 @@
 package com.app.replant.domain.missionset.dto;
 
 import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.missionset.entity.MissionSet;
-import com.app.replant.domain.missionset.entity.MissionSetMission;
+import com.app.replant.domain.missionset.entity.TodoList;
+import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.enums.MissionSource;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
 import lombok.Builder;
@@ -70,17 +70,17 @@ public class TodoListDto {
         private TodoListStatus status;
         private LocalDateTime createdAt;
 
-        public static SimpleResponse from(MissionSet missionSet) {
+        public static SimpleResponse from(TodoList todoList) {
             return SimpleResponse.builder()
-                    .id(missionSet.getId())
-                    .title(missionSet.getTitle())
-                    .description(missionSet.getDescription())
-                    .completedCount(missionSet.getCompletedCount() != null ? missionSet.getCompletedCount() : 0)
-                    .totalCount(missionSet.getTotalCount() != null ? missionSet.getTotalCount() : 5)
-                    .progressRate(missionSet.getProgressRate())
-                    .canCreateNew(missionSet.canCreateNewTodoList())
-                    .status(missionSet.getTodolistStatus())
-                    .createdAt(missionSet.getCreatedAt())
+                    .id(todoList.getId())
+                    .title(todoList.getTitle())
+                    .description(todoList.getDescription())
+                    .completedCount(todoList.getCompletedCount() != null ? todoList.getCompletedCount() : 0)
+                    .totalCount(todoList.getTotalCount() != null ? todoList.getTotalCount() : 5)
+                    .progressRate(todoList.getProgressRate())
+                    .canCreateNew(todoList.canCreateNewTodoList())
+                    .status(todoList.getTodolistStatus())
+                    .createdAt(todoList.getCreatedAt())
                     .build();
         }
     }
@@ -100,23 +100,23 @@ public class TodoListDto {
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
 
-        public static DetailResponse from(MissionSet missionSet) {
-            List<TodoMissionInfo> missionInfos = missionSet.getMissions() != null
-                    ? missionSet.getMissions().stream().map(TodoMissionInfo::from).collect(Collectors.toList())
+        public static DetailResponse from(TodoList todoList) {
+            List<TodoMissionInfo> missionInfos = todoList.getMissions() != null
+                    ? todoList.getMissions().stream().map(TodoMissionInfo::from).collect(Collectors.toList())
                     : new ArrayList<>();
 
             return DetailResponse.builder()
-                    .id(missionSet.getId())
-                    .title(missionSet.getTitle())
-                    .description(missionSet.getDescription())
-                    .completedCount(missionSet.getCompletedCount() != null ? missionSet.getCompletedCount() : 0)
-                    .totalCount(missionSet.getTotalCount() != null ? missionSet.getTotalCount() : 5)
-                    .progressRate(missionSet.getProgressRate())
-                    .canCreateNew(missionSet.canCreateNewTodoList())
-                    .status(missionSet.getTodolistStatus())
+                    .id(todoList.getId())
+                    .title(todoList.getTitle())
+                    .description(todoList.getDescription())
+                    .completedCount(todoList.getCompletedCount() != null ? todoList.getCompletedCount() : 0)
+                    .totalCount(todoList.getTotalCount() != null ? todoList.getTotalCount() : 5)
+                    .progressRate(todoList.getProgressRate())
+                    .canCreateNew(todoList.canCreateNewTodoList())
+                    .status(todoList.getTodolistStatus())
                     .missions(missionInfos)
-                    .createdAt(missionSet.getCreatedAt())
-                    .updatedAt(missionSet.getUpdatedAt())
+                    .createdAt(todoList.getCreatedAt())
+                    .updatedAt(todoList.getUpdatedAt())
                     .build();
         }
     }
@@ -135,7 +135,7 @@ public class TodoListDto {
         private LocalDateTime completedAt;
         private MissionSource missionSource;
 
-        public static TodoMissionInfo from(MissionSetMission msm) {
+        public static TodoMissionInfo from(TodoListMission msm) {
             Mission mission = msm.getMission();
             return TodoMissionInfo.builder()
                     .id(msm.getId())
@@ -192,18 +192,18 @@ public class TodoListDto {
         private Integer reviewCount; // 리뷰 수
         private LocalDateTime createdAt;
 
-        public static PublicResponse from(MissionSet missionSet) {
+        public static PublicResponse from(TodoList todoList) {
             return PublicResponse.builder()
-                    .id(missionSet.getId())
-                    .title(missionSet.getTitle())
-                    .description(missionSet.getDescription())
-                    .creatorId(missionSet.getCreator().getId())
-                    .creatorNickname(missionSet.getCreator().getNickname())
-                    .missionCount(missionSet.getMissions() != null ? missionSet.getMissions().size() : 0)
-                    .addedCount(missionSet.getAddedCount() != null ? missionSet.getAddedCount() : 0)
-                    .averageRating(missionSet.getAverageRating() != null ? missionSet.getAverageRating() : 0.0)
-                    .reviewCount(missionSet.getReviewCount() != null ? missionSet.getReviewCount() : 0)
-                    .createdAt(missionSet.getCreatedAt())
+                    .id(todoList.getId())
+                    .title(todoList.getTitle())
+                    .description(todoList.getDescription())
+                    .creatorId(todoList.getCreator().getId())
+                    .creatorNickname(todoList.getCreator().getNickname())
+                    .missionCount(todoList.getMissions() != null ? todoList.getMissions().size() : 0)
+                    .addedCount(todoList.getAddedCount() != null ? todoList.getAddedCount() : 0)
+                    .averageRating(todoList.getAverageRating() != null ? todoList.getAverageRating() : 0.0)
+                    .reviewCount(todoList.getReviewCount() != null ? todoList.getReviewCount() : 0)
+                    .createdAt(todoList.getCreatedAt())
                     .build();
         }
     }
@@ -224,24 +224,24 @@ public class TodoListDto {
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
 
-        public static PublicDetailResponse from(MissionSet missionSet) {
-            List<PublicMissionInfo> missionInfos = missionSet.getMissions() != null
-                    ? missionSet.getMissions().stream().map(PublicMissionInfo::from).collect(Collectors.toList())
+        public static PublicDetailResponse from(TodoList todoList) {
+            List<PublicMissionInfo> missionInfos = todoList.getMissions() != null
+                    ? todoList.getMissions().stream().map(PublicMissionInfo::from).collect(Collectors.toList())
                     : new ArrayList<>();
 
             return PublicDetailResponse.builder()
-                    .id(missionSet.getId())
-                    .title(missionSet.getTitle())
-                    .description(missionSet.getDescription())
-                    .creatorId(missionSet.getCreator().getId())
-                    .creatorNickname(missionSet.getCreator().getNickname())
+                    .id(todoList.getId())
+                    .title(todoList.getTitle())
+                    .description(todoList.getDescription())
+                    .creatorId(todoList.getCreator().getId())
+                    .creatorNickname(todoList.getCreator().getNickname())
                     .missionCount(missionInfos.size())
-                    .addedCount(missionSet.getAddedCount() != null ? missionSet.getAddedCount() : 0)
-                    .averageRating(missionSet.getAverageRating() != null ? missionSet.getAverageRating() : 0.0)
-                    .reviewCount(missionSet.getReviewCount() != null ? missionSet.getReviewCount() : 0)
+                    .addedCount(todoList.getAddedCount() != null ? todoList.getAddedCount() : 0)
+                    .averageRating(todoList.getAverageRating() != null ? todoList.getAverageRating() : 0.0)
+                    .reviewCount(todoList.getReviewCount() != null ? todoList.getReviewCount() : 0)
                     .missions(missionInfos)
-                    .createdAt(missionSet.getCreatedAt())
-                    .updatedAt(missionSet.getUpdatedAt())
+                    .createdAt(todoList.getCreatedAt())
+                    .updatedAt(todoList.getUpdatedAt())
                     .build();
         }
     }
@@ -257,7 +257,7 @@ public class TodoListDto {
         private Integer expReward;
         private Integer displayOrder;
 
-        public static PublicMissionInfo from(MissionSetMission msm) {
+        public static PublicMissionInfo from(TodoListMission msm) {
             Mission mission = msm.getMission();
             return PublicMissionInfo.builder()
                     .missionId(mission.getId())
@@ -272,6 +272,8 @@ public class TodoListDto {
     }
 
     // ============ 리뷰용 DTOs ============
+    // TodoListReviewDto에서 처리하거나 여기 내부 클래스 유지. 서비스에서 내부 클래스 사용 중이면 유지.
+    // 기존 서비스 로직은 내부 클래스를 사용했음. 그대로 유지.
 
     @Getter
     public static class ReviewRequest {

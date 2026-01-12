@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 미션세트 리뷰 엔티티
- * 사용자가 담은 미션세트에 대한 별점 및 리뷰
+ * 투두리스트 리뷰 엔티티
+ * (구 MissionSetReview)
  */
 @Entity
 @Table(name = "todolist_review", uniqueConstraints = {
@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MissionSetReview {
+public class TodoListReview {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,7 +30,7 @@ public class MissionSetReview {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "todolist_id", nullable = false)
-    private MissionSet missionSet;
+    private TodoList todoList;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -49,8 +49,8 @@ public class MissionSetReview {
     private LocalDateTime updatedAt;
 
     @Builder
-    private MissionSetReview(MissionSet missionSet, User user, Integer rating, String content) {
-        this.missionSet = missionSet;
+    private TodoListReview(TodoList todoList, User user, Integer rating, String content) {
+        this.todoList = todoList;
         this.user = user;
         this.rating = rating != null ? Math.min(5, Math.max(1, rating)) : 5;
         this.content = content;

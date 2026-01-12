@@ -11,8 +11,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 미션세트-미션 연결 엔티티
- * 미션세트에 포함된 미션들을 관리
+ * 투두리스트-미션 연결 엔티티
+ * (구 MissionSetMission)
  */
 @Entity
 @Table(name = "todolist_mission", indexes = {
@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
 })
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MissionSetMission {
+public class TodoListMission {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,7 +31,7 @@ public class MissionSetMission {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "todolist_id", nullable = false)
-    private MissionSet missionSet;
+    private TodoList todoList;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "mission_id", nullable = false)
@@ -61,8 +61,8 @@ public class MissionSetMission {
 
     // 기존 공유 미션세트용 빌더
     @Builder
-    private MissionSetMission(MissionSet missionSet, Mission mission, Integer displayOrder) {
-        this.missionSet = missionSet;
+    private TodoListMission(TodoList todoList, Mission mission, Integer displayOrder) {
+        this.todoList = todoList;
         this.mission = mission;
         this.displayOrder = displayOrder != null ? displayOrder : 0;
         this.createdAt = LocalDateTime.now();
@@ -70,13 +70,13 @@ public class MissionSetMission {
 
     // 투두리스트 미션용 빌더
     @Builder(builderMethodName = "todoMissionBuilder")
-    private static MissionSetMission createTodoMission(
-            MissionSet missionSet,
+    private static TodoListMission createTodoMission(
+            TodoList todoList,
             Mission mission,
             Integer displayOrder,
             MissionSource missionSource) {
-        MissionSetMission msm = new MissionSetMission();
-        msm.missionSet = missionSet;
+        TodoListMission msm = new TodoListMission();
+        msm.todoList = todoList;
         msm.mission = mission;
         msm.displayOrder = displayOrder != null ? displayOrder : 0;
         msm.isCompleted = false;
