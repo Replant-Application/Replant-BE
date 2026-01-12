@@ -66,8 +66,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             limit = Bandwidth.classic(5, Refill.intervally(5, Duration.ofMinutes(1)));
             log.debug("Rate limit for email endpoint: 5 req/min");
         } else {
-            // 일반 API: 200 req/min (앱에서 다수의 API 호출 고려)
-            limit = Bandwidth.classic(200, Refill.intervally(200, Duration.ofMinutes(1)));
+            // 일반 API: 1000 req/min (앱에서 다수의 API 호출 고려)
+            limit = Bandwidth.classic(1000, Refill.intervally(1000, Duration.ofMinutes(1)));
         }
 
         return Bucket.builder()

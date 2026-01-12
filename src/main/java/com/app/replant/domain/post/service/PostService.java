@@ -18,6 +18,7 @@ import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
+import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -143,8 +144,11 @@ public class PostService {
         // VERIFICATION 타입 게시글 생성
         Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson);
 
+        // UserMission 상태를 PENDING(인증대기)으로 변경
+        userMission.updateStatus(UserMissionStatus.PENDING);
+
         Post saved = postRepository.save(post);
-        log.info("인증 게시글 생성 - postId={}, userMissionId={}, userId={}", saved.getId(), userMission.getId(), userId);
+        log.info("인증 게시글 생성 - postId={}, userMissionId={}, userId={}, status=PENDING", saved.getId(), userMission.getId(), userId);
         return PostResponse.from(saved, 0L, 0L, false);
     }
 

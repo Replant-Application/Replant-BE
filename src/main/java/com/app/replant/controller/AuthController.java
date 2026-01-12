@@ -9,6 +9,7 @@ import com.app.replant.domain.user.enums.MetropolitanArea;
 import com.app.replant.domain.user.enums.OAuthProvider;
 import com.app.replant.domain.user.security.UserDetail;
 import com.app.replant.domain.user.service.OAuthService;
+import com.app.replant.domain.user.service.UserService;
 import com.app.replant.service.auth.AuthService;
 import com.app.replant.service.mailService.MailService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,6 +40,7 @@ public class AuthController {
     private final AuthService authService;
     private final MailService mailService;
     private final OAuthService oAuthService;
+    private final UserService userService;
 
     @Operation(summary = "회원가입", description = "새로운 회원을 등록하고 자동으로 로그인합니다")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "회원가입 성공")
@@ -232,6 +234,22 @@ public class AuthController {
 
         String message = response.isNewUser() ? "회원가입이 완료되었습니다." : "로그인에 성공했습니다.";
         return ResponseEntity.ok(ApiResponse.res(200, message, response));
+    }
+
+    @Operation(summary = "OAuth 추가정보 입력", description = "OAuth 로그인 후 추가정보(닉네임, 생년월일, 성별 등)를 입력합니다")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "추가정보 입력 성공")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 실패")
+    @PutMapping("oauth/{provider}")
+    public ResponseEntity<ApiResponse<UserResponse>> updateOAuthAdditionalInfo(
+            @Parameter(description = "OAuth 제공자 (KAKAO, GOOGLE, NAVER, APPLE)", required = true)
+            @PathVariable("provider") String providerStr,
+            @Parameter(hidden = true) Authentication authentication,
+            @RequestBody @Valid UserUpdateRequest request) {
+
+        UserDetail principal = (UserDetail) authentication.getPrincipal();
+        User user = userService.updateUser(principal.getUser().getId(), request);
+
+        return ResponseEntity.ok(ApiResponse.res(200, "추가정보가 저장되었습니다.", UserResponse.from(user)));
     }
 
     @Operation(summary = "광역자치단체 목록 조회", description = "회원가입 시 선택 가능한 지역(광역자치단체) 목록을 조회합니다")

@@ -69,12 +69,25 @@ public class TodoListService {
 
         /**
          * 커스텀 미션 도감 조회 (투두리스트 선택용)
-         * 챌린지가 아닌 커스텀 미션만 조회
+         * 챌린지가 아닌 커스텀 미션만 조회 - 본인 것 + 다른 사람의 공개 커스텀 미션
          */
         public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId) {
-                List<Mission> customMissions = missionRepository.findNonChallengeCustomMissionsByCreator(userId);
+                // 본인이 만든 커스텀 미션
+                List<Mission> myMissions = missionRepository.findNonChallengeCustomMissionsByCreator(userId);
+                // 다른 사람들의 공개 커스텀 미션
+                List<Mission> publicMissions = missionRepository.findAllPublicNonChallengeCustomMissions();
 
-                return customMissions.stream()
+                // 중복 제거 (본인 것이 공개일 경우)
+                java.util.Set<Long> myMissionIds = myMissions.stream()
+                                .map(Mission::getId)
+                                .collect(java.util.stream.Collectors.toSet());
+
+                List<Mission> allMissions = new java.util.ArrayList<>(myMissions);
+                publicMissions.stream()
+                                .filter(m -> !myMissionIds.contains(m.getId()))
+                                .forEach(allMissions::add);
+
+                return allMissions.stream()
                                 .map(TodoListDto.MissionSimpleResponse::from)
                                 .collect(Collectors.toList());
         }

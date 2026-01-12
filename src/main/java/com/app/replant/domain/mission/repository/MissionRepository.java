@@ -172,12 +172,21 @@ public interface MissionRepository extends JpaRepository<Mission, Long> {
        List<Mission> findRandomOfficialNonChallengeMissions(@Param("count") int count);
 
        /**
-        * 비챌린지 커스텀 미션 조회 (투두리스트 커스텀 선택용)
+        * 비챌린지 커스텀 미션 조회 (투두리스트 커스텀 선택용) - 본인 것만
         */
        @Query("SELECT m FROM Mission m WHERE m.missionType = 'CUSTOM' AND m.creator.id = :creatorId " +
                      "AND m.isActive = true AND (m.isChallenge = false OR m.isChallenge IS NULL) " +
                      "ORDER BY m.createdAt DESC")
        List<Mission> findNonChallengeCustomMissionsByCreator(@Param("creatorId") Long creatorId);
+
+       /**
+        * 모든 공개 비챌린지 커스텀 미션 조회 (투두리스트 커스텀 선택용) - 다른 사람 것 포함
+        */
+       @Query("SELECT m FROM Mission m WHERE m.missionType = 'CUSTOM' " +
+                     "AND m.isActive = true AND m.isPublic = true " +
+                     "AND (m.isChallenge = false OR m.isChallenge IS NULL) " +
+                     "ORDER BY m.createdAt DESC")
+       List<Mission> findAllPublicNonChallengeCustomMissions();
 
        /**
         * 미션 ID 목록으로 미션 조회
