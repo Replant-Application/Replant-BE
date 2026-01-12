@@ -96,6 +96,15 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V21 마이그레이션 스킵 (이미 적용됨)");
             }
 
+            // mission_source 컬럼이 남아있으면 삭제 (mission_type으로 이미 변경된 경우)
+            if (columnExists(stmt, "mission", "mission_source") && columnExists(stmt, "mission", "mission_type")) {
+                log.info("mission_source 컬럼 정리 중 (mission_type으로 대체됨)...");
+                try (Statement cleanupStmt = conn.createStatement()) {
+                    cleanupStmt.execute("ALTER TABLE `mission` DROP COLUMN `mission_source`");
+                }
+                log.info("mission_source 컬럼 삭제 완료");
+            }
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }

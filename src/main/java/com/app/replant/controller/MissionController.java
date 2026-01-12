@@ -16,8 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
 
 @Tag(name = "Mission", description = "공식 미션 API")
 @RestController
@@ -80,62 +78,8 @@ public class MissionController {
         return ApiResponse.success(review);
     }
 
-    @Operation(summary = "미션 QnA 목록 조회")
-    @GetMapping("/{missionId}/qna")
-    public ApiResponse<Page<MissionQnAResponse>> getQnAList(
-            @PathVariable Long missionId,
-            @PageableDefault(size = 20) Pageable pageable) {
-        Page<MissionQnAResponse> qnaList = missionService.getQnAList(missionId, pageable);
-        return ApiResponse.success(qnaList);
-    }
 
-    @Operation(summary = "미션 QnA 상세 조회")
-    @GetMapping("/{missionId}/qna/{qnaId}")
-    public ApiResponse<MissionQnAResponse> getQnADetail(
-            @PathVariable Long missionId,
-            @PathVariable Long qnaId) {
-        MissionQnAResponse qna = missionService.getQnADetail(missionId, qnaId);
-        return ApiResponse.success(qna);
-    }
 
-    @Operation(summary = "미션 QnA 질문 작성")
-    @PostMapping("/{missionId}/qna")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<MissionQnAResponse> createQuestion(
-            @PathVariable Long missionId,
-            @AuthenticationPrincipal Long userId,
-            @RequestBody @Valid MissionQnARequest request) {
-        MissionQnAResponse qna = missionService.createQuestion(missionId, userId, request);
-        return ApiResponse.success(qna);
-    }
 
-    @Operation(summary = "미션 QnA 답변 작성")
-    @PostMapping("/{missionId}/qna/{qnaId}/answers")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<MissionQnAResponse.AnswerInfo> createAnswer(
-            @PathVariable Long missionId,
-            @PathVariable Long qnaId,
-            @AuthenticationPrincipal Long userId,
-            @RequestBody @Valid MissionQnAAnswerRequest request) {
-        MissionQnAResponse.AnswerInfo answer = missionService.createAnswer(missionId, qnaId, userId, request);
-        return ApiResponse.success(answer);
-    }
 
-    @Operation(summary = "미션 QnA 답변 채택")
-    @PutMapping("/{missionId}/qna/{qnaId}/answers/{answerId}/accept")
-    public ApiResponse<Map<String, Object>> acceptAnswer(
-            @PathVariable Long missionId,
-            @PathVariable Long qnaId,
-            @PathVariable Long answerId,
-            @AuthenticationPrincipal Long userId) {
-        missionService.acceptAnswer(missionId, qnaId, answerId, userId);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", answerId);
-        result.put("qnaId", qnaId);
-        result.put("isAccepted", true);
-        result.put("message", "답변이 채택되었습니다.");
-
-        return ApiResponse.success(result);
-    }
 }

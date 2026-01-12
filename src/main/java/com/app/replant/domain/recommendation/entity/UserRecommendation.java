@@ -1,6 +1,5 @@
 package com.app.replant.domain.recommendation.entity;
 
-import com.app.replant.domain.custommission.entity.CustomMission;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.user.entity.User;
@@ -35,10 +34,6 @@ public class UserRecommendation {
     private Mission mission;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "custom_mission_id")
-    private CustomMission customMission;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_mission_id", nullable = false)
     private UserMission userMission;
 
@@ -56,12 +51,11 @@ public class UserRecommendation {
     private LocalDateTime createdAt;
 
     @Builder
-    public UserRecommendation(User user, User recommendedUser, Mission mission, CustomMission customMission,
+    public UserRecommendation(User user, User recommendedUser, Mission mission,
                               UserMission userMission, String matchReason, LocalDateTime expiresAt) {
         this.user = user;
         this.recommendedUser = recommendedUser;
         this.mission = mission;
-        this.customMission = customMission;
         this.userMission = userMission;
         this.matchReason = matchReason;
         this.status = RecommendationStatus.PENDING;

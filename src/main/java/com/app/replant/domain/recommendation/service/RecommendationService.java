@@ -150,7 +150,6 @@ public class RecommendationService {
                     .user(user)
                     .recommendedUser(recommendedUser)
                     .mission(completedUserMission.getMission())
-                    .customMission(null)  // 통합된 Mission 사용으로 deprecated
                     .userMission(completedUserMission)
                     .matchReason(matchReason)
                     .expiresAt(expiresAt)

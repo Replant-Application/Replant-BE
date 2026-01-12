@@ -3,14 +3,12 @@ package com.app.replant.controller;
 import com.app.replant.common.ApiResponse;
 import com.app.replant.controller.dto.AdminDiaryNotificationRequestDto;
 import com.app.replant.controller.dto.AdminReportNotificationRequestDto;
-import com.app.replant.controller.dto.CardResponseDto;
 import com.app.replant.controller.dto.NotificationSendRequestDto;
 import com.app.replant.controller.dto.UserResponseDto;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
-import com.app.replant.service.card.CardService;
 import com.app.replant.service.sse.SseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -36,7 +34,6 @@ import java.util.stream.Collectors;
 @SecurityRequirement(name = "JWT Token")
 public class AdminController {
 
-    private final CardService cardService;
     private final SseService sseService;
     private final UserRepository userRepository;
     private final JdbcTemplate jdbcTemplate;
@@ -67,15 +64,6 @@ public class AdminController {
         return ResponseEntity.ok(ApiResponse.res(200, "사용자 정보를 불러왔습니다!", UserResponseDto.from(user)));
     }
 
-    @Operation(summary = "전체 카드 조회", description = "tbl_card에 등록된 모든 카드 정보를 조회합니다 (관리자 전용)")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
-    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음")
-    @GetMapping("/card")
-    public ResponseEntity<ApiResponse<List<CardResponseDto>>> getAllCards() {
-        log.info("관리자 - 전체 카드 조회");
-        List<CardResponseDto> cards = cardService.getAllCards();
-        return ResponseEntity.ok(ApiResponse.res(200, "카드 정보를 불러왔습니다!", cards));
-    }
 
     @Operation(summary = "특정 사용자에게 알림 전송", description = "특정 사용자에게 SSE를 통해 알림을 전송합니다 (관리자 전용)")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "알림 전송 성공")
@@ -188,21 +176,16 @@ public class AdminController {
             jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
 
             // 미션 관련 테이블 초기화 (유저 데이터 유지)
-            jdbcTemplate.execute("DELETE FROM chat_message");
-            jdbcTemplate.execute("DELETE FROM chat_room");
             jdbcTemplate.execute("DELETE FROM user_recommendation");
             jdbcTemplate.execute("DELETE FROM notification");
             jdbcTemplate.execute("DELETE FROM comment");
             jdbcTemplate.execute("DELETE FROM post");
-            jdbcTemplate.execute("DELETE FROM mission_qna_answer");
-            jdbcTemplate.execute("DELETE FROM mission_qna");
             jdbcTemplate.execute("DELETE FROM mission_review");
             jdbcTemplate.execute("DELETE FROM verification_vote");
             jdbcTemplate.execute("DELETE FROM mission_verification");
             jdbcTemplate.execute("DELETE FROM verification_post");
             jdbcTemplate.execute("DELETE FROM user_badge");
             jdbcTemplate.execute("DELETE FROM user_mission");
-            jdbcTemplate.execute("DELETE FROM custom_mission");
             jdbcTemplate.execute("DELETE FROM mission");
 
             // 외래키 체크 활성화

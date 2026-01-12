@@ -2,9 +2,6 @@ package com.app.replant.controller.dto;
 
 import com.app.replant.domain.user.enums.Gender;
 import com.app.replant.domain.user.enums.MetropolitanArea;
-import com.app.replant.entity.Member;
-import com.app.replant.entity.type.Authority;
-import com.app.replant.entity.type.StatusType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 
@@ -38,20 +35,5 @@ public class JoinDto {
     @Schema(description = "출생연도", example = "1995")
     private Integer birthYear;
 
-    /**
-     * JoinDto를 Member 엔티티로 변환
-     * @param encodedPassword 암호화된 비밀번호
-     * @return Member 엔티티
-     */
-    public Member toEntity(String encodedPassword) {
-        return Member.builder()
-                .memberId(this.id)
-                .password(encodedPassword)
-                .memberName(this.name)
-                .phone(this.phone)
-                .status(StatusType.ABLE)
-                .authority(Authority.USER)
-                .build();
-    }
 }
 
