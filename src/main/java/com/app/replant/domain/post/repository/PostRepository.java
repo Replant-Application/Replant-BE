@@ -2,7 +2,6 @@ package com.app.replant.domain.post.repository;
 
 import com.app.replant.domain.post.entity.Post;
 import com.app.replant.domain.post.enums.PostType;
-import com.app.replant.domain.post.enums.VerificationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -97,7 +96,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
                      "AND (p.delFlag = false OR p.delFlag IS NULL) " +
                      "ORDER BY p.createdAt DESC")
        Page<Post> findVerificationPostsWithFilters(
-                     @Param("status") VerificationStatus status,
+                     @Param("status") String status,
                      Pageable pageable);
 
        @Query("SELECT p FROM Post p " +

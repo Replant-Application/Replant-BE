@@ -270,7 +270,7 @@ public class PostService {
                 long likeCount = postLikeRepository.countByPostId(postId);
                 newlyVerified = post.checkAndApproveByLikes(likeCount);
 
-                if (newlyVerified && post.getUserMission() != null) {
+                if (newlyVerified) {
                     log.info("인증 완료! postId={}, likeCount={}", postId, likeCount);
                     // 인증 완료 처리 (뱃지, 경험치 등)
                     userMissionService.completeMissionVerification(post.getUserMission());

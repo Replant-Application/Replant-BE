@@ -67,9 +67,8 @@ public class Post extends BaseEntity {
     private Boolean delFlag = false;
 
     // 인증 상태 (VERIFICATION일 때만 사용): PENDING, APPROVED
-    @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20)
-    private VerificationStatus status;
+    private String status;
 
     // 인증 완료 시간
     @Column(name = "verified_at")
@@ -115,7 +114,7 @@ public class Post extends BaseEntity {
         post.userMission = userMission;
         post.content = content;
         post.imageUrls = imageUrls;
-        post.status = VerificationStatus.PENDING;
+        post.status = "PENDING";
         post.delFlag = false;
         post.hasValidBadge = false;
         return post;
@@ -141,7 +140,7 @@ public class Post extends BaseEntity {
         if (this.postType != PostType.VERIFICATION) {
             throw new IllegalStateException("인증글만 이 메서드로 수정할 수 있습니다.");
         }
-        if (this.status == VerificationStatus.APPROVED) {
+        if ("APPROVED".equals(this.status)) {
             throw new IllegalStateException("인증 완료 후에는 수정할 수 없습니다.");
         }
         this.content = content;
@@ -162,11 +161,11 @@ public class Post extends BaseEntity {
         if (this.postType != PostType.VERIFICATION) {
             return false;
         }
-        if (this.status == VerificationStatus.APPROVED) {
+        if ("APPROVED".equals(this.status)) {
             return false; // 이미 인증됨
         }
         if (likeCount >= REQUIRED_LIKES) {
-            this.status = VerificationStatus.APPROVED;
+            this.status = "APPROVED";
             this.verifiedAt = LocalDateTime.now();
             return true; // 새로 인증됨
         }
@@ -177,7 +176,7 @@ public class Post extends BaseEntity {
      * 인증 완료 여부
      */
     public boolean isApproved() {
-        return this.status == VerificationStatus.APPROVED;
+        return "APPROVED".equals(this.status);
     }
 
     // ========================================

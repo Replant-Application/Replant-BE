@@ -82,7 +82,7 @@ public class PostResponse {
                 .likeCount(likeCount)
                 .commentCount(commentCount)
                 .isLiked(isLiked)
-                .status(post.getStatus() != null ? post.getStatus().name() : null)
+                .status(post.getStatus())
                 .verifiedAt(post.getVerifiedAt())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt());

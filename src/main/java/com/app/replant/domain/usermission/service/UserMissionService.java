@@ -175,7 +175,6 @@ public class UserMissionService {
         // 유사 유저 추천 생성 (RecommendationService 삭제로 인해 임시 비활성화)
         // TODO: 추천 시스템 재구현 시 활성화
         log.debug("유사 유저 추천 기능 비활성화됨 - userMissionId={}", userMission.getId());
-
         return buildVerifyResponse(userMission, verification, expReward, badge);
     }
 
