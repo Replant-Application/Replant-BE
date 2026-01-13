@@ -203,6 +203,7 @@ public enum ErrorCode {
     CANNOT_REVIEW_OWN_SET(HttpStatus.FORBIDDEN, "MS005", "자신의 미션세트에는 리뷰를 작성할 수 없습니다"),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "MS004", "접근 권한이 없습니다"),
     TODO_DUPLICATE_DATE(HttpStatus.CONFLICT, "MS006", "오늘 이미 투두리스트를 생성했습니다."),
+    VERIFICATION_REQUIRED(HttpStatus.BAD_REQUEST, "MS007", "공식 미션은 인증이 필수입니다. 먼저 인증을 완료해주세요."),
 
     // Routine (루틴 설정)
     ROUTINE_NOT_FOUND(HttpStatus.NOT_FOUND, "RT001", "루틴 설정을 찾을 수 없습니다"),

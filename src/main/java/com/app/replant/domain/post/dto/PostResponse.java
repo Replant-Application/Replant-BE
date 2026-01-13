@@ -70,13 +70,29 @@ public class PostResponse {
             userProfileImg = post.getUser().getProfileImg();
         }
 
+        // 인증글인 경우 title은 null이므로 미션 제목을 사용, 일반 게시글은 title 사용
+        String title = post.getTitle();
+        if (title == null) {
+            if (post.isVerificationPost() && post.getUserMission() != null) {
+                // 인증글인 경우 미션 제목을 title로 사용
+                title = post.getMissionTitle();
+                // getMissionTitle()이 null을 반환할 수 있으므로 null 체크
+                if (title == null) {
+                    title = ""; // undefined 방지
+                }
+            } else {
+                // 일반 게시글이지만 title이 null인 경우 빈 문자열로 처리 (undefined 방지)
+                title = "";
+            }
+        }
+        
         PostResponseBuilder builder = PostResponse.builder()
                 .id(post.getId())
                 .postType(post.getPostType() != null ? post.getPostType().name() : "GENERAL")
                 .userId(userId)
                 .userNickname(userNickname)
                 .userProfileImg(userProfileImg)
-                .title(post.getTitle())
+                .title(title)
                 .content(post.getContent())
                 .imageUrls(parseImageUrls(post.getImageUrls()))
                 .likeCount(likeCount)

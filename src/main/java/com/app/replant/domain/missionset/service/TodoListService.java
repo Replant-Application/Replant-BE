@@ -236,7 +236,7 @@ public class TodoListService {
 
                 log.info("투두리스트 생성 완료: id={}, userId={}, 필수 미션 {}개, 커스텀 미션 {}개, 총 {}개",
                                 todoList.getId(), userId, RANDOM_OFFICIAL_COUNT, customMissions.size(), totalMissionCount);
-                return TodoListDto.DetailResponse.from(todoList);
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
         /**
@@ -275,7 +275,7 @@ public class TodoListService {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
-                return TodoListDto.DetailResponse.from(todoList);
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
         /**
@@ -302,12 +302,35 @@ public class TodoListService {
                         throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 완료된 미션입니다.");
                 }
 
+                Mission mission = targetMission.getMission();
+                
+                // 공식 미션인 경우: 인증 필수 (UserMission이 COMPLETED 상태여야 함)
+                if (mission.isOfficialMission()) {
+                        // 중복이 있을 수 있으므로 첫 번째 결과만 사용
+                        List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionId(userId, missionId);
+                        if (userMissions.isEmpty()) {
+                                throw new CustomException(ErrorCode.USER_MISSION_NOT_FOUND);
+                        }
+                        UserMission userMission = userMissions.get(0);
+                        
+                        // UserMission이 COMPLETED 상태가 아니면 인증이 완료되지 않은 것
+                        if (userMission.getStatus() != UserMissionStatus.COMPLETED) {
+                                throw new CustomException(ErrorCode.VERIFICATION_REQUIRED);
+                        }
+                }
+                
+                // 커스텀 미션인 경우: 인증 없이 바로 완료 처리 가능
                 // 미션 완료 처리
                 targetMission.complete();
 
-                // UserMission도 완료 처리
-                userMissionRepository.findByUserIdAndMissionIdAndStatusAssigned(userId, missionId)
-                                .ifPresent(UserMission::complete);
+                // UserMission도 완료 처리 (커스텀 미션의 경우 ASSIGNED 상태에서 바로 COMPLETED로 변경)
+                if (mission.isCustomMission()) {
+                        // 중복이 있을 수 있으므로 첫 번째 결과만 사용
+                        List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIdAndStatusAssigned(userId, missionId);
+                        if (!userMissions.isEmpty()) {
+                                userMissions.get(0).complete();
+                        }
+                }
 
                 // 투두리스트 완료 카운트 증가
                 todoList.incrementCompletedCount();
@@ -315,7 +338,7 @@ public class TodoListService {
                 log.info("투두리스트 미션 완료: todoListId={}, missionId={}, completedCount={}",
                                 todoListId, missionId, todoList.getCompletedCount());
 
-                return TodoListDto.DetailResponse.from(todoList);
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
         /**
@@ -458,7 +481,7 @@ public class TodoListService {
                 todoList.update(request.getTitle(), request.getDescription());
 
                 log.info("투두리스트 수정 완료: id={}, userId={}", todoListId, userId);
-                return TodoListDto.DetailResponse.from(todoList);
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
         /**
@@ -572,7 +595,7 @@ public class TodoListService {
                 todoListMissionRepository.save(msm);
 
                 log.info("투두리스트에 미션 추가: todoListId={}, missionId={}", todoListId, request.getMissionId());
-                return TodoListDto.DetailResponse.from(todoList);
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
         /**
@@ -598,7 +621,7 @@ public class TodoListService {
                 todoListMissionRepository.delete(msm);
 
                 log.info("투두리스트에서 미션 제거: todoListId={}, missionId={}", todoListId, missionId);
-                return TodoListDto.DetailResponse.from(todoList);
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
         /**
@@ -622,7 +645,7 @@ public class TodoListService {
                 }
 
                 log.info("투두리스트 미션 순서 변경: todoListId={}", todoListId);
-                return TodoListDto.DetailResponse.from(todoList);
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
         /**
@@ -659,6 +682,6 @@ public class TodoListService {
                 log.info("투두리스트 미션 시간 설정: todoListId={}, missionId={}, startTime={}, endTime={}",
                                 todoListId, missionId, request.getStartTime(), request.getEndTime());
 
-                return TodoListDto.DetailResponse.from(todoList);
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 }

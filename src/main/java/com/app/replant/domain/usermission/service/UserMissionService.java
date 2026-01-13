@@ -16,6 +16,9 @@ import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.repository.MissionVerificationRepository;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
+import com.app.replant.domain.missionset.entity.TodoListMission;
+import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
+import com.app.replant.domain.missionset.repository.TodoListRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @Transactional(readOnly = true)
@@ -41,6 +45,8 @@ public class UserMissionService {
     private final MissionRepository missionRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final ReantRepository reantRepository;
+    private final TodoListMissionRepository todoListMissionRepository;
+    private final TodoListRepository todoListRepository;
 
     public Page<UserMissionResponse> getUserMissions(Long userId, UserMissionStatus status, String missionType,
             Pageable pageable) {
@@ -132,6 +138,34 @@ public class UserMissionService {
 
         // 뱃지 발급
         createBadge(userMission);
+
+        // 투두리스트에 포함된 미션이면 TodoListMission도 완료 처리
+        if (userMission.getMission() != null) {
+            Long missionId = userMission.getMission().getId();
+            Long userId = user.getId();
+            
+            // 해당 사용자의 투두리스트에서 이 미션을 찾기 (미완료 상태만)
+            List<TodoListMission> todoListMissions = todoListMissionRepository
+                    .findIncompleteByUserIdAndMissionId(userId, missionId);
+            
+            for (TodoListMission todoListMission : todoListMissions) {
+                // TodoListMission 완료 처리
+                if (!todoListMission.isCompletedMission()) {
+                    todoListMission.complete();
+                    
+                    // TodoList의 completedCount 증가
+                    var todoList = todoListMission.getTodoList();
+                    todoList.incrementCompletedCount();
+                    
+                    // 변경사항 저장
+                    todoListMissionRepository.save(todoListMission);
+                    todoListRepository.save(todoList);
+                    
+                    log.info("TodoListMission 자동 완료 처리: todoListId={}, missionId={}, userId={}", 
+                            todoList.getId(), missionId, userId);
+                }
+            }
+        }
 
         log.info("Social Verification Completed: userMissionId={}, userId={}", userMission.getId(), user.getId());
     }

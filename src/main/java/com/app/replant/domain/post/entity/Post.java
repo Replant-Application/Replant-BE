@@ -34,7 +34,7 @@ import java.util.List;
 public class Post extends BaseEntity {
 
     // 인증에 필요한 좋아요 수 (설정값)
-    public static final int REQUIRED_LIKES = 1;
+    public static final int REQUIRED_LIKES = 3;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -60,14 +60,29 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
        /**
         * 유저별 완료된 미션 이력 조회
         */
-       @Query("SELECT um FROM UserMission um WHERE um.user.id = :userId ORDER BY um.createdAt DESC")
+       @Query("SELECT um FROM UserMission um WHERE um.user.id = :userId AND um.status = 'COMPLETED' ORDER BY um.createdAt DESC")
        Page<UserMission> findMissionHistoryByUserId(@Param("userId") Long userId, Pageable pageable);
 
        /**
         * 특정 유저와 미션으로 UserMission 조회 (ASSIGNED 상태만)
+        * 중복이 있을 수 있으므로 최신 것만 반환 (ORDER BY id DESC)
         */
-       @Query("SELECT um FROM UserMission um WHERE um.user.id = :userId AND um.mission.id = :missionId AND um.status = 'ASSIGNED'")
-       Optional<UserMission> findByUserIdAndMissionIdAndStatusAssigned(
+       @Query("SELECT um FROM UserMission um WHERE um.user.id = :userId AND um.mission.id = :missionId AND um.status = 'ASSIGNED' ORDER BY um.id DESC")
+       List<UserMission> findByUserIdAndMissionIdAndStatusAssigned(
+                     @Param("userId") Long userId,
+                     @Param("missionId") Long missionId);
+
+       /**
+        * 특정 유저와 미션으로 UserMission 조회 (상태 무관)
+        * 중복이 있을 수 있으므로 최신 것만 반환 (ORDER BY id DESC)
+        * User와 Mission을 함께 조회하여 N+1 문제 방지
+        */
+       @Query("SELECT DISTINCT um FROM UserMission um " +
+                     "LEFT JOIN FETCH um.user " +
+                     "LEFT JOIN FETCH um.mission " +
+                     "WHERE um.user.id = :userId AND um.mission.id = :missionId " +
+                     "ORDER BY um.id DESC")
+       List<UserMission> findByUserIdAndMissionId(
                      @Param("userId") Long userId,
                      @Param("missionId") Long missionId);
 
@@ -76,4 +91,17 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
         */
        @Query("SELECT um FROM UserMission um WHERE um.status = 'ASSIGNED' AND um.dueDate < :now")
        List<UserMission> findExpiredMissions(@Param("now") java.time.LocalDateTime now);
+
+       /**
+        * 특정 유저와 여러 미션 ID로 UserMission 일괄 조회 (N+1 문제 방지)
+        * User와 Mission을 함께 조회하여 지연 로딩 방지
+        */
+       @Query("SELECT DISTINCT um FROM UserMission um " +
+                     "LEFT JOIN FETCH um.user " +
+                     "LEFT JOIN FETCH um.mission " +
+                     "WHERE um.user.id = :userId AND um.mission.id IN :missionIds " +
+                     "ORDER BY um.mission.id, um.id DESC")
+       List<UserMission> findByUserIdAndMissionIds(
+                     @Param("userId") Long userId,
+                     @Param("missionIds") List<Long> missionIds);
 }

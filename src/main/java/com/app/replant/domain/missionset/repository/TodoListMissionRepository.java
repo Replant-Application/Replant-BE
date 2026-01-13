@@ -29,4 +29,15 @@ public interface TodoListMissionRepository extends JpaRepository<TodoListMission
 
     // 투두리스트의 미션 수
     long countByTodoList(TodoList todoList);
+
+    // 특정 사용자의 투두리스트에서 특정 미션을 찾기 (미완료 상태만)
+    @Query("SELECT tlm FROM TodoListMission tlm " +
+            "JOIN tlm.todoList tl " +
+            "WHERE tl.creator.id = :userId " +
+            "AND tlm.mission.id = :missionId " +
+            "AND (tlm.isCompleted IS NULL OR tlm.isCompleted = false) " +
+            "AND tl.isActive = true")
+    List<TodoListMission> findIncompleteByUserIdAndMissionId(
+            @Param("userId") Long userId,
+            @Param("missionId") Long missionId);
 }

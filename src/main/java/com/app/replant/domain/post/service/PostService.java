@@ -27,6 +27,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.Set;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.Collections;
 
@@ -42,6 +46,11 @@ import java.util.Collections;
 @RequiredArgsConstructor
 @Slf4j
 public class PostService {
+
+    // 정렬 가능한 필드명 목록
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "id", "createdAt", "updatedAt", "status", "verifiedAt"
+    );
 
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
@@ -127,7 +136,8 @@ public class PostService {
         UserMission userMission = userMissionRepository.findByIdAndUserId(request.getUserMissionId(), userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
 
-        // 이미 해당 미션에 대한 인증글이 있는지 확인
+        // 이미 해당 미션에 대한 인증글이 있는지 확인 (동시 요청 방지를 위해 flush 후 재확인)
+        postRepository.flush(); // 현재 트랜잭션의 변경사항을 DB에 반영
         if (postRepository.findByUserMissionId(userMission.getId()).isPresent()) {
             throw new CustomException(ErrorCode.VERIFICATION_ALREADY_EXISTS);
         }
@@ -147,9 +157,18 @@ public class PostService {
         // UserMission 상태를 PENDING(인증대기)으로 변경
         userMission.updateStatus(UserMissionStatus.PENDING);
 
-        Post saved = postRepository.save(post);
-        log.info("인증 게시글 생성 - postId={}, userMissionId={}, userId={}, status=PENDING", saved.getId(), userMission.getId(), userId);
-        return PostResponse.from(saved, 0L, 0L, false);
+        try {
+            Post saved = postRepository.save(post);
+            log.info("인증 게시글 생성 - postId={}, userMissionId={}, userId={}, status=PENDING", saved.getId(), userMission.getId(), userId);
+            return PostResponse.from(saved, 0L, 0L, false);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            // UNIQUE 제약조건 위반 시 (동시 요청으로 인한 중복 생성 시도)
+            log.warn("인증글 중복 생성 시도 감지 - userMissionId={}, userId={}", userMission.getId(), userId);
+            // 기존 게시글 조회하여 반환
+            Post existingPost = postRepository.findByUserMissionId(userMission.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.VERIFICATION_ALREADY_EXISTS));
+            return PostResponse.from(existingPost, 0L, 0L, false);
+        }
     }
 
     /**
@@ -157,8 +176,11 @@ public class PostService {
      */
     public Page<PostResponse> getVerificationPosts(String status, Pageable pageable, Long currentUserId) {
         User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+        
+        // 정렬 필드 검증
+        Pageable validatedPageable = validateAndSanitizePageable(pageable);
 
-        return postRepository.findVerificationPostsWithFilters(status, pageable)
+        return postRepository.findVerificationPostsWithFilters(status, validatedPageable)
                 .map(post -> {
                     long commentCount = commentRepository.countByPostId(post.getId());
                     long likeCount = postLikeRepository.countByPostId(post.getId());
@@ -330,26 +352,32 @@ public class PostService {
                     .post(post)
                     .user(user)
                     .build();
-            postLikeRepository.save(newLike);
+            postLikeRepository.saveAndFlush(newLike); // 즉시 DB에 반영
             isLiked = true;
             log.info("좋아요 추가 - postId={}, userId={}", postId, userId);
 
             // 좋아요 알림 (임시 비활성화 - notification 테이블 마이그레이션 필요)
             // sendLikeNotification(post.getUser(), user, post);
+        }
 
-            // VERIFICATION 타입: 좋아요 = 인증 체크
-            if (post.isVerificationPost()) {
-                long likeCount = postLikeRepository.countByPostId(postId);
-                newlyVerified = post.checkAndApproveByLikes(likeCount);
+        // VERIFICATION 타입: 좋아요 추가/취소 후 인증 체크 (좋아요 수가 변경되었으므로 재확인)
+        if (post.isVerificationPost()) {
+            // flush 후 다시 조회하여 최신 좋아요 수 확인
+            long likeCount = postLikeRepository.countByPostId(postId);
+            newlyVerified = post.checkAndApproveByLikes(likeCount);
 
-                if (newlyVerified) {
-                    log.info("인증 완료! postId={}, likeCount={}", postId, likeCount);
-                    // 인증 완료 처리 (뱃지, 경험치 등)
-                    userMissionService.completeMissionVerification(post.getUserMission());
+            if (newlyVerified) {
+                // Post 엔티티의 status 변경사항을 DB에 저장
+                postRepository.saveAndFlush(post);
+                // 저장 후 최신 상태로 다시 조회 (1차 캐시 문제 방지)
+                post = postRepository.findByIdAndNotDeleted(postId)
+                        .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+                log.info("인증 완료! postId={}, likeCount={}, status={}", postId, likeCount, post.getStatus());
+                // 인증 완료 처리 (뱃지, 경험치 등)
+                userMissionService.completeMissionVerification(post.getUserMission());
 
-                    // 알림 전송
-                    sendVerificationSuccessNotification(post.getUser(), post);
-                }
+                // 알림 전송
+                sendVerificationSuccessNotification(post.getUser(), post);
             }
         }
 
@@ -450,5 +478,39 @@ public class PostService {
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
+     * Pageable의 Sort를 검증하고 허용된 필드만 사용하도록 필터링
+     */
+    private Pageable validateAndSanitizePageable(Pageable pageable) {
+        if (pageable.getSort().isEmpty()) {
+            return pageable;
+        }
+
+        List<Sort.Order> validOrders = new ArrayList<>();
+        for (Sort.Order order : pageable.getSort()) {
+            String property = order.getProperty();
+            if (ALLOWED_SORT_FIELDS.contains(property)) {
+                validOrders.add(order);
+            } else {
+                log.warn("허용되지 않은 정렬 필드: {}. 기본 정렬(createdAt DESC)을 사용합니다.", property);
+            }
+        }
+
+        // 유효한 정렬이 없으면 기본 정렬 사용
+        if (validOrders.isEmpty()) {
+            return PageRequest.of(
+                    pageable.getPageNumber(),
+                    pageable.getPageSize(),
+                    Sort.by(Sort.Direction.DESC, "createdAt")
+            );
+        }
+
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(validOrders)
+        );
     }
 }

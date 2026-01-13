@@ -93,8 +93,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
                      "" +
                      "WHERE p.postType = 'VERIFICATION' " +
                      "AND (:status IS NULL OR p.status = :status) " +
-                     "AND (p.delFlag = false OR p.delFlag IS NULL) " +
-                     "ORDER BY p.createdAt DESC")
+                     "AND (p.delFlag = false OR p.delFlag IS NULL)")
        Page<Post> findVerificationPostsWithFilters(
                      @Param("status") String status,
                      Pageable pageable);
