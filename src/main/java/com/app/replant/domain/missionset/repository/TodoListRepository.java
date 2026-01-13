@@ -17,37 +17,7 @@ import java.util.Optional;
 @Repository
 public interface TodoListRepository extends JpaRepository<TodoList, Long> {
 
-    // 내가 만든 투두리스트 목록
-    List<TodoList> findByCreatorAndIsActiveOrderByCreatedAtDesc(User creator, Boolean isActive);
-
-    // 내가 만든 투두리스트 목록 (페이징)
-    Page<TodoList> findByCreatorAndIsActive(User creator, Boolean isActive, Pageable pageable);
-
-    // 공개된 투두리스트 목록 (담은수 + 평점 순 정렬) - 인기순
-    @Query("SELECT tl FROM TodoList tl WHERE tl.isPublic = true AND tl.isActive = true " +
-            "ORDER BY tl.addedCount DESC, tl.averageRating DESC, tl.createdAt DESC")
-    Page<TodoList> findPublicTodoListsOrderByPopularity(Pageable pageable);
-
-    // 공개된 투두리스트 목록 (최신순 정렬)
-    @Query("SELECT tl FROM TodoList tl WHERE tl.isPublic = true AND tl.isActive = true " +
-            "ORDER BY tl.createdAt DESC")
-    Page<TodoList> findPublicTodoListsOrderByLatest(Pageable pageable);
-
-    // 공개된 투두리스트 검색 (인기순)
-    @Query("SELECT tl FROM TodoList tl WHERE tl.isPublic = true AND tl.isActive = true " +
-            "AND (tl.title LIKE %:keyword% OR tl.description LIKE %:keyword%) " +
-            "ORDER BY tl.addedCount DESC, tl.averageRating DESC")
-    Page<TodoList> searchPublicTodoListsOrderByPopularity(@Param("keyword") String keyword, Pageable pageable);
-
-    // 공개된 투두리스트 검색 (최신순)
-    @Query("SELECT tl FROM TodoList tl WHERE tl.isPublic = true AND tl.isActive = true " +
-            "AND (tl.title LIKE %:keyword% OR tl.description LIKE %:keyword%) " +
-            "ORDER BY tl.createdAt DESC")
-    Page<TodoList> searchPublicTodoListsOrderByLatest(@Param("keyword") String keyword, Pageable pageable);
-
-    // 특정 사용자의 공개 투두리스트
-    Page<TodoList> findByCreatorAndIsPublicAndIsActive(User creator, Boolean isPublic, Boolean isActive,
-            Pageable pageable);
+    // ============ 공유 관련 쿼리 제거됨 ============
 
     // 투두리스트 상세 조회 (미션 목록 포함)
     @Query("SELECT DISTINCT tl FROM TodoList tl " +
@@ -67,8 +37,12 @@ public interface TodoListRepository extends JpaRepository<TodoList, Long> {
             @Param("setType") MissionSetType setType);
 
     // 사용자의 활성 투두리스트 목록
-    @Query("SELECT tl FROM TodoList tl WHERE tl.creator = :creator AND tl.setType = 'TODOLIST' " +
-            "AND tl.todolistStatus = :status AND tl.isActive = true ORDER BY tl.createdAt DESC")
+    // TODOLIST 타입이거나, SHARED 타입인 경우 모두 조회 (기존 데이터 호환)
+    // ACTIVE 상태이거나 todolistStatus가 NULL인 경우 조회
+    @Query("SELECT tl FROM TodoList tl WHERE tl.creator = :creator " +
+            "AND (tl.setType = 'TODOLIST' OR tl.setType = 'SHARED') " +
+            "AND (tl.todolistStatus = :status OR tl.todolistStatus IS NULL) " +
+            "AND tl.isActive = true ORDER BY tl.createdAt DESC")
     List<TodoList> findTodoListsByCreatorAndStatus(
             @Param("creator") User creator,
             @Param("status") TodoListStatus status);
@@ -88,6 +62,13 @@ public interface TodoListRepository extends JpaRepository<TodoList, Long> {
             "AND tl.isActive = true")
     long countAllTodoListsByCreator(@Param("creator") User creator);
 
+    // 당일 생성된 투두리스트 존재 여부 확인
+    @Query("SELECT COUNT(tl) > 0 FROM TodoList tl WHERE tl.creator = :creator AND tl.setType = 'TODOLIST' " +
+            "AND tl.isActive = true AND tl.createdAt >= :startOfDay AND tl.createdAt < :endOfDay")
+    boolean existsByCreatorAndCreatedDate(@Param("creator") User creator, 
+                                          @Param("startOfDay") java.time.LocalDateTime startOfDay,
+                                          @Param("endOfDay") java.time.LocalDateTime endOfDay);
+
     // 투두리스트 상세 조회 (미션 목록 포함)
     @Query("SELECT DISTINCT tl FROM TodoList tl " +
             "LEFT JOIN FETCH tl.missions tlm " +
@@ -95,22 +76,8 @@ public interface TodoListRepository extends JpaRepository<TodoList, Long> {
             "WHERE tl.id = :id AND tl.setType = 'TODOLIST' AND tl.isActive = true")
     Optional<TodoList> findTodoListByIdWithMissions(@Param("id") Long id);
 
-    // 공유 가능한 투두리스트 조회 (비공개 상태인 것만)
-    @Query("SELECT tl FROM TodoList tl WHERE tl.creator = :creator AND tl.setType = 'TODOLIST' " +
-            "AND tl.isPublic = false AND tl.isActive = true ORDER BY tl.createdAt DESC")
-    List<TodoList> findPrivateTodoListsByCreator(@Param("creator") User creator);
-
-    // ID로 투두리스트 조회 (setType 필터링 없음) - 공유/공유해제용
-    @Query("SELECT DISTINCT tl FROM TodoList tl " +
-            "LEFT JOIN FETCH tl.missions tlm " +
-            "LEFT JOIN FETCH tlm.mission " +
-            "WHERE tl.id = :id AND tl.isActive = true")
-    Optional<TodoList> findByIdForShare(@Param("id") Long id);
-
-    // 비공개 투두리스트 목록 조회 (setType 필터링 없음)
-    @Query("SELECT tl FROM TodoList tl WHERE tl.creator = :creator " +
-            "AND tl.isPublic = false AND tl.isActive = true ORDER BY tl.createdAt DESC")
-    List<TodoList> findPrivateTodoListsByCreatorV2(@Param("creator") User creator);
+    // ============ 공유 관련 쿼리 제거됨 ============
+    // findPrivateTodoListsByCreator, findByIdForShare, findPrivateTodoListsByCreatorV2
 
     /**
      * 모든 활성 투두리스트 조회 (만료 처리용)

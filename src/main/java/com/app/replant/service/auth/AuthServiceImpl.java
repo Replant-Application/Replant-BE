@@ -10,6 +10,8 @@ import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.user.security.UserDetail;
 import com.app.replant.exception.*;
 import com.app.replant.jwt.*;
+import com.app.replant.domain.notification.enums.NotificationType;
+import com.app.replant.domain.notification.service.NotificationService;
 import com.app.replant.service.mailService.MailService;
 import com.app.replant.service.token.RefreshTokenService;
 import com.app.replant.service.token.TokenBlacklistService;
@@ -34,6 +36,7 @@ public class AuthServiceImpl implements AuthService {
     private final TokenBlacklistService tokenBlacklistService;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional(readOnly = true)
@@ -96,7 +99,20 @@ public class AuthServiceImpl implements AuthService {
 
             log.info("회원가입 완료: {}", joinDto.getId());
 
-            // 5. 자동 로그인
+            // 5. 신규 가입자에게 투두리스트 생성 알림 발송
+            try {
+                notificationService.createAndPushNotification(
+                        savedUser,
+                        NotificationType.SYSTEM,
+                        "환영합니다!",
+                        "투두리스트를 생성해주세요!");
+                log.info("신규 가입자 투두리스트 생성 알림 발송 완료: userId={}", savedUser.getId());
+            } catch (Exception e) {
+                log.error("신규 가입자 알림 발송 실패: userId={}", savedUser.getId(), e);
+                // 알림 실패는 회원가입 흐름을 방해하지 않음
+            }
+
+            // 6. 자동 로그인
             return login(joinDto.getId(), joinDto.getPassword());
 
         } catch (CustomException e) {

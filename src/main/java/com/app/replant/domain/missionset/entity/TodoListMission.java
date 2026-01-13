@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
  * 투두리스트-미션 연결 엔티티
@@ -59,6 +60,13 @@ public class TodoListMission {
     @Column(name = "mission_source", length = 20)
     private MissionSource missionSource;
 
+    // 시간대 배치용 필드 (투두리스트에서 미션을 시간대로 배치할 때 사용)
+    @Column(name = "scheduled_start_time")
+    private LocalTime scheduledStartTime; // 시작 시간 (예: 09:00)
+
+    @Column(name = "scheduled_end_time")
+    private LocalTime scheduledEndTime; // 종료 시간 (예: 10:00)
+
     // 기존 공유 미션세트용 빌더
     @Builder
     private TodoListMission(TodoList todoList, Mission mission, Integer displayOrder) {
@@ -102,5 +110,13 @@ public class TodoListMission {
      */
     public boolean isCompletedMission() {
         return Boolean.TRUE.equals(this.isCompleted);
+    }
+
+    /**
+     * 미션 시간대 설정
+     */
+    public void updateSchedule(LocalTime startTime, LocalTime endTime) {
+        this.scheduledStartTime = startTime;
+        this.scheduledEndTime = endTime;
     }
 }

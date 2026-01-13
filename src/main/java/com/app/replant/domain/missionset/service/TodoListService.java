@@ -99,6 +99,14 @@ public class TodoListService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+                // 검증: 당일 이미 투두리스트가 생성되었는지 확인
+                LocalDateTime now = LocalDateTime.now();
+                LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
+                LocalDateTime endOfDay = startOfDay.plusDays(1);
+                if (todoListRepository.existsByCreatorAndCreatedDate(user, startOfDay, endOfDay)) {
+                        throw new CustomException(ErrorCode.TODO_DUPLICATE_DATE);
+                }
+
                 // 검증: 필수 공식 미션 3개 필수
                 if (request.getRandomMissionIds() == null
                                 || request.getRandomMissionIds().size() != RANDOM_OFFICIAL_COUNT) {
@@ -142,7 +150,6 @@ public class TodoListService {
 
                 // 랜덤 공식 미션 추가
                 int order = 0;
-                LocalDateTime now = LocalDateTime.now();
                 LocalDateTime defaultDueDate = now.plusDays(7); // 기본 마감일 7일
 
                 for (Mission mission : randomMissions) {
@@ -152,6 +159,21 @@ public class TodoListService {
                                         .displayOrder(order++)
                                         .missionSource(MissionSource.RANDOM_OFFICIAL)
                                         .build();
+                        
+                        // 시간대 정보가 있으면 설정
+                        if (request.getMissionSchedules() != null) {
+                                TodoListDto.CreateRequest.MissionScheduleInfo schedule = 
+                                                request.getMissionSchedules().get(mission.getId());
+                                if (schedule != null && schedule.getStartTime() != null && schedule.getEndTime() != null) {
+                                        // 시간 검증: 시작 시간이 종료 시간보다 이전이어야 함
+                                        if (!schedule.getStartTime().isBefore(schedule.getEndTime())) {
+                                                throw new CustomException(ErrorCode.INVALID_REQUEST,
+                                                                "미션 '" + mission.getTitle() + "'의 시작 시간은 종료 시간보다 이전이어야 합니다.");
+                                        }
+                                        msm.updateSchedule(schedule.getStartTime(), schedule.getEndTime());
+                                }
+                        }
+                        
                         todoList.getMissions().add(msm);
 
                         // UserMission 생성 - 투두리스트에 추가된 미션을 나의 미션에도 추가
@@ -177,6 +199,21 @@ public class TodoListService {
                                         .displayOrder(order++)
                                         .missionSource(MissionSource.CUSTOM_SELECTED)
                                         .build();
+                        
+                        // 시간대 정보가 있으면 설정
+                        if (request.getMissionSchedules() != null) {
+                                TodoListDto.CreateRequest.MissionScheduleInfo schedule = 
+                                                request.getMissionSchedules().get(mission.getId());
+                                if (schedule != null && schedule.getStartTime() != null && schedule.getEndTime() != null) {
+                                        // 시간 검증: 시작 시간이 종료 시간보다 이전이어야 함
+                                        if (!schedule.getStartTime().isBefore(schedule.getEndTime())) {
+                                                throw new CustomException(ErrorCode.INVALID_REQUEST,
+                                                                "미션 '" + mission.getTitle() + "'의 시작 시간은 종료 시간보다 이전이어야 합니다.");
+                                        }
+                                        msm.updateSchedule(schedule.getStartTime(), schedule.getEndTime());
+                                }
+                        }
+                        
                         todoList.getMissions().add(msm);
 
                         // UserMission 생성 - 투두리스트에 추가된 미션을 나의 미션에도 추가
@@ -317,172 +354,9 @@ public class TodoListService {
                 log.info("투두리스트 보관 완료: todoListId={}, userId={}", todoListId, userId);
         }
 
-        /**
-         * 투두리스트 공유 (isPublic = true로 전환)
-         * 투두 공유 탭에서 내 투두리스트를 선택하여 공개로 전환
-         */
-        @Transactional
-        public TodoListDto.DetailResponse shareTodoList(Long todoListId, Long userId) {
-                TodoList todoList = todoListRepository.findByIdForShare(todoListId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                // 본인만 공유 가능
-                if (!todoList.isCreator(userId)) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED);
-                }
-
-                // 이미 공개된 투두리스트인지 확인
-                if (Boolean.TRUE.equals(todoList.getIsPublic())) {
-                        throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 공유된 투두리스트입니다.");
-                }
-
-                // 공개로 전환
-                todoList.update(null, null, true);
-                log.info("투두리스트 공유 완료: todoListId={}, userId={}", todoListId, userId);
-
-                return TodoListDto.DetailResponse.from(todoList);
-        }
-
-        /**
-         * 투두리스트 공유 해제 (isPublic = false로 전환)
-         */
-        @Transactional
-        public TodoListDto.DetailResponse unshareTodoList(Long todoListId, Long userId) {
-                TodoList todoList = todoListRepository.findByIdForShare(todoListId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                // 본인만 공유 해제 가능
-                if (!todoList.isCreator(userId)) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED);
-                }
-
-                // 비공개로 전환
-                todoList.update(null, null, false);
-                log.info("투두리스트 공유 해제 완료: todoListId={}, userId={}", todoListId, userId);
-
-                return TodoListDto.DetailResponse.from(todoList);
-        }
-
-        /**
-         * 공유 가능한 내 투두리스트 목록 조회 (비공개 상태인 것만)
-         */
-        public List<TodoListDto.SimpleResponse> getShareableTodoLists(Long userId) {
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-                return todoListRepository.findPrivateTodoListsByCreatorV2(user)
-                                .stream()
-                                .map(TodoListDto.SimpleResponse::from)
-                                .collect(Collectors.toList());
-        }
-
-        // ============ 공개 투두리스트 관련 메서드들 ============
-
-        /**
-         * 공개 투두리스트 목록 조회 (정렬 옵션: popular, latest)
-         */
-        public Page<TodoListDto.PublicResponse> getPublicTodoLists(Pageable pageable, String sortBy) {
-                if ("latest".equalsIgnoreCase(sortBy)) {
-                        return todoListRepository.findPublicTodoListsOrderByLatest(pageable)
-                                        .map(TodoListDto.PublicResponse::from);
-                }
-                // 기본값: 인기순 (popular)
-                return todoListRepository.findPublicTodoListsOrderByPopularity(pageable)
-                                .map(TodoListDto.PublicResponse::from);
-        }
-
-        /**
-         * 공개 투두리스트 검색 (정렬 옵션: popular, latest)
-         */
-        public Page<TodoListDto.PublicResponse> searchPublicTodoLists(String keyword, Pageable pageable,
-                        String sortBy) {
-                if ("latest".equalsIgnoreCase(sortBy)) {
-                        return todoListRepository.searchPublicTodoListsOrderByLatest(keyword, pageable)
-                                        .map(TodoListDto.PublicResponse::from);
-                }
-                // 기본값: 인기순 (popular)
-                return todoListRepository.searchPublicTodoListsOrderByPopularity(keyword, pageable)
-                                .map(TodoListDto.PublicResponse::from);
-        }
-
-        /**
-         * 공개 투두리스트 상세 조회
-         */
-        public TodoListDto.PublicDetailResponse getPublicTodoListDetail(Long todoListId) {
-                TodoList todoList = todoListRepository.findByIdWithMissions(todoListId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                // 비공개 투두리스트는 조회 불가
-                if (!Boolean.TRUE.equals(todoList.getIsPublic())) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED, "비공개 투두리스트입니다.");
-                }
-
-                return TodoListDto.PublicDetailResponse.from(todoList);
-        }
-
-        /**
-         * 투두리스트 담기 (다른 사용자의 공개 투두리스트 복사)
-         */
-        @Transactional
-        public TodoListDto.DetailResponse copyTodoList(Long todoListId, Long userId) {
-                TodoList originalList = todoListRepository.findByIdWithMissions(todoListId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                // 공개 투두리스트만 담기 가능
-                if (!Boolean.TRUE.equals(originalList.getIsPublic())) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED, "비공개 투두리스트는 담을 수 없습니다.");
-                }
-
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-                // 원본 투두리스트의 담은 수 증가
-                originalList.incrementAddedCount();
-
-                // 새 투두리스트 생성
-                int missionCount = originalList.getMissions() != null ? originalList.getMissions().size() : 5;
-                TodoList newTodoList = TodoList.todoListBuilder()
-                                .creator(user)
-                                .title(originalList.getTitle())
-                                .description(originalList.getDescription())
-                                .totalCount(missionCount)
-                                .build();
-
-                // 미션 복사
-                LocalDateTime now = LocalDateTime.now();
-                LocalDateTime defaultDueDate = now.plusDays(7);
-
-                for (TodoListMission originalMsm : originalList.getMissions()) {
-                        Mission mission = originalMsm.getMission();
-
-                        TodoListMission newMsm = TodoListMission.todoMissionBuilder()
-                                        .todoList(newTodoList)
-                                        .mission(mission)
-                                        .displayOrder(originalMsm.getDisplayOrder())
-                                        .missionSource(MissionSource.CUSTOM_SELECTED) // 담은 미션은 커스텀으로 표시
-                                        .build();
-                        newTodoList.getMissions().add(newMsm);
-
-                        // UserMission 생성
-                        LocalDateTime dueDate = mission.getDurationDays() != null
-                                        ? now.plusDays(mission.getDurationDays())
-                                        : defaultDueDate;
-                        UserMission userMission = UserMission.builder()
-                                        .user(user)
-                                        .mission(mission)
-                                        .missionType(mission.getMissionType())
-                                        .assignedAt(now)
-                                        .dueDate(dueDate)
-                                        .status(UserMissionStatus.ASSIGNED)
-                                        .build();
-                        userMissionRepository.save(userMission);
-                }
-
-                todoListRepository.save(newTodoList);
-
-                log.info("투두리스트 담기 완료: originalId={}, newId={}, userId={}", todoListId, newTodoList.getId(), userId);
-                return TodoListDto.DetailResponse.from(newTodoList);
-        }
+        // ============ 공유 관련 메서드 제거됨 (불필요) ============
+        // shareTodoList, unshareTodoList, getShareableTodoLists, getPublicTodoLists,
+        // searchPublicTodoLists, getPublicTodoListDetail, copyTodoList
 
         // ============ 리뷰 관련 메서드들 ============
 
@@ -494,11 +368,6 @@ public class TodoListService {
                         TodoListDto.ReviewRequest request) {
                 TodoList todoList = todoListRepository.findById(todoListId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                // 비공개 투두리스트에는 리뷰 작성 불가
-                if (!Boolean.TRUE.equals(todoList.getIsPublic())) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED, "비공개 투두리스트에는 리뷰를 작성할 수 없습니다.");
-                }
 
                 // 자신의 투두리스트에는 리뷰 작성 불가
                 if (todoList.isCreator(userId)) {
@@ -553,14 +422,7 @@ public class TodoListService {
          * 평균 별점 업데이트
          */
         private void updateAverageRating(TodoList todoList) {
-                java.util.List<TodoListReview> reviews = reviewRepository.findByTodoList(todoList);
-                if (!reviews.isEmpty()) {
-                        double avgRating = reviews.stream()
-                                        .mapToInt(TodoListReview::getRating)
-                                        .average()
-                                        .orElse(0.0);
-                        todoList.updateRating(avgRating, reviews.size());
-                }
+                // 리뷰 평점 업데이트 제거됨 (공유 기능 제거)
         }
 
         /**
@@ -593,7 +455,7 @@ public class TodoListService {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
-                todoList.update(request.getTitle(), request.getDescription(), request.getIsPublic());
+                todoList.update(request.getTitle(), request.getDescription());
 
                 log.info("투두리스트 수정 완료: id={}, userId={}", todoListId, userId);
                 return TodoListDto.DetailResponse.from(todoList);
@@ -760,6 +622,43 @@ public class TodoListService {
                 }
 
                 log.info("투두리스트 미션 순서 변경: todoListId={}", todoListId);
+                return TodoListDto.DetailResponse.from(todoList);
+        }
+
+        /**
+         * 투두리스트 미션 시간대 설정
+         */
+        @Transactional
+        public TodoListDto.DetailResponse updateMissionSchedule(Long todoListId, Long missionId, Long userId,
+                        TodoListDto.UpdateMissionScheduleRequest request) {
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+                // 본인만 시간 설정 가능
+                if (!todoList.isCreator(userId)) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                // 미션 찾기
+                TodoListMission targetMission = todoList.getMissions().stream()
+                                .filter(msm -> msm.getMission().getId().equals(missionId))
+                                .findFirst()
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_IN_SET));
+
+                // 시간 검증: 시작 시간이 종료 시간보다 이전이어야 함
+                if (request.getStartTime() != null && request.getEndTime() != null) {
+                        if (!request.getStartTime().isBefore(request.getEndTime())) {
+                                throw new CustomException(ErrorCode.INVALID_REQUEST,
+                                                "시작 시간은 종료 시간보다 이전이어야 합니다.");
+                        }
+                }
+
+                // 시간 설정
+                targetMission.updateSchedule(request.getStartTime(), request.getEndTime());
+
+                log.info("투두리스트 미션 시간 설정: todoListId={}, missionId={}, startTime={}, endTime={}",
+                                todoListId, missionId, request.getStartTime(), request.getEndTime());
+
                 return TodoListDto.DetailResponse.from(todoList);
         }
 }

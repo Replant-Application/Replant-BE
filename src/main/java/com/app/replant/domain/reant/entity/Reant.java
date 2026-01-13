@@ -3,6 +3,7 @@ package com.app.replant.domain.reant.entity;
 import com.app.replant.common.BaseEntity;
 import com.app.replant.domain.reant.enums.ReantStage;
 import com.app.replant.domain.user.entity.User;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
@@ -26,6 +27,7 @@ public class Reant extends BaseEntity {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @JsonIgnore  // 순환 참조 방지
     private User user;
 
     @Column(nullable = false, length = 50)

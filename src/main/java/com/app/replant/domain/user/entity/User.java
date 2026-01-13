@@ -7,6 +7,7 @@ import com.app.replant.domain.user.enums.Gender;
 import com.app.replant.domain.user.enums.MetropolitanArea;
 import com.app.replant.domain.user.enums.UserRole;
 import com.app.replant.domain.user.enums.UserStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -120,6 +121,7 @@ public class User extends BaseEntity {
     private List<UserOauth> oauthList = new ArrayList<>();
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonIgnore  // 순환 참조 방지
     private com.app.replant.domain.reant.entity.Reant reant;
 
     @Builder

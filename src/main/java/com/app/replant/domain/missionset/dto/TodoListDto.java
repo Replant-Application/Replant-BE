@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -23,13 +24,22 @@ public class TodoListDto {
         private String description;
         private List<Long> randomMissionIds; // 필수 공식 미션 3개
         private List<Long> customMissionIds; // 선택 커스텀 미션 (0개 이상)
+        
+        // 미션별 시간대 정보 (선택적) - 미션 ID를 키로 하는 맵
+        // 예: { "1": { "startTime": "09:00", "endTime": "10:00" }, ... }
+        private java.util.Map<Long, MissionScheduleInfo> missionSchedules;
+        
+        @Getter
+        public static class MissionScheduleInfo {
+            private LocalTime startTime; // 시작 시간 (예: 09:00)
+            private LocalTime endTime;   // 종료 시간 (예: 10:00)
+        }
     }
 
     @Getter
     public static class UpdateRequest {
         private String title;
         private String description;
-        private Boolean isPublic;
     }
 
     @Getter
@@ -47,6 +57,12 @@ public class TodoListDto {
             private Long missionId;
             private Integer displayOrder;
         }
+    }
+
+    @Getter
+    public static class UpdateMissionScheduleRequest {
+        private LocalTime startTime; // 시작 시간 (예: 09:00)
+        private LocalTime endTime;   // 종료 시간 (예: 10:00)
     }
 
     // ============ Response DTOs ============
@@ -134,6 +150,8 @@ public class TodoListDto {
         private Boolean isCompleted;
         private LocalDateTime completedAt;
         private MissionSource missionSource;
+        private LocalTime scheduledStartTime; // 시간대 배치: 시작 시간
+        private LocalTime scheduledEndTime;   // 시간대 배치: 종료 시간
 
         public static TodoMissionInfo from(TodoListMission msm) {
             Mission mission = msm.getMission();
@@ -148,6 +166,8 @@ public class TodoListDto {
                     .isCompleted(msm.getIsCompleted() != null ? msm.getIsCompleted() : false)
                     .completedAt(msm.getCompletedAt())
                     .missionSource(msm.getMissionSource())
+                    .scheduledStartTime(msm.getScheduledStartTime())
+                    .scheduledEndTime(msm.getScheduledEndTime())
                     .build();
         }
     }
@@ -176,100 +196,8 @@ public class TodoListDto {
         }
     }
 
-    // ============ 공개 투두리스트용 DTOs ============
-
-    @Getter
-    @Builder
-    public static class PublicResponse {
-        private Long id;
-        private String title;
-        private String description;
-        private Long creatorId;
-        private String creatorNickname;
-        private Integer missionCount;
-        private Integer addedCount; // 담은 횟수
-        private Double averageRating; // 평균 별점
-        private Integer reviewCount; // 리뷰 수
-        private LocalDateTime createdAt;
-
-        public static PublicResponse from(TodoList todoList) {
-            return PublicResponse.builder()
-                    .id(todoList.getId())
-                    .title(todoList.getTitle())
-                    .description(todoList.getDescription())
-                    .creatorId(todoList.getCreator().getId())
-                    .creatorNickname(todoList.getCreator().getNickname())
-                    .missionCount(todoList.getMissions() != null ? todoList.getMissions().size() : 0)
-                    .addedCount(todoList.getAddedCount() != null ? todoList.getAddedCount() : 0)
-                    .averageRating(todoList.getAverageRating() != null ? todoList.getAverageRating() : 0.0)
-                    .reviewCount(todoList.getReviewCount() != null ? todoList.getReviewCount() : 0)
-                    .createdAt(todoList.getCreatedAt())
-                    .build();
-        }
-    }
-
-    @Getter
-    @Builder
-    public static class PublicDetailResponse {
-        private Long id;
-        private String title;
-        private String description;
-        private Long creatorId;
-        private String creatorNickname;
-        private Integer missionCount;
-        private Integer addedCount;
-        private Double averageRating;
-        private Integer reviewCount;
-        private List<PublicMissionInfo> missions;
-        private LocalDateTime createdAt;
-        private LocalDateTime updatedAt;
-
-        public static PublicDetailResponse from(TodoList todoList) {
-            List<PublicMissionInfo> missionInfos = todoList.getMissions() != null
-                    ? todoList.getMissions().stream().map(PublicMissionInfo::from).collect(Collectors.toList())
-                    : new ArrayList<>();
-
-            return PublicDetailResponse.builder()
-                    .id(todoList.getId())
-                    .title(todoList.getTitle())
-                    .description(todoList.getDescription())
-                    .creatorId(todoList.getCreator().getId())
-                    .creatorNickname(todoList.getCreator().getNickname())
-                    .missionCount(missionInfos.size())
-                    .addedCount(todoList.getAddedCount() != null ? todoList.getAddedCount() : 0)
-                    .averageRating(todoList.getAverageRating() != null ? todoList.getAverageRating() : 0.0)
-                    .reviewCount(todoList.getReviewCount() != null ? todoList.getReviewCount() : 0)
-                    .missions(missionInfos)
-                    .createdAt(todoList.getCreatedAt())
-                    .updatedAt(todoList.getUpdatedAt())
-                    .build();
-        }
-    }
-
-    @Getter
-    @Builder
-    public static class PublicMissionInfo {
-        private Long missionId;
-        private String title;
-        private String description;
-        private String category;
-        private String verificationType;
-        private Integer expReward;
-        private Integer displayOrder;
-
-        public static PublicMissionInfo from(TodoListMission msm) {
-            Mission mission = msm.getMission();
-            return PublicMissionInfo.builder()
-                    .missionId(mission.getId())
-                    .title(mission.getTitle())
-                    .description(mission.getDescription())
-                    .category(mission.getCategory().name())
-                    .verificationType(mission.getVerificationType().name())
-                    .expReward(mission.getExpReward())
-                    .displayOrder(msm.getDisplayOrder())
-                    .build();
-        }
-    }
+    // ============ 공개 투두리스트용 DTOs 제거됨 (공유 기능 제거) ============
+    // PublicResponse, PublicDetailResponse, PublicMissionInfo 모두 제거됨
 
     // ============ 리뷰용 DTOs ============
     // TodoListReviewDto에서 처리하거나 여기 내부 클래스 유지. 서비스에서 내부 클래스 사용 중이면 유지.

@@ -137,12 +137,6 @@ public class TodoListReviewService {
      * 투두리스트 평균 별점 업데이트
      */
     private void updateTodoListRating(TodoList todoList) {
-        Double avgRating = reviewRepository.calculateAverageRating(todoList);
-        long reviewCount = reviewRepository.countByTodoList(todoList);
-
-        todoList.updateRating(
-                avgRating != null ? avgRating : 0.0,
-                (int) reviewCount
-        );
+        // 리뷰 평점 업데이트 제거됨 (공유 기능 제거)
     }
 }

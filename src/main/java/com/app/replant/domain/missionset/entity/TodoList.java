@@ -22,8 +22,6 @@ import java.util.List;
 @Entity
 @Table(name = "todolist", indexes = {
         @Index(name = "idx_todolist_creator", columnList = "creator_id"),
-        @Index(name = "idx_todolist_is_public", columnList = "is_public"),
-        @Index(name = "idx_todolist_added_count", columnList = "added_count"),
         @Index(name = "idx_todolist_type", columnList = "set_type")
 })
 @SQLRestriction("deleted_at IS NULL")
@@ -45,22 +43,6 @@ public class TodoList extends SoftDeletableEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // 공개 여부
-    @Column(name = "is_public", nullable = false)
-    private Boolean isPublic;
-
-    // 담은 수 (다른 사용자가 이 미션세트를 담은 횟수)
-    @Column(name = "added_count", nullable = false)
-    private Integer addedCount;
-
-    // 평균 별점 (리뷰 평균)
-    @Column(name = "average_rating", nullable = false)
-    private Double averageRating;
-
-    // 리뷰 수
-    @Column(name = "review_count", nullable = false)
-    private Integer reviewCount;
-
     // 활성 여부
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
@@ -73,8 +55,7 @@ public class TodoList extends SoftDeletableEntity {
 
     // ============ 투두리스트용 필드들 ============
 
-    // 미션세트 타입: TODOLIST(개인 투두리스트), SHARED(공유 미션세트)
-    // TODO: Enum 이름도 TodoListType으로 변경 고려 가능하나 일단 유지
+    // 미션세트 타입: TODOLIST(개인 투두리스트)만 사용
     @Enumerated(EnumType.STRING)
     @Column(name = "set_type", length = 20)
     private MissionSetType setType;
@@ -97,33 +78,13 @@ public class TodoList extends SoftDeletableEntity {
     @OrderBy("displayOrder ASC")
     private List<TodoListMission> missions = new ArrayList<>();
 
-    // 기존 공유 미션세트용 빌더
-    @Builder
-    private TodoList(User creator, String title, String description, Boolean isPublic) {
-        this.creator = creator;
-        this.title = title;
-        this.description = description;
-        this.isPublic = isPublic != null ? isPublic : false;
-        this.addedCount = 0;
-        this.averageRating = 0.0;
-        this.reviewCount = 0;
-        this.isActive = true;
-        this.setType = MissionSetType.SHARED;
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    // 투두리스트 생성용 빌더
+    // 투두리스트 생성용 빌더 (유일한 생성 방법)
     @Builder(builderMethodName = "todoListBuilder")
     private static TodoList createTodoList(User creator, String title, String description, Integer totalCount) {
         TodoList todoList = new TodoList();
         todoList.creator = creator;
         todoList.title = title;
         todoList.description = description;
-        todoList.isPublic = false;
-        todoList.addedCount = 0;
-        todoList.averageRating = 0.0;
-        todoList.reviewCount = 0;
         todoList.isActive = true;
         todoList.setType = MissionSetType.TODOLIST;
         todoList.completedCount = 0;
@@ -134,32 +95,14 @@ public class TodoList extends SoftDeletableEntity {
         return todoList;
     }
 
-    public void update(String title, String description, Boolean isPublic) {
+    public void update(String title, String description) {
         if (title != null) {
             this.title = title;
         }
         if (description != null) {
             this.description = description;
         }
-        if (isPublic != null) {
-            this.isPublic = isPublic;
-        }
         this.updatedAt = LocalDateTime.now();
-    }
-
-    public void incrementAddedCount() {
-        this.addedCount++;
-    }
-
-    public void decrementAddedCount() {
-        if (this.addedCount > 0) {
-            this.addedCount--;
-        }
-    }
-
-    public void updateRating(Double newAverageRating, Integer newReviewCount) {
-        this.averageRating = newAverageRating;
-        this.reviewCount = newReviewCount;
     }
 
     public void setActive(Boolean isActive) {

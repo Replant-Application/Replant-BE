@@ -434,6 +434,15 @@ public class ManualMigrationRunner implements CommandLineRunner {
         }
     }
 
+    private void executeV25Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V25: todolist_mission 테이블에 시간대 배치 필드 추가
+            executeIgnore(stmt, "ALTER TABLE `todolist_mission` ADD COLUMN `scheduled_start_time` TIME NULL");
+            executeIgnore(stmt, "ALTER TABLE `todolist_mission` ADD COLUMN `scheduled_end_time` TIME NULL");
+            log.info("V25 마이그레이션: todolist_mission 시간대 필드 추가 완료");
+        }
+    }
+
     private void executeV22Migration(Connection conn) throws Exception {
         try (Statement stmt = conn.createStatement()) {
             // V22: SoftDelete를 위한 deleted_at 컬럼 추가
