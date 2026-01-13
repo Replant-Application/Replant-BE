@@ -7,32 +7,45 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Rate Limiting 필터
  * IP 기반으로 API 호출 횟수 제한
- * - 일반 API: 200 req/min (앱에서 다수의 API 호출 고려)
+ * - 일반 API: 2000 req/min (앱에서 다수의 API 호출 고려, 개발 환경 대응)
  * - 로그인/회원가입: 20 req/min
  * - 이메일 발송: 5 req/min
+ * 
+ * 개발 환경(dev, local 프로파일)에서는 Rate Limiting이 비활성화됩니다.
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class RateLimitingFilter extends OncePerRequestFilter {
 
     private final Map<String, Bucket> cache = new ConcurrentHashMap<>();
+    private final Environment environment;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+
+        // 개발 환경에서는 Rate Limiting 비활성화
+        if (isDevelopmentEnvironment()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         String ip = getClientIP(request);
         String uri = request.getRequestURI();
@@ -47,6 +60,13 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             response.setContentType("application/json");
             response.getWriter().write("{\"statusCode\": 429, \"message\": \"Too many requests. Please try again later.\"}");
         }
+    }
+
+    private boolean isDevelopmentEnvironment() {
+        String[] activeProfiles = environment.getActiveProfiles();
+        return Arrays.asList(activeProfiles).contains("dev") ||
+               Arrays.asList(activeProfiles).contains("local") ||
+               (activeProfiles.length == 0); // 프로파일이 없으면 개발 환경으로 간주
     }
 
     private Bucket resolveBucket(String ip, String uri) {
@@ -66,8 +86,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             limit = Bandwidth.classic(5, Refill.intervally(5, Duration.ofMinutes(1)));
             log.debug("Rate limit for email endpoint: 5 req/min");
         } else {
-            // 일반 API: 1000 req/min (앱에서 다수의 API 호출 고려)
-            limit = Bandwidth.classic(1000, Refill.intervally(1000, Duration.ofMinutes(1)));
+            // 일반 API: 2000 req/min (앱에서 다수의 API 호출 고려, 개발 환경 대응)
+            limit = Bandwidth.classic(2000, Refill.intervally(2000, Duration.ofMinutes(1)));
         }
 
         return Bucket.builder()

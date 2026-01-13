@@ -26,6 +26,7 @@ public class UserDetailService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true)
     public UserDetail loadUserByUsername(String email) throws UsernameNotFoundException {
+        // JWT 인증에는 Reant가 필요 없으므로 User만 조회 (불필요한 JOIN 방지)
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 

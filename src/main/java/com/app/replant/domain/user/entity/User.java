@@ -121,7 +121,7 @@ public class User extends BaseEntity {
     private List<UserOauth> oauthList = new ArrayList<>();
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    @JsonIgnore  // 순환 참조 방지
+    @JsonIgnore  // 순환 참조 방지 및 lazy loading 방지
     private com.app.replant.domain.reant.entity.Reant reant;
 
     @Builder
@@ -231,6 +231,7 @@ public class User extends BaseEntity {
         return this.role == UserRole.CONTRIBUTOR;
     }
 
+    @JsonIgnore  // Jackson 직렬화 시 lazy loading 방지
     public com.app.replant.domain.reant.entity.Reant getReant() {
         return this.reant;
     }

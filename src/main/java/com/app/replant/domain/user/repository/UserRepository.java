@@ -11,6 +11,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+    /**
+     * 이메일로 사용자 조회 (Reant 포함) - JWT 인증용
+     * N+1 문제 방지를 위해 JOIN FETCH 사용
+     */
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.reant WHERE u.email = :email")
+    Optional<User> findByEmailWithReant(String email);
+
     boolean existsByEmail(String email);
 
     Optional<User> findByNicknameAndPhone(String nickname, String phone);
