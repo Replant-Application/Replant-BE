@@ -71,6 +71,10 @@ public class OAuthService {
 
             // Access Token 업데이트
             userOauth.updateTokens(accessToken, null);
+
+            // 마지막 로그인 시간 업데이트 (로그인 스트릭, lastLoginDate 포함)
+            user.updateLastLoginAt();
+            userRepository.save(user);
         } else {
             // 신규 회원 - 회원가입
             // 이메일로 기존 User 확인
@@ -105,6 +109,10 @@ public class OAuthService {
             userOauthRepository.save(userOauth);
 
             isNewUser = true;
+
+            // 신규 회원 첫 로그인 시간 기록
+            user.updateLastLoginAt();
+            userRepository.save(user);
 
             // 신규 유저에게 투두리스트 생성 알림 발송
             try {
