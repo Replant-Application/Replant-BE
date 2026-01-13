@@ -58,7 +58,7 @@ public class MissionResponse {
                 .category(mission.getCategory())
                 .verificationType(mission.getVerificationType())
                 .requiredMinutes(mission.getRequiredMinutes())
-                .expReward(mission.getExpReward())
+                .expReward(mission.isCustomMission() ? 0 : mission.getExpReward())
                 .badgeDurationDays(mission.getBadgeDurationDays())
                 .isActive(mission.getIsActive())
                 // 사용자 맞춤 필드
@@ -93,7 +93,7 @@ public class MissionResponse {
                 .category(mission.getCategory())
                 .verificationType(mission.getVerificationType())
                 .requiredMinutes(mission.getRequiredMinutes())
-                .expReward(mission.getExpReward())
+                .expReward(mission.isCustomMission() ? 0 : mission.getExpReward())
                 .badgeDurationDays(mission.getBadgeDurationDays())
                 .isActive(mission.getIsActive())
                 .reviewCount(reviewCount)

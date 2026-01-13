@@ -218,12 +218,16 @@ public class MissionService {
 
     /**
      * 커스텀 미션 생성
+     * 
+     * 커스텀 미션은 경험치를 지급하지 않습니다.
+     * request의 expReward 값은 무시되며, 생성된 미션의 expReward는 항상 0입니다.
      */
     @Transactional
     public MissionResponse createCustomMission(Long userId, MissionRequest request) {
         User user = findUserById(userId);
 
         // Static Factory Method를 직접 호출하여 missionType이 확실히 CUSTOM으로 설정되도록 함
+        // 커스텀 미션은 경험치 지급 없음 (expReward는 항상 0으로 설정됨)
         Mission mission = Mission.createCustomMission(
                 user,                               // creator
                 request.getTitle(),                 // title
@@ -240,7 +244,7 @@ public class MissionService {
                 request.getRequiredMinutes(),       // requiredMinutes
                 null,                               // startTime
                 null,                               // endTime
-                request.getExpReward(),             // expReward
+                null,                               // expReward (무시됨, Entity에서 0으로 설정)
                 request.getBadgeDurationDays(),     // badgeDurationDays
                 true                                // isActive
         );
@@ -254,6 +258,9 @@ public class MissionService {
 
     /**
      * 커스텀 미션 수정
+     * 
+     * 커스텀 미션은 경험치를 지급하지 않습니다.
+     * request의 expReward 값은 무시되며, 수정 후에도 expReward는 항상 0으로 유지됩니다.
      */
     @Transactional
     public MissionResponse updateCustomMission(Long missionId, Long userId, MissionRequest request) {
@@ -268,6 +275,7 @@ public class MissionService {
             throw new CustomException(ErrorCode.NOT_MISSION_CREATOR);
         }
 
+        // 커스텀 미션은 경험치 지급 없음 (expReward는 무시됨, Entity에서 0으로 설정)
         mission.updateCustom(
                 request.getTitle(),
                 request.getDescription(),
@@ -277,7 +285,7 @@ public class MissionService {
                 request.getIsChallenge(),
                 request.getChallengeDays(),
                 request.getDeadlineDays(),
-                request.getExpReward(),
+                null,  // expReward (무시됨, Entity에서 0으로 설정)
                 request.getIsPublic()
         );
 

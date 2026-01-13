@@ -121,12 +121,14 @@ public class UserMissionService {
         // 미션 완료 처리
         userMission.updateStatus(UserMissionStatus.COMPLETED);
 
-        // 보상 지급
+        // 보상 지급 (커스텀 미션은 경험치 지급 없음)
         User user = userMission.getUser();
         int expReward = getExpReward(userMission);
 
-        reantRepository.findByUserId(user.getId())
-                .ifPresent(reant -> reant.addExp(expReward));
+        if (expReward > 0) {  // 커스텀 미션은 0 반환
+            reantRepository.findByUserId(user.getId())
+                    .ifPresent(reant -> reant.addExp(expReward));
+        }
 
         // 뱃지 발급
         createBadge(userMission);
@@ -161,13 +163,15 @@ public class UserMissionService {
         // 미션 완료 처리
         userMission.updateStatus(UserMissionStatus.COMPLETED);
 
-        // 보상 지급
+        // 보상 지급 (커스텀 미션은 경험치 지급 없음)
         User user = userMission.getUser();
         int expReward = getExpReward(userMission);
 
         Reant reant = reantRepository.findByUserId(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.REANT_NOT_FOUND));
-        reant.addExp(expReward);
+        if (expReward > 0) {  // 커스텀 미션은 0 반환
+            reant.addExp(expReward);
+        }
 
         // 뱃지 발급
         UserBadge badge = createBadge(userMission);
@@ -350,9 +354,20 @@ public class UserMissionService {
         return mission != null ? mission.getRequiredMinutes() : null;
     }
 
+    /**
+     * 미션 경험치 보상 계산
+     * 커스텀 미션은 경험치를 지급하지 않으므로 항상 0을 반환
+     */
     private int getExpReward(UserMission userMission) {
         Mission mission = userMission.getMission();
-        return mission != null ? mission.getExpReward() : 10;
+        if (mission == null) {
+            return 10;  // 기본값 (공식 미션 가정)
+        }
+        // 커스텀 미션은 항상 0 반환
+        if (mission.isCustomMission()) {
+            return 0;
+        }
+        return mission.getExpReward();
     }
 
     private Integer getBadgeDurationDays(UserMission userMission) {

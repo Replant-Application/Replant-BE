@@ -159,7 +159,14 @@ public class Mission {
         this.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.LEVEL1;
     }
 
-    // ============ 커스텀 미션 생성용 Static Factory Method ============
+    /**
+     * 커스텀 미션 생성용 Static Factory Method
+     * 
+     * 커스텀 미션은 경험치를 지급하지 않으므로 expReward는 항상 0으로 설정됩니다.
+     * 
+     * @param expReward 경험치 보상 (무시됨, 항상 0으로 설정)
+     * @return 생성된 커스텀 미션
+     */
     public static Mission createCustomMission(User creator, String title, String description, WorryType worryType,
                                                MissionCategory category, DifficultyLevel difficultyLevel,
                                                Boolean isChallenge, Integer challengeDays, Integer deadlineDays,
@@ -187,7 +194,8 @@ public class Mission {
         mission.requiredMinutes = requiredMinutes;
         mission.startTime = startTime;
         mission.endTime = endTime;
-        mission.expReward = expReward != null ? expReward : calculateDefaultExpReward(difficultyLevel);
+        // 커스텀 미션은 항상 경험치 0으로 설정
+        mission.expReward = 0;
         mission.badgeDurationDays = badgeDurationDays != null ? badgeDurationDays : 3;
         mission.isActive = isActive != null ? isActive : true;
         mission.createdAt = LocalDateTime.now();
@@ -241,7 +249,13 @@ public class Mission {
         this.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.LEVEL1;
     }
 
-    // 커스텀 미션 업데이트
+    /**
+     * 커스텀 미션 업데이트
+     * 
+     * 커스텀 미션은 경험치를 지급하지 않으므로 expReward 파라미터는 무시되고 항상 0으로 유지됩니다.
+     * 
+     * @param expReward 경험치 보상 (무시됨, 항상 0으로 유지)
+     */
     public void updateCustom(String title, String description, WorryType worryType, MissionCategory category,
                               DifficultyLevel difficultyLevel, Boolean isChallenge, Integer challengeDays,
                               Integer deadlineDays, Integer expReward, Boolean isPublic) {
@@ -268,7 +282,8 @@ public class Mission {
         if (deadlineDays != null && Boolean.FALSE.equals(this.isChallenge)) {
             this.deadlineDays = deadlineDays;
         }
-        if (expReward != null) this.expReward = expReward;
+        // 커스텀 미션의 경험치는 항상 0으로 유지
+        this.expReward = 0;
         if (isPublic != null) this.isPublic = isPublic;
     }
 
