@@ -4,7 +4,7 @@ import com.app.replant.domain.notification.dto.NotificationResponse;
 import com.app.replant.domain.notification.entity.Notification;
 import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.repository.NotificationRepository;
-import com.app.replant.domain.notification.repository.RedisFcmTokenRepository;
+import com.app.replant.domain.notification.repository.RedisUserOnlineRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.exception.CustomException;
@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
-    private final RedisFcmTokenRepository redisFcmTokenRepository;
+    private final RedisUserOnlineRepository redisUserOnlineRepository;
     private final UserRepository userRepository;
     private final SseService sseService;
     private final FcmService fcmService;
@@ -90,21 +90,41 @@ public class NotificationService {
         Notification saved = notificationRepository.save(notification);
         log.info("[알림] 저장 완료 - userId: {}, type: {}, title: {}", user.getId(), type, title);
 
-        // 2. 먼저 SSE로 실시간 전송 시도 (사용자가 온라인인 경우)
-        boolean sentViaSse = sseService.sendNotification(user.getId(), saved);
+        Long userId = user.getId();
+        boolean isOnline = redisUserOnlineRepository.isOnline(userId);
 
-        // 3. SSE 전송 실패 시 FCM으로 푸시 알림 전송 (사용자가 오프라인인 경우)
-        if (!sentViaSse) {
-            log.info("[알림] SSE 미연결 상태, FCM 푸시 알림 전송 시도 - userId: {}", user.getId());
-            boolean sentViaFcm = fcmService.sendNotification(user.getId(), saved);
-
-            if (sentViaFcm) {
-                log.info("[알림] FCM 푸시 알림 전송 성공 - userId: {}", user.getId());
+        if (isOnline) {
+            // 사용자가 접속 중 (Redis 기준 online)
+            log.info("[알림] 사용자 온라인 상태 감지 - userId: {}, SSE 전송 시도", userId);
+            
+            // 1. SSE로 알림 전송 시도
+            boolean sentViaSse = sseService.sendNotification(userId, saved);
+            
+            if (sentViaSse) {
+                log.info("[알림] SSE 실시간 전송 성공 - userId: {}", userId);
             } else {
-                log.warn("[알림] SSE/FCM 모두 실패. DB에만 저장됨 - userId: {}", user.getId());
+                // SSE 전송 실패 시 FCM으로 대체
+                log.warn("[알림] SSE 전송 실패, FCM으로 대체 전송 시도 - userId: {}", userId);
+                boolean sentViaFcm = fcmService.sendNotificationWithRetry(userId, saved);
+                
+                if (sentViaFcm) {
+                    log.info("[알림] FCM 대체 전송 성공 - userId: {}", userId);
+                } else {
+                    log.warn("[알림] SSE/FCM 모두 실패. DB에만 저장됨 - userId: {}", userId);
+                }
             }
         } else {
-            log.info("[알림] SSE 실시간 전송 성공 - userId: {}", user.getId());
+            // 사용자가 미접속 중 (Redis TTL 만료 또는 전송 실패)
+            log.info("[알림] 사용자 오프라인 상태 감지 - userId: {}, FCM 푸시 알림 전송 시도", userId);
+            
+            // FCM을 통해 푸시 전송 (재시도 로직 포함)
+            boolean sentViaFcm = fcmService.sendNotificationWithRetry(userId, saved);
+            
+            if (sentViaFcm) {
+                log.info("[알림] FCM 푸시 알림 전송 성공 - userId: {}", userId);
+            } else {
+                log.warn("[알림] FCM 전송 실패. DB에만 저장됨 - userId: {}", userId);
+            }
         }
 
         return saved;
@@ -144,20 +164,53 @@ public class NotificationService {
         return createAndPushNotification(user, type.name(), title, content, null, null);
     }
 
-    // ============ FCM 토큰 관리 (Redis) ============
+    // ============ 특정 알림 타입 전송 메서드 ============
 
     /**
-     * FCM 토큰 등록/업데이트 (Redis 저장)
+     * 일기 알림 전송 (SSE + FCM)
+     * @param user 수신자
+     */
+    @Transactional
+    public void sendDiaryNotification(User user) {
+        createAndPushNotification(
+                user,
+                NotificationType.DIARY,
+                "일기 알림",
+                "오늘 하루는 어떠셨나요? 일기를 작성해보세요."
+        );
+    }
+
+    /**
+     * 미션 배정 알림 전송 (SSE + FCM)
+     * @param user 수신자
+     * @param missionType 미션 타입
+     * @param missionCount 배정된 미션 개수
+     */
+    @Transactional
+    public void sendMissionNotification(User user, String missionType, int missionCount) {
+        createAndPushNotification(
+                user,
+                NotificationType.MISSION_ASSIGNED,
+                "미션 알림",
+                String.format("%d개의 %s 미션이 배정되었습니다. 지금 확인해보세요!", missionCount, missionType)
+        );
+    }
+
+    // ============ FCM 토큰 관리 (User 테이블) ============
+
+    /**
+     * FCM 토큰 등록/업데이트 (User 테이블 저장)
      * @param userId 사용자 ID
      * @param token FCM 토큰
      */
+    @Transactional
     public void registerFcmToken(Long userId, String token) {
-        // 사용자 존재 여부 확인
+        // 사용자 조회
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // Redis에 FCM 토큰 저장 (기존 토큰이 있으면 자동으로 덮어씌워짐)
-        redisFcmTokenRepository.save(userId, token);
-        log.info("[FCM] 토큰 Redis 저장 완료 - userId: {}", userId);
+        // User 테이블에 FCM 토큰 저장 (기존 토큰이 있으면 자동으로 덮어씌워짐)
+        user.updateFcmToken(token);
+        log.info("[FCM] 토큰 User 테이블 저장 완료 - userId: {}", userId);
     }
 }

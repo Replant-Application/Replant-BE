@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "766624618718",
+    "project_id": "replant-application",
+    "storage_bucket": "replant-application.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:766624618718:android:a01ccc646e74cf29de8a4f",
+        "android_client_info": {
+          "package_name": "om.anonymous.replantmobileapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4iSmo-p41oC5hx04gNAq_xPalYVKl5SQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -103,6 +103,7 @@ public class PostService {
      */
     @Transactional
     public PostResponse createPost(Long userId, PostRequest request) {
+        log.info("일반 게시글 생성 호출 - userId={}, title={}", userId, request.getTitle());
         User user = findUserById(userId);
 
         String imageUrlsJson = null;
@@ -120,8 +121,12 @@ public class PostService {
                 .content(request.getContent())
                 .imageUrls(imageUrlsJson)
                 .build();
+        
+        log.debug("일반 게시글 생성 전 - postType={}, userId={}, title={}", post.getPostType(), userId, request.getTitle());
 
         Post saved = postRepository.save(post);
+        log.info("일반 게시글 생성 완료 - postId={}, postType={}, userId={}, title={}", 
+                saved.getId(), saved.getPostType(), userId, saved.getTitle());
         return PostResponse.from(saved, 0L, 0L, false);
     }
 
@@ -153,13 +158,23 @@ public class PostService {
 
         // VERIFICATION 타입 게시글 생성
         Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson);
+        log.debug("인증 게시글 생성 전 - postType={}, userId={}, userMissionId={}", post.getPostType(), userId, userMission.getId());
 
         // UserMission 상태를 PENDING(인증대기)으로 변경
         userMission.updateStatus(UserMissionStatus.PENDING);
 
         try {
             Post saved = postRepository.save(post);
-            log.info("인증 게시글 생성 - postId={}, userMissionId={}, userId={}, status=PENDING", saved.getId(), userMission.getId(), userId);
+            log.info("인증 게시글 생성 완료 - postId={}, postType={}, userMissionId={}, userId={}, status={}", 
+                    saved.getId(), saved.getPostType(), userMission.getId(), userId, saved.getStatus());
+            
+            // 저장 후 실제 DB에서 조회하여 타입 확인 (디버깅용)
+            Post verifiedPost = postRepository.findById(saved.getId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+            log.debug("DB 조회 확인 - postId={}, postType={}, title={}, userMissionId={}", 
+                    verifiedPost.getId(), verifiedPost.getPostType(), verifiedPost.getTitle(), 
+                    verifiedPost.getUserMission() != null ? verifiedPost.getUserMission().getId() : null);
+            
             return PostResponse.from(saved, 0L, 0L, false);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // UNIQUE 제약조건 위반 시 (동시 요청으로 인한 중복 생성 시도)

@@ -22,9 +22,6 @@ public enum NotificationType {
     // 다이어리 관련
     DIARY,                      // 다이어리 알림
 
-    // 리포트 관련
-    REPORT,                     // 리포트 알림
-
     // 추천 관련
     RECOMMENDATION,             // 사용자 추천
 

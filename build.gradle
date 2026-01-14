@@ -90,6 +90,10 @@ dependencies {
 
     // Firebase Admin SDK (FCM)
     implementation 'com.google.firebase:firebase-admin:9.2.0'
+    
+    // Jackson (Spring Boot Web에 포함되어 있지만 명시적으로 표시)
+    // Spring Boot 3.2.0은 Jackson 2.15.x를 포함하며, 버전은 Spring Boot dependency management에 의해 관리됨
+    // 명시적 버전 지정 시: implementation 'com.fasterxml.jackson.core:jackson-core:2.16.1'
 
     // Spring AI - OpenAI (필요시 주석 해제)
     // implementation 'org.springframework.ai:spring-ai-openai-spring-boot-starter:1.0.0-M4'

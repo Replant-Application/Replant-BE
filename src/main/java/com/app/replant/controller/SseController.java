@@ -18,6 +18,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -82,6 +83,43 @@ public class SseController {
         }
 
         return emitter;
+    }
+
+    /**
+     * Heartbeat: SSE 연결 유지 및 Redis TTL 갱신
+     */
+    @Operation(summary = "SSE Heartbeat", description = "SSE 연결을 유지하고 Redis TTL을 갱신합니다")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Heartbeat 성공")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "인증 정보 없음")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "SSE 연결이 없습니다")
+    @PostMapping("/heartbeat")
+    public ResponseEntity<Map<String, Object>> heartbeat(
+            @Parameter(hidden = true) Authentication authentication) {
+        if (authentication == null) {
+            log.error("Heartbeat 실패: 인증 정보 없음");
+            throw new IllegalStateException("인증 정보가 없습니다");
+        }
+
+        Long memberId = getMemberId(authentication);
+        if (memberId == null) {
+            log.error("Heartbeat 실패: memberId 추출 실패");
+            throw new IllegalStateException("사용자 ID를 추출할 수 없습니다");
+        }
+
+        boolean success = sseService.heartbeat(memberId);
+        
+        Map<String, Object> response = new HashMap<>();
+        if (success) {
+            response.put("status", "success");
+            response.put("message", "Heartbeat 성공");
+            log.debug("SSE heartbeat 성공 - memberId: {}", memberId);
+            return ResponseEntity.ok(response);
+        } else {
+            response.put("status", "error");
+            response.put("message", "SSE 연결이 없습니다");
+            log.warn("SSE heartbeat 실패: 연결 없음 - memberId: {}", memberId);
+            return ResponseEntity.status(404).body(response);
+        }
     }
 
     /**

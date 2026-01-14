@@ -2,6 +2,7 @@ package com.app.replant.service.sse;
 
 import com.app.replant.domain.notification.dto.NotificationResponse;
 import com.app.replant.domain.notification.entity.Notification;
+import com.app.replant.domain.notification.repository.RedisUserOnlineRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,12 +23,16 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SseService {
 
     private final ObjectMapper objectMapper;
+    private final RedisUserOnlineRepository redisUserOnlineRepository;
 
     private final Map<Long, SseEmitter> emitters = new ConcurrentHashMap<>();
 
     public SseEmitter createEmitter(Long memberId) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
         emitters.put(memberId, emitter);
+
+        // Redis에 온라인 상태 저장 (TTL 60초)
+        redisUserOnlineRepository.setOnline(memberId, 60);
 
         emitter.onCompletion(() -> handleEmitterRemoval(memberId, "completion"));
         emitter.onTimeout(() -> handleEmitterRemoval(memberId, "timeout"));
@@ -39,6 +44,8 @@ public class SseService {
 
     public void removeEmitter(Long memberId) {
         emitters.remove(memberId);
+        // Redis에서 온라인 상태 제거
+        redisUserOnlineRepository.setOffline(memberId);
         log.info("SSE emitter 수동 제거 - memberId: {}, 현재 연결 수: {}", memberId, emitters.size());
     }
 
@@ -66,6 +73,8 @@ public class SseService {
             } catch (IOException e) {
                 log.error("SSE 메시지 전송 실패 - memberId: {}", memberId, e);
                 emitters.remove(memberId);
+                // Redis에서 온라인 상태 제거
+                redisUserOnlineRepository.setOffline(memberId);
                 return false;
             }
         }
@@ -79,22 +88,11 @@ public class SseService {
         return emitters.size();
     }
 
-    public void sendReportNotification(Long memberId, int month) {
-        try {
-            Map<String, Object> data = new HashMap<>();
-            data.put("title", "리포트 알림");
-            data.put("message", "소비 리포트가 준비되었습니다.");
-            data.put("month", month);
-            data.put("actionUrl", "/report");
-
-            String jsonData = objectMapper.writeValueAsString(data);
-            sendToUser(memberId, "REPORT", jsonData);
-            log.info("REPORT 알림 전송 - memberId: {}, month: {}", memberId, month);
-        } catch (Exception e) {
-            log.error("REPORT 알림 전송 실패 - memberId: {}", memberId, e);
-        }
-    }
-
+    /**
+     * 일기 알림 전송 (SSE + FCM)
+     * @deprecated NotificationService.createAndPushNotification 사용 권장
+     */
+    @Deprecated
     public void sendDiaryNotification(Long memberId) {
         try {
             String today = LocalDate.now().toString();
@@ -111,6 +109,11 @@ public class SseService {
         }
     }
 
+    /**
+     * 미션 알림 전송 (SSE + FCM)
+     * @deprecated NotificationService.createAndPushNotification 사용 권장
+     */
+    @Deprecated
     public void sendMissionNotification(Long memberId, String missionType, int missionCount) {
         try {
             Map<String, Object> data = new HashMap<>();
@@ -130,11 +133,30 @@ public class SseService {
 
     private void handleEmitterRemoval(Long memberId, String reason) {
         emitters.remove(memberId);
+        // Redis에서 온라인 상태 제거
+        redisUserOnlineRepository.setOffline(memberId);
         log.info("SSE emitter 제거 - memberId: {}, 이유: {}, 현재 연결 수: {}", memberId, reason, emitters.size());
     }
 
     public boolean sendNotification(Long userId, Notification notification) {
         NotificationResponse response = NotificationResponse.from(notification);
         return sendToUser(userId, "notification", response);
+    }
+
+    /**
+     * Heartbeat: SSE 연결 유지 및 Redis TTL 갱신
+     * @param userId 사용자 ID
+     * @return 성공 여부
+     */
+    public boolean heartbeat(Long userId) {
+        if (!emitters.containsKey(userId)) {
+            log.warn("SSE heartbeat 실패: 연결된 클라이언트 없음 - userId: {}", userId);
+            return false;
+        }
+
+        // Redis TTL 갱신 (60초)
+        redisUserOnlineRepository.refreshTTL(userId, 60);
+        log.debug("SSE heartbeat 성공 - userId: {}", userId);
+        return true;
     }
 }

@@ -172,6 +172,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/recommendations/**").authenticated()
                         .requestMatchers("/api/chat/**").authenticated()
                         .requestMatchers("/api/notifications/**").authenticated()
+                        .requestMatchers("/api/v1/fcm/**").authenticated() // FCM 전송 API
                         .requestMatchers("/sse/**").authenticated() // SSE
 
                         // 관리자 API (일부 개발/초기 설정용으로 공개)
