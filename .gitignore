@@ -49,3 +49,7 @@ application-prod.yml
 firebase-service-account.json
 **/firebase-service-account*.json
 
+# Keystore
+debug.keystore
+*.keystore
+
