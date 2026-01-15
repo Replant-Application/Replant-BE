@@ -19,6 +19,7 @@ import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
+import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class UserMissionService {
     private final ReantRepository reantRepository;
     private final TodoListMissionRepository todoListMissionRepository;
     private final TodoListRepository todoListRepository;
+    private final PostRepository postRepository;
 
     public Page<UserMissionResponse> getUserMissions(Long userId, UserMissionStatus status, String missionType,
             Pageable pageable) {
@@ -221,7 +223,25 @@ public class UserMissionService {
      */
     public Page<UserMissionResponse> getMissionHistory(Long userId, Pageable pageable) {
         return userMissionRepository.findMissionHistoryByUserId(userId, pageable)
-                .map(UserMissionResponse::from);
+                .map(userMission -> {
+                    // 완료 날짜 조회
+                    LocalDateTime completedAt = null;
+                    
+                    // 1. MissionVerification에서 verifiedAt 조회 (GPS/TIME 인증)
+                    MissionVerification verification = verificationRepository.findByUserMission(userMission)
+                            .orElse(null);
+                    if (verification != null) {
+                        completedAt = verification.getVerifiedAt();
+                    } else {
+                        // 2. Post에서 verifiedAt 조회 (COMMUNITY 인증)
+                        completedAt = postRepository.findByUserMissionId(userMission.getId())
+                                .map(post -> post.getVerifiedAt())
+                                .orElse(null);
+                    }
+                    
+                    // UserMissionResponse 생성 (completedAt 포함)
+                    return UserMissionResponse.from(userMission, completedAt);
+                });
     }
 
     private MissionVerification verifyGPS(UserMission userMission, VerifyMissionRequest request) {

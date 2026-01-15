@@ -21,6 +21,7 @@ public class UserMissionResponse {
     private LocalDateTime assignedAt;
     private LocalDateTime dueDate;
     private UserMissionStatus status;
+    private LocalDateTime completedAt; // 완료 날짜
 
     @Getter
     @Builder
@@ -42,11 +43,16 @@ public class UserMissionResponse {
     }
 
     public static UserMissionResponse from(UserMission userMission) {
+        return from(userMission, null);
+    }
+
+    public static UserMissionResponse from(UserMission userMission, LocalDateTime completedAt) {
         UserMissionResponseBuilder builder = UserMissionResponse.builder()
                 .id(userMission.getId())
                 .assignedAt(userMission.getAssignedAt())
                 .dueDate(userMission.getDueDate())
-                .status(userMission.getStatus());
+                .status(userMission.getStatus())
+                .completedAt(completedAt);
 
         // 통합된 Mission 엔티티 사용
         Mission mission = userMission.getMission();
