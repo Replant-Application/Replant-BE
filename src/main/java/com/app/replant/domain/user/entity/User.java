@@ -117,6 +117,30 @@ public class User extends BaseEntity {
     @Column(name = "blocked", nullable = false)
     private Boolean blocked = false;
 
+    // ============ 돌발 미션 설정 관련 필드 ============
+    
+    // 돌발 미션 설정 완료 여부
+    @Column(name = "is_spontaneous_mission_setup_completed", nullable = false)
+    private Boolean isSpontaneousMissionSetupCompleted = false;
+    
+    // 취침 시간 (HH:mm 형식, 예: "23:00")
+    @Column(name = "sleep_time", length = 5)
+    private String sleepTime;
+    
+    // 기상 시간 (HH:mm 형식, 예: "07:00")
+    @Column(name = "wake_time", length = 5)
+    private String wakeTime;
+    
+    // 식사 시간 (HH:mm 형식, null 가능 - 해당 식사를 안 먹는 경우)
+    @Column(name = "breakfast_time", length = 5)
+    private String breakfastTime;
+    
+    @Column(name = "lunch_time", length = 5)
+    private String lunchTime;
+    
+    @Column(name = "dinner_time", length = 5)
+    private String dinnerTime;
+
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<UserOauth> oauthList = new ArrayList<>();
 
@@ -241,5 +265,25 @@ public class User extends BaseEntity {
      */
     public void updateFcmToken(String fcmToken) {
         this.fcmToken = fcmToken;
+    }
+
+    /**
+     * 돌발 미션 설정 완료 처리
+     */
+    public void setupSpontaneousMission(String sleepTime, String wakeTime, 
+                                        String breakfastTime, String lunchTime, String dinnerTime) {
+        this.isSpontaneousMissionSetupCompleted = true;
+        this.sleepTime = sleepTime;
+        this.wakeTime = wakeTime;
+        this.breakfastTime = breakfastTime;
+        this.lunchTime = lunchTime;
+        this.dinnerTime = dinnerTime;
+    }
+
+    /**
+     * 돌발 미션 설정 완료 여부 확인
+     */
+    public boolean isSpontaneousMissionSetupCompleted() {
+        return Boolean.TRUE.equals(this.isSpontaneousMissionSetupCompleted);
     }
 }

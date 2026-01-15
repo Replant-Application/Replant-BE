@@ -196,6 +196,13 @@ public enum ErrorCode {
     // Admin Mission
     ADMIN_ONLY(HttpStatus.FORBIDDEN, "AD001", "관리자만 접근 가능합니다"),
 
+    // Spontaneous Mission (돌발 미션)
+    SPONTANEOUS_MISSION_SETUP_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "SM001", "이미 돌발 미션 설정을 완료했습니다"),
+    INVALID_TIME_FORMAT(HttpStatus.BAD_REQUEST, "SM002", "올바른 시간 형식이 아닙니다"),
+    INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "SM003", "취침 시간과 기상 시간은 같을 수 없습니다"),
+    SPONTANEOUS_MISSION_TIME_EXPIRED(HttpStatus.BAD_REQUEST, "SM004", "돌발 미션 인증 시간이 초과되었습니다"),
+    INVALID_MISSION_TYPE(HttpStatus.BAD_REQUEST, "SM005", "돌발 미션이 아닙니다"),
+
     // MissionSet (투두리스트)
     MISSION_SET_NOT_FOUND(HttpStatus.NOT_FOUND, "MS001", "미션세트를 찾을 수 없습니다"),
     MISSION_ALREADY_IN_SET(HttpStatus.CONFLICT, "MS002", "이미 미션세트에 포함된 미션입니다"),
@@ -203,11 +210,7 @@ public enum ErrorCode {
     CANNOT_REVIEW_OWN_SET(HttpStatus.FORBIDDEN, "MS005", "자신의 미션세트에는 리뷰를 작성할 수 없습니다"),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "MS004", "접근 권한이 없습니다"),
     TODO_DUPLICATE_DATE(HttpStatus.CONFLICT, "MS006", "오늘 이미 투두리스트를 생성했습니다."),
-    VERIFICATION_REQUIRED(HttpStatus.BAD_REQUEST, "MS007", "공식 미션은 인증이 필수입니다. 먼저 인증을 완료해주세요."),
-
-    // Routine (루틴 설정)
-    ROUTINE_NOT_FOUND(HttpStatus.NOT_FOUND, "RT001", "루틴 설정을 찾을 수 없습니다"),
-    NOT_ROUTINE_OWNER(HttpStatus.FORBIDDEN, "RT002", "본인의 루틴만 수정/삭제할 수 있습니다");
+    VERIFICATION_REQUIRED(HttpStatus.BAD_REQUEST, "MS007", "공식 미션은 인증이 필수입니다. 먼저 인증을 완료해주세요.");
 
     private final HttpStatus statusCode;
     private final String errorCode;

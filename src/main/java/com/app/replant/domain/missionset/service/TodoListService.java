@@ -50,12 +50,12 @@ public class TodoListService {
          * 투두리스트 초기화 - 랜덤 공식 미션 3개 조회
          */
         public TodoListDto.InitResponse initTodoList(Long userId) {
-                // 랜덤 비챌린지 공식 미션 3개 조회
+                // 랜덤 공식 미션 3개 조회
                 List<Mission> randomMissions = missionRepository
                                 .findRandomOfficialNonChallengeMissions(RANDOM_OFFICIAL_COUNT);
 
                 if (randomMissions.size() < RANDOM_OFFICIAL_COUNT) {
-                        log.warn("비챌린지 공식 미션이 {}개 미만입니다. 현재: {}개", RANDOM_OFFICIAL_COUNT, randomMissions.size());
+                        log.warn("공식 미션이 {}개 미만입니다. 현재: {}개", RANDOM_OFFICIAL_COUNT, randomMissions.size());
                 }
 
                 return TodoListDto.InitResponse.builder()
@@ -67,7 +67,7 @@ public class TodoListService {
 
         /**
          * 커스텀 미션 도감 조회 (투두리스트 선택용)
-         * 챌린지가 아닌 커스텀 미션만 조회 - 본인 것 + 다른 사람의 공개 커스텀 미션
+         * 본인 것 + 다른 사람의 공개 커스텀 미션
          */
         public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId) {
                 // 본인이 만든 커스텀 미션
@@ -125,19 +125,6 @@ public class TodoListService {
                                 ? java.util.Collections.emptyList()
                                 : missionRepository.findByIdIn(customMissionIds);
 
-                // 검증: 챌린지 미션이 포함되어 있지 않은지 확인
-                for (Mission mission : randomMissions) {
-                        if (Boolean.TRUE.equals(mission.getIsChallenge())) {
-                                throw new CustomException(ErrorCode.INVALID_REQUEST,
-                                                "챌린지 미션은 투두리스트에 추가할 수 없습니다: " + mission.getTitle());
-                        }
-                }
-                for (Mission mission : customMissions) {
-                        if (Boolean.TRUE.equals(mission.getIsChallenge())) {
-                                throw new CustomException(ErrorCode.INVALID_REQUEST,
-                                                "챌린지 미션은 투두리스트에 추가할 수 없습니다: " + mission.getTitle());
-                        }
-                }
 
                 // 투두리스트 생성 (총 미션 수 = 필수 3개 + 커스텀 미션 개수)
                 int totalMissionCount = RANDOM_OFFICIAL_COUNT + customMissions.size();

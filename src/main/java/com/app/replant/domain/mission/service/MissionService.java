@@ -55,11 +55,30 @@ public class MissionService {
         ).map(MissionResponse::from);
     }
 
+    /**
+     * 공식 미션 검색 (제목/설명 검색 + 필터링)
+     */
+    public Page<MissionResponse> searchOfficialMissions(
+            String keyword,
+            MissionCategory category,
+            VerificationType verificationType,
+            WorryType worryType,
+            AgeRange ageRange,
+            GenderType genderType,
+            RegionType regionType,
+            DifficultyLevel difficultyLevel,
+            Pageable pageable) {
+        return missionRepository.searchOfficialMissions(
+                keyword, category, verificationType, worryType, ageRange,
+                genderType, regionType, difficultyLevel, pageable
+        ).map(MissionResponse::from);
+    }
+
     public MissionResponse getMission(Long missionId) {
         Mission mission = findMissionById(missionId);
         long reviewCount = reviewRepository.countByMissionId(missionId);
         
-        return MissionResponse.from(mission, reviewCount, 0);
+        return MissionResponse.from(mission, reviewCount);
     }
 
     public Page<MissionReviewResponse> getReviews(Long missionId, Pageable pageable) {
@@ -195,11 +214,24 @@ public class MissionService {
     // ============ 커스텀 미션 관리 ============
 
     /**
-     * 커스텀 미션 목록 조회 (공개된 것만)
+     * 커스텀 미션 목록 조회 (공개된 것만, 전체 조회)
      */
-    public Page<MissionResponse> getCustomMissions(VerificationType verificationType, Pageable pageable) {
-        return missionRepository.findCustomMissions(verificationType, pageable)
+    public Page<MissionResponse> getCustomMissions(Pageable pageable) {
+        return missionRepository.findCustomMissions(pageable)
                 .map(MissionResponse::from);
+    }
+
+    /**
+     * 커스텀 미션 검색 (제목/설명 검색 + 필터링)
+     */
+    public Page<MissionResponse> searchCustomMissions(
+            String keyword,
+            WorryType worryType,
+            DifficultyLevel difficultyLevel,
+            Pageable pageable) {
+        return missionRepository.searchCustomMissions(
+                keyword, worryType, difficultyLevel, pageable
+        ).map(MissionResponse::from);
     }
 
     /**
@@ -235,8 +267,6 @@ public class MissionService {
                 request.getWorryType(),             // worryType
                 request.getCategory(),              // category
                 request.getDifficultyLevel(),       // difficultyLevel
-                request.getIsChallenge(),           // isChallenge
-                request.getChallengeDays(),         // challengeDays
                 request.getDeadlineDays(),          // deadlineDays
                 request.getDurationDays(),          // durationDays
                 request.getIsPublic(),              // isPublic
@@ -282,8 +312,6 @@ public class MissionService {
                 request.getWorryType(),
                 request.getCategory(),
                 request.getDifficultyLevel(),
-                request.getIsChallenge(),
-                request.getChallengeDays(),
                 request.getDeadlineDays(),
                 null,  // expReward (무시됨, Entity에서 0으로 설정)
                 request.getIsPublic()

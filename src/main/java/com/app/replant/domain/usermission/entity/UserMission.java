@@ -51,9 +51,13 @@ public class UserMission {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // 돌발 미션 여부
+    @Column(name = "is_spontaneous", nullable = false)
+    private Boolean isSpontaneous = false;
+
     @Builder
     private UserMission(User user, Mission mission, MissionType missionType,
-            LocalDateTime assignedAt, LocalDateTime dueDate, UserMissionStatus status) {
+            LocalDateTime assignedAt, LocalDateTime dueDate, UserMissionStatus status, Boolean isSpontaneous) {
         this.user = user;
         this.mission = mission;
 
@@ -68,6 +72,7 @@ public class UserMission {
         this.assignedAt = assignedAt != null ? assignedAt : LocalDateTime.now();
         this.dueDate = dueDate;
         this.status = status != null ? status : UserMissionStatus.ASSIGNED;
+        this.isSpontaneous = isSpontaneous != null ? isSpontaneous : false;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -131,5 +136,12 @@ public class UserMission {
             return this.missionType;
         }
         return this.mission != null ? this.mission.getMissionType() : null;
+    }
+
+    /**
+     * 돌발 미션 여부 확인
+     */
+    public boolean isSpontaneousMission() {
+        return Boolean.TRUE.equals(this.isSpontaneous);
     }
 }

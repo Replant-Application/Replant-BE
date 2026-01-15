@@ -23,7 +23,6 @@ public class MissionResponse {
     private Integer badgeDurationDays;
     private Boolean isActive;
     private Long reviewCount;
-    private Long qnaCount;
 
     // ============ 사용자 맞춤 필드들 ============
     // 고민 종류
@@ -44,8 +43,6 @@ public class MissionResponse {
     private String creatorNickname;
     private Integer durationDays;
     private Boolean isPublic;
-    private Boolean isChallenge;
-    private Integer challengeDays;
     private Integer deadlineDays;
     private Boolean isPromoted;
 
@@ -75,8 +72,6 @@ public class MissionResponse {
                     .creatorNickname(mission.getCreator() != null ? mission.getCreator().getNickname() : null)
                     .durationDays(mission.getDurationDays())
                     .isPublic(mission.getIsPublic())
-                    .isChallenge(mission.getIsChallenge())
-                    .challengeDays(mission.getChallengeDays())
                     .deadlineDays(mission.getDeadlineDays())
                     .isPromoted(mission.getIsPromoted());
         }
@@ -84,7 +79,7 @@ public class MissionResponse {
         return builder.build();
     }
 
-    public static MissionResponse from(Mission mission, long reviewCount, long qnaCount) {
+    public static MissionResponse from(Mission mission, long reviewCount) {
         MissionResponseBuilder builder = MissionResponse.builder()
                 .id(mission.getId())
                 .missionType(mission.getMissionType())
@@ -97,7 +92,6 @@ public class MissionResponse {
                 .badgeDurationDays(mission.getBadgeDurationDays())
                 .isActive(mission.getIsActive())
                 .reviewCount(reviewCount)
-                .qnaCount(qnaCount)
                 // 사용자 맞춤 필드
                 .worryType(mission.getWorryType())
                 .ageRanges(mission.getAgeRanges())
@@ -112,8 +106,6 @@ public class MissionResponse {
                     .creatorNickname(mission.getCreator() != null ? mission.getCreator().getNickname() : null)
                     .durationDays(mission.getDurationDays())
                     .isPublic(mission.getIsPublic())
-                    .isChallenge(mission.getIsChallenge())
-                    .challengeDays(mission.getChallengeDays())
                     .deadlineDays(mission.getDeadlineDays())
                     .isPromoted(mission.getIsPromoted());
         }

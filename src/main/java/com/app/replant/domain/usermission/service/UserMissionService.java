@@ -10,6 +10,8 @@ import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
+import com.app.replant.domain.post.entity.Post;
+import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.usermission.dto.*;
 import com.app.replant.domain.usermission.entity.MissionVerification;
 import com.app.replant.domain.usermission.entity.UserMission;
@@ -47,10 +49,10 @@ public class UserMissionService {
     private final ReantRepository reantRepository;
     private final TodoListMissionRepository todoListMissionRepository;
     private final TodoListRepository todoListRepository;
+    private final PostRepository postRepository;
 
-    public Page<UserMissionResponse> getUserMissions(Long userId, UserMissionStatus status, String missionType,
-            Pageable pageable) {
-        return userMissionRepository.findByUserIdWithFilters(userId, status, missionType, pageable)
+    public Page<UserMissionResponse> getUserMissions(Long userId, Pageable pageable) {
+        return userMissionRepository.findByUserIdWithFilters(userId, pageable)
                 .map(UserMissionResponse::from);
     }
 
@@ -58,6 +60,32 @@ public class UserMissionService {
         UserMission userMission = userMissionRepository.findByIdAndUserId(userMissionId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
         return UserMissionResponse.from(userMission);
+    }
+
+    /**
+     * 현재 사용자의 ASSIGNED 상태인 기상 미션 ID 찾기
+     * @param userId 사용자 ID
+     * @return userMissionId (없으면 null)
+     */
+    @Transactional(readOnly = true)
+    public Long findCurrentWakeUpMissionId(Long userId) {
+        Page<UserMission> missionsPage = userMissionRepository.findByUserIdWithFilters(
+                userId, 
+                org.springframework.data.domain.PageRequest.of(0, 10)
+        );
+        
+        return missionsPage.getContent().stream()
+                .filter(UserMission::isSpontaneousMission)
+                .filter(um -> um.getStatus() == UserMissionStatus.ASSIGNED)
+                .filter(um -> {
+                    Mission mission = um.getMission();
+                    if (mission == null) return false;
+                    String title = mission.getTitle();
+                    return title != null && (title.contains("기상") || title.contains("일어나"));
+                })
+                .map(UserMission::getId)
+                .findFirst()
+                .orElse(null);
     }
 
     @Transactional
@@ -128,11 +156,10 @@ public class UserMissionService {
         userMission.updateStatus(UserMissionStatus.COMPLETED);
 
         // 보상 지급 (커스텀 미션은 경험치 지급 없음)
-        User user = userMission.getUser();
         int expReward = getExpReward(userMission);
 
         if (expReward > 0) {  // 커스텀 미션은 0 반환
-            reantRepository.findByUserId(user.getId())
+            reantRepository.findByUserId(userMission.getUser().getId())
                     .ifPresent(reant -> reant.addExp(expReward));
         }
 
@@ -142,7 +169,7 @@ public class UserMissionService {
         // 투두리스트에 포함된 미션이면 TodoListMission도 완료 처리
         if (userMission.getMission() != null) {
             Long missionId = userMission.getMission().getId();
-            Long userId = user.getId();
+            Long userId = userMission.getUser().getId();
             
             // 해당 사용자의 투두리스트에서 이 미션을 찾기 (미완료 상태만)
             List<TodoListMission> todoListMissions = todoListMissionRepository
@@ -167,7 +194,8 @@ public class UserMissionService {
             }
         }
 
-        log.info("Social Verification Completed: userMissionId={}, userId={}", userMission.getId(), user.getId());
+        log.info("Social Verification Completed: userMissionId={}, userId={}", 
+                userMission.getId(), userMission.getUser().getId());
     }
 
     @Transactional
@@ -198,7 +226,6 @@ public class UserMissionService {
         userMission.updateStatus(UserMissionStatus.COMPLETED);
 
         // 보상 지급 (커스텀 미션은 경험치 지급 없음)
-        User user = userMission.getUser();
         int expReward = getExpReward(userMission);
 
         Reant reant = reantRepository.findByUserId(userId)
@@ -407,6 +434,126 @@ public class UserMissionService {
     private Integer getBadgeDurationDays(UserMission userMission) {
         Mission mission = userMission.getMission();
         return mission != null ? mission.calculateBadgeDuration() : 3;
+    }
+
+    /**
+     * 돌발 미션 인증
+     * - 기상 미션: 시간 제한 인증 (10분 안에 버튼 클릭)
+     * - 식사 미션: 게시글 작성으로 인증
+     */
+    @Transactional
+    public VerifyMissionResponse verifySpontaneousMission(Long userMissionId, Long userId, 
+                                                          VerifySpontaneousMissionRequest request) {
+        UserMission userMission = userMissionRepository.findByIdAndUserId(userMissionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
+
+        // 돌발 미션이 아니면 일반 인증으로 처리
+        if (!userMission.isSpontaneousMission()) {
+            throw new CustomException(ErrorCode.INVALID_MISSION_TYPE);
+        }
+
+        if (userMission.getStatus() != UserMissionStatus.ASSIGNED) {
+            throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        Mission mission = userMission.getMission();
+        
+        // 기상 미션: 시간 제한 인증 (10분)
+        if (mission != null && (mission.getTitle().contains("기상") || mission.getTitle().contains("일어나"))) {
+            return verifyWakeUpMission(userMission, now);
+        }
+        
+        // 식사 미션: 게시글 작성 인증
+        if (request.getPostId() != null) {
+            return verifyMealMission(userMission, request.getPostId(), userId, now);
+        } else {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE, "식사 미션은 게시글 ID가 필요합니다.");
+        }
+    }
+
+    /**
+     * 기상 미션 인증 (시간 제한: 10분)
+     */
+    private VerifyMissionResponse verifyWakeUpMission(UserMission userMission, LocalDateTime now) {
+        // 할당 시간으로부터 10분 경과 여부 확인
+        LocalDateTime assignedAt = userMission.getAssignedAt();
+        Duration elapsed = Duration.between(assignedAt, now);
+        
+        // 정확히 10분(600초) 이상 경과했는지 확인
+        // 10분 0초는 아직 가능, 10분 1초부터 실패
+        if (elapsed.toSeconds() >= 600) {
+            // 10분 초과 시 실패 처리
+            userMission.fail();
+            userMissionRepository.save(userMission);
+            throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
+                    "기상 미션 인증 시간(10분)이 초과되었습니다.");
+        }
+
+        // 인증 성공 처리
+        userMission.complete();
+        
+        // 경험치 지급 (10점)
+        int expReward = 10;
+        User user = userMission.getUser();
+        Reant reant = reantRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.REANT_NOT_FOUND));
+        reant.addExp(expReward);
+
+        // 뱃지 발급
+        UserBadge badge = createBadge(userMission);
+
+        // 인증 기록 생성
+        MissionVerification verification = MissionVerification.builder()
+                .userMission(userMission)
+                .verifiedAt(now)
+                .build();
+        verificationRepository.save(verification);
+
+        log.info("기상 미션 인증 완료: userMissionId={}, userId={}, elapsedMinutes={}", 
+                userMission.getId(), user.getId(), elapsed.toMinutes());
+
+        return buildVerifyResponse(userMission, verification, expReward, badge);
+    }
+
+    /**
+     * 식사 미션 인증 (게시글 작성)
+     */
+    private VerifyMissionResponse verifyMealMission(UserMission userMission, Long postId, 
+                                                    Long userId, LocalDateTime now) {
+        // 게시글 조회 및 소유자 확인
+        Post post = postRepository.findByIdAndDelFlagFalse(postId)
+                .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+        
+        if (!post.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
+        }
+
+        // 인증 성공 처리
+        userMission.complete();
+        
+        // 경험치 지급 (10점)
+        int expReward = 10;
+        User user = userMission.getUser();
+        Reant reant = reantRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.REANT_NOT_FOUND));
+        reant.addExp(expReward);
+
+        // 뱃지 발급
+        UserBadge badge = createBadge(userMission);
+
+        // 인증 기록 생성 (게시글 연결)
+        MissionVerification verification = MissionVerification.builder()
+                .userMission(userMission)
+                .post(post)
+                .verifiedAt(now)
+                .build();
+        verificationRepository.save(verification);
+
+        log.info("식사 미션 인증 완료: userMissionId={}, userId={}, postId={}", 
+                userMission.getId(), user.getId(), postId);
+
+        return buildVerifyResponse(userMission, verification, expReward, badge);
     }
 
     private User findUserById(Long userId) {

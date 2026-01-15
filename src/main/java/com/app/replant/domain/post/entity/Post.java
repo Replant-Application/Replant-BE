@@ -2,7 +2,6 @@ package com.app.replant.domain.post.entity;
 
 import com.app.replant.common.BaseEntity;
 import com.app.replant.domain.post.enums.PostType;
-import com.app.replant.domain.post.enums.VerificationStatus;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.usermission.entity.UserMission;
 import jakarta.persistence.*;
@@ -53,7 +52,9 @@ public class Post extends BaseEntity {
     @JoinColumn(name = "user_mission_id", unique = true)
     private UserMission userMission;
 
-    // 일반 게시글 제목 (GENERAL일 때만 사용)
+    // 게시글 제목
+    // - GENERAL: 사용자가 입력한 제목
+    // - VERIFICATION: 미션 제목 (성능 향상을 위해 저장)
     @Column(length = 100)
     private String title;
 
@@ -112,6 +113,10 @@ public class Post extends BaseEntity {
         post.postType = PostType.VERIFICATION;
         post.user = user;
         post.userMission = userMission;
+        // 인증글도 title 컬럼에 미션 제목 저장 (성능 향상 및 코드 단순화)
+        post.title = userMission != null && userMission.getMission() != null
+                ? userMission.getMission().getTitle()
+                : "미션";
         post.content = content;
         post.imageUrls = imageUrls;
         post.status = "PENDING";

@@ -157,8 +157,16 @@ public class FcmServiceImpl implements FcmService {
      */
     private String getAccessToken() throws IOException {
         try {
+            // Firebase 키 파일 존재 여부 확인
+            ClassPathResource resource = new ClassPathResource(FIREBASE_CONFIG_PATH);
+            if (!resource.exists()) {
+                log.error("[FCM] Firebase 키 파일을 찾을 수 없습니다: {}", FIREBASE_CONFIG_PATH);
+                throw new IOException("Firebase 키 파일을 찾을 수 없습니다: " + FIREBASE_CONFIG_PATH);
+            }
+            
+            log.debug("[FCM] Firebase 키 파일 로드 시도: {}", FIREBASE_CONFIG_PATH);
             GoogleCredentials googleCredentials = GoogleCredentials
-                    .fromStream(new ClassPathResource(FIREBASE_CONFIG_PATH).getInputStream())
+                    .fromStream(resource.getInputStream())
                     .createScoped(List.of(CLOUD_PLATFORM_SCOPE));
 
             googleCredentials.refreshIfExpired();
@@ -166,8 +174,16 @@ public class FcmServiceImpl implements FcmService {
             log.debug("[FCM] Access Token 발급 성공");
             return accessToken;
         } catch (IOException e) {
-            log.error("[FCM] Access Token 발급 실패", e);
-            throw new IOException("Firebase Access Token 발급 실패", e);
+            String errorMessage = e.getMessage();
+            if (errorMessage != null && errorMessage.contains("Invalid JWT Signature")) {
+                log.error("[FCM] Access Token 발급 실패 - Firebase 키 파일이 유효하지 않습니다. " +
+                         "Firebase 콘솔에서 새로운 서비스 계정 키를 다운로드하여 교체해주세요. " +
+                         "경로: {}", FIREBASE_CONFIG_PATH, e);
+                throw new IOException("Firebase 키 파일이 유효하지 않습니다. 새로운 키 파일로 교체가 필요합니다.", e);
+            } else {
+                log.error("[FCM] Access Token 발급 실패 - 경로: {}", FIREBASE_CONFIG_PATH, e);
+                throw new IOException("Firebase Access Token 발급 실패: " + e.getMessage(), e);
+            }
         }
     }
 
@@ -296,6 +312,11 @@ public class FcmServiceImpl implements FcmService {
         }
         if (notification.getReferenceId() != null) {
             data.put("referenceId", String.valueOf(notification.getReferenceId()));
+            
+            // USER_MISSION 타입인 경우 userMissionId 필드도 추가 (프론트엔드 호환성)
+            if ("USER_MISSION".equals(notification.getReferenceType())) {
+                data.put("userMissionId", String.valueOf(notification.getReferenceId()));
+            }
         }
 
         return data;
