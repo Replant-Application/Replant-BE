@@ -15,6 +15,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalDate;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -131,6 +135,28 @@ public class UserMissionController {
                         @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
                 Page<UserMissionResponse> history = userMissionService.getMissionHistory(userId, pageable);
                 return ApiResponse.success(history);
+        }
+
+        @GetMapping("/calendar/date")
+        @Operation(summary = "특정 날짜 미션 조회 (캘린더용)", description = "특정 날짜에 할당된 모든 미션을 조회합니다. 완료 여부와 관계없이 해당 날짜에 할당된 미션이 모두 조회됩니다.")
+        public ApiResponse<List<UserMissionResponse>> getMissionsByDate(
+                        @AuthenticationPrincipal Long userId,
+                        @Parameter(description = "조회할 날짜 (YYYY-MM-DD 형식)", example = "2026-01-17") 
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                List<UserMissionResponse> missions = userMissionService.getMissionsByDate(userId, date);
+                return ApiResponse.success(missions);
+        }
+
+        @GetMapping("/calendar/range")
+        @Operation(summary = "날짜 범위 미션 조회 (캘린더용)", description = "특정 날짜 범위에 할당된 모든 미션을 조회합니다. 완료 여부와 관계없이 해당 기간에 할당된 미션이 모두 조회됩니다.")
+        public ApiResponse<List<UserMissionResponse>> getMissionsByDateRange(
+                        @AuthenticationPrincipal Long userId,
+                        @Parameter(description = "시작 날짜 (YYYY-MM-DD 형식, 포함)", example = "2026-01-01") 
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                        @Parameter(description = "종료 날짜 (YYYY-MM-DD 형식, 포함)", example = "2026-01-31") 
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+                List<UserMissionResponse> missions = userMissionService.getMissionsByDateRange(userId, startDate, endDate);
+                return ApiResponse.success(missions);
         }
 
         @Operation(summary = "돌발 미션 인증", description = "돌발 미션을 인증합니다. 기상 미션은 시간 제한(10분), 식사 미션은 게시글 작성으로 인증합니다.")
