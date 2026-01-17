@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.support.PageableExecutionUtils;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -27,13 +28,35 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
 
     private final JPAQueryFactory queryFactory;
 
+    /**
+     * 사용자별 미션 목록 조회 - 오늘 할당된 미션만 반환
+     * 
+     * 투두리스트 개념을 유지하기 위해 오늘 날짜에 할당된 미션만 조회합니다.
+     * 전날 할당된 미션은 완료 여부와 관계없이 제외되어 다음날 조회되지 않습니다.
+     * 
+     * @param userId 사용자 ID
+     * @param pageable 페이징 정보
+     * @return 오늘 날짜에 할당된 미션 목록 (ASSIGNED, PENDING, COMPLETED 상태 모두 포함)
+     */
     @Override
     public Page<UserMission> findByUserIdWithFilters(Long userId, Pageable pageable) {
+        // 오늘 날짜 범위 계산 (00:00:00 ~ 23:59:59)
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfToday = today.atStartOfDay();      // 오늘 00:00:00
+        LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();  // 내일 00:00:00 (오늘 23:59:59까지)
+        
         JPAQuery<UserMission> query = queryFactory
                 .selectFrom(userMission)
                 .where(userMission.user.id.eq(userId)
-                        .and(userMission.status.eq(UserMissionStatus.ASSIGNED)
-                                .or(userMission.status.eq(UserMissionStatus.PENDING))))
+                        // 오늘 할당된 미션만 조회 (assignedAt이 오늘 날짜 범위 내)
+                        .and(userMission.assignedAt.goe(startOfToday))
+                        .and(userMission.assignedAt.lt(endOfToday))
+                        // 상태 필터: ASSIGNED, PENDING, COMPLETED 모두 포함
+                        .and(
+                                userMission.status.eq(UserMissionStatus.ASSIGNED)
+                                        .or(userMission.status.eq(UserMissionStatus.PENDING))
+                                        .or(userMission.status.eq(UserMissionStatus.COMPLETED))
+                        ))
                 .orderBy(userMission.assignedAt.desc(), userMission.id.desc());
 
         return getPage(query, pageable);
@@ -155,6 +178,40 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
                         .and(userMission.mission.id.in(missionIds)))
                 .distinct()
                 .orderBy(userMission.mission.id.asc(), userMission.id.desc())
+                .fetch();
+    }
+
+    @Override
+    public List<UserMission> findByUserIdAndAssignedDate(Long userId, LocalDate date) {
+        LocalDateTime startOfDay = date.atStartOfDay();
+        LocalDateTime endOfDay = date.plusDays(1).atStartOfDay();
+        
+        return queryFactory
+                .selectFrom(userMission)
+                .join(userMission.user, user).fetchJoin()
+                .join(userMission.mission, mission).fetchJoin()
+                .where(userMission.user.id.eq(userId)
+                        .and(userMission.assignedAt.goe(startOfDay))
+                        .and(userMission.assignedAt.lt(endOfDay)))
+                .distinct()
+                .orderBy(userMission.assignedAt.desc(), userMission.id.desc())
+                .fetch();
+    }
+
+    @Override
+    public List<UserMission> findByUserIdAndAssignedDateRange(Long userId, LocalDate startDate, LocalDate endDate) {
+        LocalDateTime startOfStartDate = startDate.atStartOfDay();
+        LocalDateTime endOfEndDate = endDate.plusDays(1).atStartOfDay();
+        
+        return queryFactory
+                .selectFrom(userMission)
+                .join(userMission.user, user).fetchJoin()
+                .join(userMission.mission, mission).fetchJoin()
+                .where(userMission.user.id.eq(userId)
+                        .and(userMission.assignedAt.goe(startOfStartDate))
+                        .and(userMission.assignedAt.lt(endOfEndDate)))
+                .distinct()
+                .orderBy(userMission.assignedAt.desc(), userMission.id.desc())
                 .fetch();
     }
 

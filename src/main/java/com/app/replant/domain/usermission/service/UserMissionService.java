@@ -33,9 +33,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -324,6 +326,33 @@ public class UserMissionService {
                     // UserMissionResponse 생성 (completedAt 포함)
                     return UserMissionResponse.from(userMission, completedAt);
                 });
+    }
+
+    /**
+     * 특정 날짜에 할당된 미션 조회 (캘린더용 - 상태 무관)
+     * @param userId 사용자 ID
+     * @param date 조회할 날짜 (YYYY-MM-DD 형식)
+     * @return 해당 날짜에 할당된 모든 미션 (ASSIGNED, PENDING, COMPLETED 등 상태 무관)
+     */
+    public List<UserMissionResponse> getMissionsByDate(Long userId, LocalDate date) {
+        List<UserMission> missions = userMissionRepository.findByUserIdAndAssignedDate(userId, date);
+        return missions.stream()
+                .map(UserMissionResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 날짜 범위에 할당된 미션 조회 (캘린더용 - 상태 무관)
+     * @param userId 사용자 ID
+     * @param startDate 시작 날짜 (YYYY-MM-DD 형식, 포함)
+     * @param endDate 종료 날짜 (YYYY-MM-DD 형식, 포함)
+     * @return 해당 기간에 할당된 모든 미션 (ASSIGNED, PENDING, COMPLETED 등 상태 무관)
+     */
+    public List<UserMissionResponse> getMissionsByDateRange(Long userId, LocalDate startDate, LocalDate endDate) {
+        List<UserMission> missions = userMissionRepository.findByUserIdAndAssignedDateRange(userId, startDate, endDate);
+        return missions.stream()
+                .map(UserMissionResponse::from)
+                .collect(Collectors.toList());
     }
 
     private MissionVerification verifyGPS(UserMission userMission, VerifyMissionRequest request) {

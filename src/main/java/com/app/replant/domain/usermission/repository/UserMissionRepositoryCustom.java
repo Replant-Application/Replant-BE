@@ -16,7 +16,14 @@ import java.util.Optional;
 public interface UserMissionRepositoryCustom {
 
     /**
-     * 사용자별 미션 목록 조회 (ASSIGNED 또는 PENDING 상태)
+     * 사용자별 미션 목록 조회 - 오늘 할당된 미션만 반환
+     * 
+     * 투두리스트 개념을 유지하기 위해 오늘 날짜에 할당된 미션만 조회합니다.
+     * 전날 할당된 미션은 완료 여부와 관계없이 제외되어 다음날 조회되지 않습니다.
+     * 
+     * @param userId 사용자 ID
+     * @param pageable 페이징 정보
+     * @return 오늘 날짜에 할당된 미션 목록 (ASSIGNED, PENDING, COMPLETED 상태 모두 포함)
      */
     Page<UserMission> findByUserIdWithFilters(Long userId, Pageable pageable);
 
@@ -76,4 +83,21 @@ public interface UserMissionRepositoryCustom {
     List<UserMission> findByUserIdAndMissionIds(
             Long userId,
             List<Long> missionIds);
+
+    /**
+     * 특정 날짜에 할당된 미션 조회 (캘린더용 - 상태 무관)
+     * @param userId 사용자 ID
+     * @param date 조회할 날짜 (assignedAt 기준)
+     * @return 해당 날짜에 할당된 모든 미션 (ASSIGNED, PENDING, COMPLETED 등 상태 무관)
+     */
+    List<UserMission> findByUserIdAndAssignedDate(Long userId, java.time.LocalDate date);
+
+    /**
+     * 날짜 범위에 할당된 미션 조회 (캘린더용 - 상태 무관)
+     * @param userId 사용자 ID
+     * @param startDate 시작 날짜 (포함)
+     * @param endDate 종료 날짜 (포함)
+     * @return 해당 기간에 할당된 모든 미션 (ASSIGNED, PENDING, COMPLETED 등 상태 무관)
+     */
+    List<UserMission> findByUserIdAndAssignedDateRange(Long userId, java.time.LocalDate startDate, java.time.LocalDate endDate);
 }
