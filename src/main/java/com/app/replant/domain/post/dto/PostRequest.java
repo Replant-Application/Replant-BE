@@ -11,7 +11,6 @@ import java.util.List;
 public class PostRequest {
 
     private Long missionId;
-    private Long customMissionId;
 
     private String title;
 

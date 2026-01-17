@@ -65,12 +65,10 @@ public class PostController {
     public ApiResponse<Page<PostResponse>> getPosts(
             @Parameter(description = "시스템 미션 ID로 필터링")
             @RequestParam(required = false) Long missionId,
-            @Parameter(description = "커스텀 미션 ID로 필터링")
-            @RequestParam(required = false) Long customMissionId,
             @Parameter(description = "뱃지 소유자 게시글만 조회")
             @RequestParam(required = false) Boolean badgeOnly,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<PostResponse> posts = postService.getPosts(missionId, customMissionId, badgeOnly, pageable);
+        Page<PostResponse> posts = postService.getPosts(missionId, badgeOnly, pageable);
         return ApiResponse.success(posts);
     }
 

@@ -69,7 +69,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     @Override
     public Page<Post> findWithFilters(
             Long missionId,
-            Long customMissionId,
             boolean badgeOnly,
             Pageable pageable) {
         
@@ -100,11 +99,10 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     @Override
     public Page<Post> findCommunityPostsWithFilters(
             Long missionId,
-            Long customMissionId,
             boolean badgeOnly,
             Pageable pageable) {
         // findWithFilters와 동일한 구현
-        return findWithFilters(missionId, customMissionId, badgeOnly, pageable);
+        return findWithFilters(missionId, badgeOnly, pageable);
     }
 
     // ========================================
@@ -177,6 +175,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     public Optional<Post> findByUserMissionId(Long userMissionId) {
         Post result = queryFactory
                 .selectFrom(post)
+                .join(post.user, user).fetchJoin()
+                .leftJoin(post.userMission, userMission).fetchJoin()
+                .leftJoin(userMission.mission, mission).fetchJoin()
                 .where(post.userMission.id.eq(userMissionId)
                         .and(isVerificationType())
                         .and(isNotDeleted()))
@@ -190,7 +191,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     // ========================================
 
     @Override
-    public Optional<Post> findByIdAndNotDeleted(Long postId) {
+    public Optional<Post> getPostByIdExcludingDeleted(Long postId) {
         Post result = queryFactory
                 .selectFrom(post)
                 .join(post.user, user).fetchJoin()
@@ -215,7 +216,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     @Override
-    public Page<Post> findByUserIdAndNotDeleted(Long userId, Pageable pageable) {
+    public Page<Post> getUserPostsExcludingDeleted(Long userId, Pageable pageable) {
         JPAQuery<Post> query = queryFactory
                 .selectFrom(post)
                 .where(post.user.id.eq(userId).and(isNotDeleted()))

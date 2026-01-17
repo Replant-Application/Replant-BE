@@ -6,7 +6,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
-import java.util.Optional;
 
 /**
  * Redis 기반 사용자 온라인 상태 저장소
@@ -79,8 +78,15 @@ public class RedisUserOnlineRepository {
             } else {
                 log.debug("[Redis] 사용자 오프라인 상태 변경 (키 없음) - userId: {}", userId);
             }
+        } catch (org.springframework.data.redis.RedisSystemException e) {
+            // RedisCommandInterruptedException은 애플리케이션 재시작/타임아웃 시 정상적인 상황
+            if (e.getCause() instanceof io.lettuce.core.RedisCommandInterruptedException) {
+                log.debug("[Redis] 사용자 오프라인 상태 변경 중단 (연결 종료/재시작) - userId: {}", userId);
+            } else {
+                log.warn("[Redis] 사용자 오프라인 상태 변경 실패 - userId: {}", userId, e);
+            }
         } catch (Exception e) {
-            log.error("[Redis] 사용자 오프라인 상태 변경 실패 - userId: {}", userId, e);
+            log.warn("[Redis] 사용자 오프라인 상태 변경 실패 - userId: {}", userId, e);
         }
     }
 

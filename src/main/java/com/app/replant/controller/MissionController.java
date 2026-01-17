@@ -51,6 +51,24 @@ public class MissionController {
         return ApiResponse.success(missions);
     }
 
+    @Operation(summary = "공식 미션 검색", description = "제목/설명으로 공식 미션을 검색하고 필터링합니다.")
+    @GetMapping("/search")
+    public ApiResponse<Page<MissionResponse>> searchOfficialMissions(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) MissionCategory category,
+            @RequestParam(required = false) VerificationType verificationType,
+            @RequestParam(required = false) WorryType worryType,
+            @RequestParam(required = false) AgeRange ageRange,
+            @RequestParam(required = false) GenderType genderType,
+            @RequestParam(required = false) RegionType regionType,
+            @RequestParam(required = false) DifficultyLevel difficultyLevel,
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<MissionResponse> missions = missionService.searchOfficialMissions(
+                keyword, category, verificationType, worryType, ageRange,
+                genderType, regionType, difficultyLevel, pageable);
+        return ApiResponse.success(missions);
+    }
+
     @Operation(summary = "미션 상세 조회")
     @GetMapping("/{missionId}")
     public ApiResponse<MissionResponse> getMission(@PathVariable Long missionId) {
@@ -83,9 +101,20 @@ public class MissionController {
     @Operation(summary = "커스텀 미션 목록 조회", description = "공개된 커스텀 미션 목록을 조회합니다.")
     @GetMapping("/custom")
     public ApiResponse<Page<MissionResponse>> getCustomMissions(
-            @RequestParam(required = false) VerificationType verificationType,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<MissionResponse> missions = missionService.getCustomMissions(verificationType, pageable);
+        Page<MissionResponse> missions = missionService.getCustomMissions(pageable);
+        return ApiResponse.success(missions);
+    }
+
+    @Operation(summary = "커스텀 미션 검색", description = "제목/설명으로 커스텀 미션을 검색하고 필터링합니다.")
+    @GetMapping("/custom/search")
+    public ApiResponse<Page<MissionResponse>> searchCustomMissions(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) WorryType worryType,
+            @RequestParam(required = false) DifficultyLevel difficultyLevel,
+            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<MissionResponse> missions = missionService.searchCustomMissions(
+                keyword, worryType, difficultyLevel, pageable);
         return ApiResponse.success(missions);
     }
 

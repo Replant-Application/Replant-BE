@@ -118,15 +118,7 @@ public class Mission {
     @Column(name = "is_public")
     private Boolean isPublic;
 
-    // 챌린지 미션 여부 (true: 챌린지 미션, false: 일반 미션)
-    @Column(name = "is_challenge")
-    private Boolean isChallenge;
-
-    // 챌린지 기간 (일수) - 챌린지 미션일 때만 사용
-    @Column(name = "challenge_days")
-    private Integer challengeDays;
-
-    // 완료 기한 (일수) - 일반 미션일 때만 사용
+    // 완료 기한 (일수)
     @Column(name = "deadline_days")
     private Integer deadlineDays;
 
@@ -169,7 +161,7 @@ public class Mission {
      */
     public static Mission createCustomMission(User creator, String title, String description, WorryType worryType,
                                                MissionCategory category, DifficultyLevel difficultyLevel,
-                                               Boolean isChallenge, Integer challengeDays, Integer deadlineDays,
+                                               Integer deadlineDays,
                                                Integer durationDays, Boolean isPublic, VerificationType verificationType,
                                                Integer requiredMinutes, String startTime, String endTime,
                                                Integer expReward, Integer badgeDurationDays,
@@ -183,10 +175,7 @@ public class Mission {
         mission.worryType = worryType;
         mission.category = category != null ? category : MissionCategory.DAILY_LIFE;
         mission.difficultyLevel = difficultyLevel != null ? difficultyLevel : DifficultyLevel.LEVEL2;
-        // 챌린지 미션 관련 필드
-        mission.isChallenge = isChallenge != null ? isChallenge : false;
-        mission.challengeDays = mission.isChallenge ? (challengeDays != null ? challengeDays : 7) : null;
-        mission.deadlineDays = mission.isChallenge ? null : (deadlineDays != null ? deadlineDays : 3);
+        mission.deadlineDays = deadlineDays != null ? deadlineDays : 3;
         mission.durationDays = durationDays;
         mission.isPublic = isPublic != null ? isPublic : false;
         mission.isPromoted = false;  // 기본값: 승격되지 않음
@@ -207,12 +196,12 @@ public class Mission {
     @Builder(builderMethodName = "customBuilder")
     private static Mission customBuilderMethod(User creator, String title, String description, WorryType worryType,
                                                 MissionCategory category, DifficultyLevel difficultyLevel,
-                                                Boolean isChallenge, Integer challengeDays, Integer deadlineDays,
+                                                Integer deadlineDays,
                                                 Integer durationDays, Boolean isPublic, VerificationType verificationType,
                                                 Integer requiredMinutes, String startTime, String endTime,
                                                 Integer expReward, Integer badgeDurationDays, Boolean isActive) {
         return createCustomMission(creator, title, description, worryType, category, difficultyLevel,
-                isChallenge, challengeDays, deadlineDays, durationDays, isPublic, verificationType,
+                deadlineDays, durationDays, isPublic, verificationType,
                 requiredMinutes, startTime, endTime, expReward, badgeDurationDays, isActive);
     }
 
@@ -257,7 +246,7 @@ public class Mission {
      * @param expReward 경험치 보상 (무시됨, 항상 0으로 유지)
      */
     public void updateCustom(String title, String description, WorryType worryType, MissionCategory category,
-                              DifficultyLevel difficultyLevel, Boolean isChallenge, Integer challengeDays,
+                              DifficultyLevel difficultyLevel,
                               Integer deadlineDays, Integer expReward, Boolean isPublic) {
         if (this.missionType != MissionType.CUSTOM) {
             throw new IllegalStateException("커스텀 미션만 이 메서드로 수정할 수 있습니다.");
@@ -267,21 +256,7 @@ public class Mission {
         if (worryType != null) this.worryType = worryType;
         if (category != null) this.category = category;
         if (difficultyLevel != null) this.difficultyLevel = difficultyLevel;
-        if (isChallenge != null) {
-            this.isChallenge = isChallenge;
-            // 챌린지 여부에 따라 기간 필드 조정
-            if (isChallenge) {
-                this.deadlineDays = null;
-            } else {
-                this.challengeDays = null;
-            }
-        }
-        if (challengeDays != null && Boolean.TRUE.equals(this.isChallenge)) {
-            this.challengeDays = challengeDays;
-        }
-        if (deadlineDays != null && Boolean.FALSE.equals(this.isChallenge)) {
-            this.deadlineDays = deadlineDays;
-        }
+        if (deadlineDays != null) this.deadlineDays = deadlineDays;
         // 커스텀 미션의 경험치는 항상 0으로 유지
         this.expReward = 0;
         if (isPublic != null) this.isPublic = isPublic;
@@ -324,9 +299,8 @@ public class Mission {
             return this.badgeDurationDays;
         }
 
-        // deadlineDays 또는 challengeDays 기반으로 계산
-        Integer days = this.deadlineDays != null ? this.deadlineDays :
-                       (this.challengeDays != null ? this.challengeDays : null);
+        // deadlineDays 기반으로 계산
+        Integer days = this.deadlineDays;
 
         if (days == null) {
             return 3; // 기본값

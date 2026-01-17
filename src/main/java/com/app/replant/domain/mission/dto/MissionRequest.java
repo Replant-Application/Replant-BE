@@ -71,12 +71,6 @@ public class MissionRequest {
     // 공개 여부
     private Boolean isPublic;
 
-    // 챌린지 미션 여부
-    private Boolean isChallenge;
-
-    // 챌린지 기간 (일수) - 챌린지 미션일 때만
-    private Integer challengeDays;
-
-    // 완료 기한 (일수) - 일반 미션일 때만
+    // 완료 기한 (일수)
     private Integer deadlineDays;
 }

@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -146,8 +147,8 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public LoginResponseDto login(String email, String password) {
         try {
-            // 1. 사용자 조회
-            User user = userRepository.findByEmail(email)
+            // 1. 사용자 조회 (탈퇴한 사용자도 포함)
+            User user = userRepository.findByEmailIncludingDeleted(email)
                     .orElseThrow(() -> {
                         log.error("로그인 실패 - 사용자 없음: {}", email);
                         return new CustomException(ErrorCode.USER_NOT_FOUND);
@@ -159,9 +160,24 @@ public class AuthServiceImpl implements AuthService {
                 throw new CustomException(ErrorCode.INVALID_CREDENTIALS);
             }
 
-            // 3. 계정 상태 확인
-            if (user.getStatus() == UserStatus.SUSPENDED) {
-                throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
+            // 3. 탈퇴한 계정인 경우 자동 복구 처리
+            if (user.isDeleted()) {
+                // 30일 이내인지 확인
+                if (user.getDeletedAt() == null) {
+                    throw new CustomException(ErrorCode.USER_RESTORE_EXPIRED);
+                }
+                
+                LocalDateTime now = LocalDateTime.now();
+                LocalDateTime thirtyDaysAgo = now.minusDays(30);
+                
+                if (user.getDeletedAt().isBefore(thirtyDaysAgo)) {
+                    throw new CustomException(ErrorCode.USER_RESTORE_EXPIRED);
+                }
+                
+                // 자동 복구
+                user.restore();
+                userRepository.save(user);
+                log.info("탈퇴한 계정 자동 복구 후 로그인 - userId: {}, email: {}", user.getId(), email);
             }
 
             // 4. UserDetail 생성 및 JWT 토큰 발급
@@ -261,12 +277,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(resetPasswordDto.getMemberId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 3. 계정 상태 확인
-        if (user.getStatus() == UserStatus.SUSPENDED) {
-            throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
-        }
-
-        // 4. 임시 비밀번호 생성 및 이메일 발송
+        // 3. 임시 비밀번호 생성 및 이메일 발송
         String tempPassword = mailService.sendTemporaryPassword(
                 resetPasswordDto.getMemberId(),
                 user.getNickname());
@@ -301,12 +312,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(changePasswordDto.getMemberId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // 3. 계정 상태 확인
-        if (user.getStatus() == UserStatus.SUSPENDED) {
-            throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
-        }
-
-        // 4. 기존 비밀번호 확인
+        // 3. 기존 비밀번호 확인
         if (!passwordEncoder.matches(changePasswordDto.getOldPassword(), user.getPassword())) {
             log.error("비밀번호 변경 실패: 기존 비밀번호 불일치 - Email: {}", changePasswordDto.getMemberId());
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS);

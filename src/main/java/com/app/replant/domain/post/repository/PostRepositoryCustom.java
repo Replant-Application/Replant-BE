@@ -27,7 +27,6 @@ public interface PostRepositoryCustom {
      */
     Page<Post> findWithFilters(
             Long missionId,
-            Long customMissionId,
             boolean badgeOnly,
             Pageable pageable);
 
@@ -36,7 +35,6 @@ public interface PostRepositoryCustom {
      */
     Page<Post> findCommunityPostsWithFilters(
             Long missionId,
-            Long customMissionId,
             boolean badgeOnly,
             Pageable pageable);
 
@@ -62,11 +60,11 @@ public interface PostRepositoryCustom {
     // 단건 조회
     // ========================================
 
-    Optional<Post> findByIdAndNotDeleted(Long postId);
+    Optional<Post> getPostByIdExcludingDeleted(Long postId);
 
     Optional<Post> findByIdAndUserId(Long postId, Long userId);
 
-    Page<Post> findByUserIdAndNotDeleted(Long userId, Pageable pageable);
+    Page<Post> getUserPostsExcludingDeleted(Long userId, Pageable pageable);
 
     // ========================================
     // 통계

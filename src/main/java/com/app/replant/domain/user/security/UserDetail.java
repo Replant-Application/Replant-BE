@@ -76,7 +76,8 @@ public class UserDetail implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return user.getStatus() != UserStatus.SUSPENDED;
+        // SUSPENDED 상태 제거됨 - INACTIVE나 DELETED 상태는 이미 다른 곳에서 처리
+        return user.getStatus() == UserStatus.ACTIVE;
     }
 
     @Override

@@ -31,10 +31,6 @@ public class UserDetailService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         // 계정 상태 확인
-        if (user.getStatus() == UserStatus.SUSPENDED) {
-            throw new CustomException(ErrorCode.ACCOUNT_SUSPENDED);
-        }
-
         if (user.getStatus() == UserStatus.DELETED) {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }

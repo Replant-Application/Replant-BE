@@ -19,7 +19,7 @@ import java.sql.Statement;
  * Flyway가 처리하지 못하는 V6, V7 마이그레이션을 직접 실행
  */
 @Slf4j
-// @Component  // 마이그레이션 비활성화 - 테이블 초기화 후 JPA ddl-auto로 자동 생성
+@Component
 @RequiredArgsConstructor
 public class ManualMigrationRunner implements CommandLineRunner {
 
@@ -138,6 +138,42 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V24 마이그레이션 완료: diary.deleted_at 컬럼 추가됨");
             }
 
+            // V25: 인증글의 title이 NULL인 경우 미션 제목으로 업데이트
+            log.info("V25 마이그레이션 실행 중: 인증글 title 업데이트...");
+            try (Statement updateStmt = conn.createStatement()) {
+                int updatedCount = updateStmt.executeUpdate(
+                    "UPDATE post p " +
+                    "INNER JOIN user_mission um ON p.user_mission_id = um.id " +
+                    "INNER JOIN mission m ON um.mission_id = m.id " +
+                    "SET p.title = m.title " +
+                    "WHERE p.post_type = 'VERIFICATION' " +
+                    "  AND (p.title IS NULL OR p.title = '')"
+                );
+                log.info("V25 마이그레이션 완료: {}개의 인증글 title 업데이트됨", updatedCount);
+            } catch (Exception e) {
+                log.warn("V25 마이그레이션 실행 중 오류 (무시 가능): {}", e.getMessage());
+            }
+
+            // V26: Mission 테이블에서 사용되지 않는 컬럼 제거
+            log.info("V26 마이그레이션 실행 중: Mission 테이블 미사용 컬럼 제거...");
+            executeV26Migration(conn);
+            log.info("V26 마이그레이션 완료");
+
+            // V27: 사용되지 않는 테이블 삭제
+            log.info("V27 마이그레이션 실행 중: 사용되지 않는 테이블 삭제...");
+            executeV27Migration(conn);
+            log.info("V27 마이그레이션 완료");
+
+            // V28: User 테이블에 돌발 미션 설정 관련 컬럼 추가
+            log.info("V28 마이그레이션 실행 중: User 테이블 돌발 미션 설정 컬럼 추가...");
+            executeV28Migration(conn);
+            log.info("V28 마이그레이션 완료");
+
+            // V29: UserMission 테이블에 돌발 미션 구분 컬럼 추가
+            log.info("V29 마이그레이션 실행 중: UserMission 테이블 돌발 미션 구분 컬럼 추가...");
+            executeV29Migration(conn);
+            log.info("V29 마이그레이션 완료");
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -186,8 +222,6 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 "`post_type` VARCHAR(20) NOT NULL DEFAULT 'GENERAL'," +
                 "`user_id` BIGINT NOT NULL," +
                 "`mission_id` BIGINT NULL," +
-                "`custom_mission_id` BIGINT NULL," +
-                "`mission_source` VARCHAR(20) NULL," +
                 "`user_mission_id` BIGINT NULL," +
                 "`title` VARCHAR(100) NULL," +
                 "`content` TEXT NOT NULL," +
@@ -239,18 +273,18 @@ public class ManualMigrationRunner implements CommandLineRunner {
 
             // 6. 백업 데이터 복원 (일반 게시글)
             executeIgnore(stmt,
-                "INSERT INTO `post` (`post_type`, `user_id`, `mission_id`, `custom_mission_id`, `title`, `content`, " +
+                "INSERT INTO `post` (`post_type`, `user_id`, `mission_id`, `title`, `content`, " +
                 "`image_urls`, `has_valid_badge`, `del_flag`, `created_at`, `updated_at`) " +
-                "SELECT 'GENERAL', `user_id`, `mission_id`, `custom_mission_id`, `title`, `content`, " +
+                "SELECT 'GENERAL', `user_id`, `mission_id`, `title`, `content`, " +
                 "`image_urls`, `has_valid_badge`, `del_flag`, `created_at`, `updated_at` " +
                 "FROM `_backup_post`"
             );
 
             // 7. 백업 데이터 복원 (인증 게시글)
             executeIgnore(stmt,
-                "INSERT INTO `post` (`post_type`, `user_id`, `mission_id`, `custom_mission_id`, `user_mission_id`, " +
+                "INSERT INTO `post` (`post_type`, `user_id`, `mission_id`, `user_mission_id`, " +
                 "`content`, `image_urls`, `status`, `approve_count`, `reject_count`, `verified_at`, `created_at`, `updated_at`) " +
-                "SELECT 'VERIFICATION', vp.`user_id`, um.`mission_id`, um.`custom_mission_id`, vp.`user_mission_id`, " +
+                "SELECT 'VERIFICATION', vp.`user_id`, um.`mission_id`, vp.`user_mission_id`, " +
                 "vp.`content`, vp.`image_urls`, vp.`status`, vp.`approve_count`, vp.`reject_count`, " +
                 "vp.`verified_at`, vp.`created_at`, vp.`updated_at` " +
                 "FROM `_backup_verification_post` vp " +
@@ -505,6 +539,285 @@ public class ManualMigrationRunner implements CommandLineRunner {
             log.info("V22 마이그레이션: notification 테이블에 deleted_at 추가 완료");
 
             log.info("V22 마이그레이션: SoftDelete 컬럼 추가 완료");
+        }
+    }
+
+    private void executeV26Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V26: Mission 테이블에서 사용되지 않는 컬럼 제거
+            
+            // 1. challenged 컬럼 삭제
+            if (columnExists(stmt, "mission", "challenged")) {
+                executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `challenged`");
+                log.info("V26 마이그레이션: challenged 컬럼 삭제 완료");
+            }
+
+            // 2. challenge_count 컬럼 삭제
+            if (columnExists(stmt, "mission", "challenge_count")) {
+                executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `challenge_count`");
+                log.info("V26 마이그레이션: challenge_count 컬럼 삭제 완료");
+            }
+
+            // 3. GPS 관련 컬럼 삭제 (혹시 남아있을 수 있음)
+            if (columnExists(stmt, "mission", "gps_latitude")) {
+                executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `gps_latitude`");
+                log.info("V26 마이그레이션: gps_latitude 컬럼 삭제 완료");
+            }
+            if (columnExists(stmt, "mission", "gps_longitude")) {
+                executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `gps_longitude`");
+                log.info("V26 마이그레이션: gps_longitude 컬럼 삭제 완료");
+            }
+            if (columnExists(stmt, "mission", "gps_radius_meters")) {
+                executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `gps_radius_meters`");
+                log.info("V26 마이그레이션: gps_radius_meters 컬럼 삭제 완료");
+            }
+
+            // 4. type 컬럼 삭제 (혹시 남아있을 수 있음)
+            if (columnExists(stmt, "mission", "type")) {
+                executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `type`");
+                log.info("V26 마이그레이션: type 컬럼 삭제 완료");
+            }
+
+            // 5. mission_source 컬럼 삭제 (mission_type으로 이미 변경됨)
+            if (columnExists(stmt, "mission", "mission_source")) {
+                executeIgnore(stmt, "ALTER TABLE `mission` DROP COLUMN `mission_source`");
+                log.info("V26 마이그레이션: mission_source 컬럼 삭제 완료");
+            }
+
+            log.info("V26 마이그레이션: Mission 테이블 미사용 컬럼 제거 완료");
+        }
+    }
+
+    private void executeV27Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V27: 사용되지 않는 테이블 삭제
+            
+            stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
+
+            // 먼저 삭제된 테이블을 참조하는 외래키 제거
+            dropOrphanedForeignKeys(stmt);
+
+            // 1. custom_mission 테이블 삭제 (이미 Mission 테이블로 통합됨)
+            if (tableExists(stmt, "custom_mission")) {
+                executeIgnore(stmt, "DROP TABLE IF EXISTS `custom_mission`");
+                log.info("V27 마이그레이션: custom_mission 테이블 삭제 완료");
+            }
+
+            // 2. user_routine 테이블 삭제
+            if (tableExists(stmt, "user_routine")) {
+                executeIgnore(stmt, "DROP TABLE IF EXISTS `user_routine`");
+                log.info("V27 마이그레이션: user_routine 테이블 삭제 완료");
+            }
+
+            // 3. wakeup_mission_setting 테이블 삭제 (대소문자 구분 없이 확인)
+            if (tableExists(stmt, "wakeup_mission_setting") || tableExists(stmt, "wakeup_mission_Setting")) {
+                executeIgnore(stmt, "DROP TABLE IF EXISTS `wakeup_mission_setting`");
+                executeIgnore(stmt, "DROP TABLE IF EXISTS `wakeup_mission_Setting`");
+                log.info("V27 마이그레이션: wakeup_mission_setting 테이블 삭제 완료");
+            }
+
+            // 4. user_recommendation 테이블 삭제
+            if (tableExists(stmt, "user_recommendation")) {
+                executeIgnore(stmt, "DROP TABLE IF EXISTS `user_recommendation`");
+                log.info("V27 마이그레이션: user_recommendation 테이블 삭제 완료");
+            }
+
+            // 5. verification_post 테이블 삭제 (이미 Post 테이블로 통합됨)
+            if (tableExists(stmt, "verification_post")) {
+                executeIgnore(stmt, "DROP TABLE IF EXISTS `verification_post`");
+                log.info("V27 마이그레이션: verification_post 테이블 삭제 완료");
+            }
+
+            stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
+
+            // 6. post 테이블에서 custom_mission_id 컬럼 제거 (이미 Mission 테이블로 통합됨)
+            if (columnExists(stmt, "post", "custom_mission_id")) {
+                executeIgnore(stmt, "ALTER TABLE `post` DROP COLUMN `custom_mission_id`");
+                log.info("V27 마이그레이션: post.custom_mission_id 컬럼 삭제 완료");
+            }
+
+            log.info("V27 마이그레이션: 사용되지 않는 테이블 삭제 완료");
+        }
+    }
+
+    private boolean tableExists(Statement stmt, String tableName) {
+        try {
+            ResultSet rs = stmt.executeQuery(
+                "SELECT COUNT(*) FROM information_schema.TABLES " +
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '" + tableName + "'"
+            );
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (Exception e) {
+            log.warn("테이블 존재 여부 확인 실패: {}", e.getMessage());
+        }
+        return false;
+    }
+
+    /**
+     * 삭제된 테이블을 참조하는 고아 외래키 제거
+     */
+    private void dropOrphanedForeignKeys(Statement stmt) {
+        try {
+            // 삭제된 테이블 목록
+            String[] deletedTables = {"verification_post", "custom_mission", "user_routine", 
+                                     "wakeup_mission_setting", "wakeup_mission_Setting", "user_recommendation"};
+
+            for (String deletedTable : deletedTables) {
+                // 해당 테이블을 참조하는 외래키 찾기
+                String sql = "SELECT DISTINCT CONSTRAINT_NAME, TABLE_NAME " +
+                            "FROM information_schema.KEY_COLUMN_USAGE " +
+                            "WHERE REFERENCED_TABLE_NAME = '" + deletedTable + "' " +
+                            "AND TABLE_SCHEMA = DATABASE() " +
+                            "AND CONSTRAINT_NAME IS NOT NULL";
+                
+                ResultSet rs = stmt.executeQuery(sql);
+                while (rs.next()) {
+                    String constraintName = rs.getString("CONSTRAINT_NAME");
+                    String tableName = rs.getString("TABLE_NAME");
+                    
+                    try {
+                        stmt.execute("ALTER TABLE `" + tableName + "` DROP FOREIGN KEY `" + constraintName + "`");
+                        log.info("V27 마이그레이션: 고아 외래키 삭제 - {}.{}", tableName, constraintName);
+                    } catch (Exception e) {
+                        log.debug("외래키 삭제 실패 (이미 삭제되었을 수 있음): {}.{} - {}", 
+                                tableName, constraintName, e.getMessage());
+                    }
+                }
+            }
+
+            // 알려진 문제 외래키 직접 삭제 시도
+            String[] knownOrphanedKeys = {"FKk6jowxq7o9ysklnigijjbwa7u"};
+            for (String fkName : knownOrphanedKeys) {
+                // 어떤 테이블에 있는지 찾기
+                String findFkSql = "SELECT DISTINCT TABLE_NAME FROM information_schema.KEY_COLUMN_USAGE " +
+                                  "WHERE CONSTRAINT_NAME = '" + fkName + "' " +
+                                  "AND TABLE_SCHEMA = DATABASE() LIMIT 1";
+                try {
+                    ResultSet fkRs = stmt.executeQuery(findFkSql);
+                    if (fkRs.next()) {
+                        String tableName = fkRs.getString("TABLE_NAME");
+                        executeIgnore(stmt, "ALTER TABLE `" + tableName + "` DROP FOREIGN KEY `" + fkName + "`");
+                        log.info("V27 마이그레이션: 알려진 고아 외래키 삭제 - {}.{}", tableName, fkName);
+                    }
+                } catch (Exception e) {
+                    log.debug("외래키 {} 삭제 시도 실패 (이미 삭제되었을 수 있음): {}", fkName, e.getMessage());
+                }
+            }
+
+            // 존재하지 않는 테이블을 참조하는 모든 외래키 찾아서 삭제
+            String findOrphanedFkSql = "SELECT DISTINCT kcu.CONSTRAINT_NAME, kcu.TABLE_NAME " +
+                                      "FROM information_schema.KEY_COLUMN_USAGE kcu " +
+                                      "LEFT JOIN information_schema.TABLES t " +
+                                      "ON kcu.REFERENCED_TABLE_NAME = t.TABLE_NAME " +
+                                      "AND t.TABLE_SCHEMA = DATABASE() " +
+                                      "WHERE kcu.TABLE_SCHEMA = DATABASE() " +
+                                      "AND kcu.REFERENCED_TABLE_NAME IS NOT NULL " +
+                                      "AND t.TABLE_NAME IS NULL " +
+                                      "AND kcu.CONSTRAINT_NAME IS NOT NULL";
+            try {
+                ResultSet orphanedRs = stmt.executeQuery(findOrphanedFkSql);
+                while (orphanedRs.next()) {
+                    String constraintName = orphanedRs.getString("CONSTRAINT_NAME");
+                    String tableName = orphanedRs.getString("TABLE_NAME");
+                    try {
+                        executeIgnore(stmt, "ALTER TABLE `" + tableName + "` DROP FOREIGN KEY `" + constraintName + "`");
+                        log.info("V27 마이그레이션: 고아 외래키 자동 삭제 - {}.{}", tableName, constraintName);
+                    } catch (Exception e) {
+                        log.debug("외래키 삭제 실패: {}.{} - {}", tableName, constraintName, e.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("고아 외래키 자동 검색 실패: {}", e.getMessage());
+            }
+        } catch (Exception e) {
+            log.warn("고아 외래키 정리 중 오류 (무시 가능): {}", e.getMessage());
+        }
+    }
+
+    private void executeV28Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V28: User 테이블에 돌발 미션 설정 관련 컬럼 추가
+
+            // 1. is_spontaneous_mission_setup_completed 컬럼 처리
+            boolean hasOldColumn = columnExists(stmt, "user", "is_onboarding_completed");
+            boolean hasNewColumn = columnExists(stmt, "user", "is_spontaneous_mission_setup_completed");
+            
+            if (hasOldColumn && !hasNewColumn) {
+                // 기존 컬럼을 새 이름으로 변경
+                executeIgnore(stmt,
+                    "ALTER TABLE `user` CHANGE COLUMN `is_onboarding_completed` `is_spontaneous_mission_setup_completed` BOOLEAN NOT NULL DEFAULT FALSE"
+                );
+                log.info("V28 마이그레이션: is_onboarding_completed를 is_spontaneous_mission_setup_completed로 변경 완료");
+            } else if (hasOldColumn && hasNewColumn) {
+                // 두 컬럼이 모두 존재하면 기존 컬럼 삭제
+                executeIgnore(stmt,
+                    "ALTER TABLE `user` DROP COLUMN `is_onboarding_completed`"
+                );
+                log.info("V28 마이그레이션: is_onboarding_completed 컬럼 삭제 완료 (중복 컬럼 정리)");
+            } else if (!hasNewColumn) {
+                // 새 컬럼이 없으면 추가
+                executeIgnore(stmt,
+                    "ALTER TABLE `user` ADD COLUMN `is_spontaneous_mission_setup_completed` BOOLEAN NOT NULL DEFAULT FALSE"
+                );
+                log.info("V28 마이그레이션: is_spontaneous_mission_setup_completed 컬럼 추가 완료");
+            }
+
+            // 2. sleep_time 컬럼 추가
+            if (!columnExists(stmt, "user", "sleep_time")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `user` ADD COLUMN `sleep_time` VARCHAR(5) NULL"
+                );
+                log.info("V28 마이그레이션: sleep_time 컬럼 추가 완료");
+            }
+
+            // 3. wake_time 컬럼 추가
+            if (!columnExists(stmt, "user", "wake_time")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `user` ADD COLUMN `wake_time` VARCHAR(5) NULL"
+                );
+                log.info("V28 마이그레이션: wake_time 컬럼 추가 완료");
+            }
+
+            // 4. 식사 시간 컬럼 추가
+            if (!columnExists(stmt, "user", "breakfast_time")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `user` ADD COLUMN `breakfast_time` VARCHAR(5) NULL"
+                );
+                log.info("V28 마이그레이션: breakfast_time 컬럼 추가 완료");
+            }
+
+            if (!columnExists(stmt, "user", "lunch_time")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `user` ADD COLUMN `lunch_time` VARCHAR(5) NULL"
+                );
+                log.info("V28 마이그레이션: lunch_time 컬럼 추가 완료");
+            }
+
+            if (!columnExists(stmt, "user", "dinner_time")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `user` ADD COLUMN `dinner_time` VARCHAR(5) NULL"
+                );
+                log.info("V28 마이그레이션: dinner_time 컬럼 추가 완료");
+            }
+
+            log.info("V28 마이그레이션: User 테이블 돌발 미션 설정 컬럼 추가 완료");
+        }
+    }
+
+    private void executeV29Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V29: UserMission 테이블에 돌발 미션 구분 컬럼 추가
+
+            if (!columnExists(stmt, "user_mission", "is_spontaneous")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `user_mission` ADD COLUMN `is_spontaneous` BOOLEAN NOT NULL DEFAULT FALSE"
+                );
+                log.info("V29 마이그레이션: user_mission.is_spontaneous 컬럼 추가 완료");
+            }
+
+            log.info("V29 마이그레이션: UserMission 테이블 돌발 미션 구분 컬럼 추가 완료");
         }
     }
 }

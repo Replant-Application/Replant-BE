@@ -144,6 +144,7 @@ public class SecurityConfig {
                         // 공개 API (인증 불필요)
                         .requestMatchers("/api/auth/**").permitAll() // 인증 관련 (OAuth 포함)
                         .requestMatchers("/auth/**").permitAll() // 기존 인증 경로
+                        .requestMatchers("/api/users/restore").permitAll() // 계정 복구 (인증 불필요)
                         .requestMatchers("/api/missions/**").permitAll() // 미션 목록 조회 (공개)
                         .requestMatchers("/api/custom-missions/**").permitAll() // 커스텀 미션 목록 (공개)
                         .requestMatchers("/api/verifications").permitAll() // 인증 게시판 목록 (공개)

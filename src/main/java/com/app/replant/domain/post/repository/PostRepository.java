@@ -18,6 +18,20 @@ import java.util.Optional;
 public interface PostRepository extends JpaRepository<Post, Long>, PostRepositoryCustom {
 
       // ========================================
+      // Spring Data JPA 네이밍 패턴 메서드
+      // ========================================
+      
+      /**
+       * 삭제되지 않은 게시글 조회 (delFlag = false)
+       */
+      Optional<Post> findByIdAndDelFlagFalse(Long postId);
+      
+      /**
+       * 사용자별 삭제되지 않은 게시글 조회 (delFlag = false)
+       */
+      Page<Post> findByUserIdAndDelFlagFalse(Long userId, Pageable pageable);
+
+      // ========================================
       // 게시글 목록 조회 (통합)
       // ========================================
       // QueryDSL로 구현됨 (PostRepositoryCustom 참조)

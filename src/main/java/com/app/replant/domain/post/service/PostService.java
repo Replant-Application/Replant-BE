@@ -65,16 +65,16 @@ public class PostService {
     // 게시글 CRUD
     // ========================================
 
-    public Page<PostResponse> getPosts(Long missionId, Long customMissionId, Boolean badgeOnly, Pageable pageable) {
-        return getPosts(missionId, customMissionId, badgeOnly, pageable, null);
+    public Page<PostResponse> getPosts(Long missionId, Boolean badgeOnly, Pageable pageable) {
+        return getPosts(missionId, badgeOnly, pageable, null);
     }
 
-    public Page<PostResponse> getPosts(Long missionId, Long customMissionId, Boolean badgeOnly, Pageable pageable,
+    public Page<PostResponse> getPosts(Long missionId, Boolean badgeOnly, Pageable pageable,
             Long currentUserId) {
         boolean badgeFilter = badgeOnly != null && badgeOnly;
         User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
 
-        return postRepository.findWithFilters(missionId, customMissionId, badgeFilter, pageable)
+        return postRepository.findWithFilters(missionId, badgeFilter, pageable)
                 .map(post -> {
                     long commentCount = commentRepository.countByPostId(post.getId());
                     long likeCount = postLikeRepository.countByPostId(post.getId());
@@ -168,21 +168,27 @@ public class PostService {
             log.info("인증 게시글 생성 완료 - postId={}, postType={}, userMissionId={}, userId={}, status={}", 
                     saved.getId(), saved.getPostType(), userMission.getId(), userId, saved.getStatus());
             
-            // 저장 후 실제 DB에서 조회하여 타입 확인 (디버깅용)
-            Post verifiedPost = postRepository.findById(saved.getId())
+            // QueryDSL로 fetch join하여 user, userMission, mission 정보를 모두 로드
+            Post verifiedPost = postRepository.getPostByIdExcludingDeleted(saved.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
-            log.debug("DB 조회 확인 - postId={}, postType={}, title={}, userMissionId={}", 
-                    verifiedPost.getId(), verifiedPost.getPostType(), verifiedPost.getTitle(), 
-                    verifiedPost.getUserMission() != null ? verifiedPost.getUserMission().getId() : null);
             
-            return PostResponse.from(saved, 0L, 0L, false);
+            // 좋아요 수와 댓글 수 조회
+            long likeCount = postLikeRepository.countByPostId(verifiedPost.getId());
+            long commentCount = commentRepository.countByPostId(verifiedPost.getId());
+            
+            return PostResponse.from(verifiedPost, commentCount, likeCount, false);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // UNIQUE 제약조건 위반 시 (동시 요청으로 인한 중복 생성 시도)
             log.warn("인증글 중복 생성 시도 감지 - userMissionId={}, userId={}", userMission.getId(), userId);
-            // 기존 게시글 조회하여 반환
+            // 기존 게시글 조회하여 반환 (QueryDSL로 fetch join)
             Post existingPost = postRepository.findByUserMissionId(userMission.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.VERIFICATION_ALREADY_EXISTS));
-            return PostResponse.from(existingPost, 0L, 0L, false);
+            
+            // 좋아요 수와 댓글 수 조회
+            long likeCount = postLikeRepository.countByPostId(existingPost.getId());
+            long commentCount = commentRepository.countByPostId(existingPost.getId());
+            
+            return PostResponse.from(existingPost, commentCount, likeCount, false);
         }
     }
 
@@ -200,7 +206,15 @@ public class PostService {
                     long commentCount = commentRepository.countByPostId(post.getId());
                     long likeCount = postLikeRepository.countByPostId(post.getId());
                     boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
-                    return PostResponse.from(post, commentCount, likeCount, isLiked);
+                    PostResponse response = PostResponse.from(post, commentCount, likeCount, isLiked);
+                    // 디버깅: title이 비어있는 경우 로그
+                    if (post.isVerificationPost() && (response.getTitle() == null || response.getTitle().isEmpty())) {
+                        log.warn("인증글 title 누락 - postId={}, dbTitle={}, missionTitle={}", 
+                                post.getId(), post.getTitle(), 
+                                post.getUserMission() != null && post.getUserMission().getMission() != null 
+                                        ? post.getUserMission().getMission().getTitle() : "null");
+                    }
+                    return response;
                 });
     }
 
@@ -249,6 +263,17 @@ public class PostService {
 
         if (!post.isAuthor(userId)) {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
+        }
+
+        // 인증글인 경우 UserMission 상태를 되돌림
+        if (post.isVerificationPost() && post.getUserMission() != null) {
+            UserMission userMission = post.getUserMission();
+            // PENDING 상태였으면 ASSIGNED로 되돌림
+            if (userMission.getStatus() == UserMissionStatus.PENDING) {
+                userMission.updateStatus(UserMissionStatus.ASSIGNED);
+                log.info("인증글 삭제로 인해 UserMission 상태 복원: userMissionId={}, status={}", 
+                        userMission.getId(), userMission.getStatus());
+            }
         }
 
         post.softDelete();
@@ -385,7 +410,7 @@ public class PostService {
                 // Post 엔티티의 status 변경사항을 DB에 저장
                 postRepository.saveAndFlush(post);
                 // 저장 후 최신 상태로 다시 조회 (1차 캐시 문제 방지)
-                post = postRepository.findByIdAndNotDeleted(postId)
+                post = postRepository.findByIdAndDelFlagFalse(postId)
                         .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
                 log.info("인증 완료! postId={}, likeCount={}, status={}", postId, likeCount, post.getStatus());
                 // 인증 완료 처리 (뱃지, 경험치 등)
@@ -481,7 +506,7 @@ public class PostService {
     // ========================================
 
     private Post findPostById(Long postId) {
-        return postRepository.findByIdAndNotDeleted(postId)
+        return postRepository.findByIdAndDelFlagFalse(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
     }
 

@@ -133,8 +133,14 @@ public class SseService {
 
     private void handleEmitterRemoval(Long memberId, String reason) {
         emitters.remove(memberId);
-        // Redis에서 온라인 상태 제거
-        redisUserOnlineRepository.setOffline(memberId);
+        // Redis에서 온라인 상태 제거 (예외 발생 시에도 로그만 남기고 계속 진행)
+        try {
+            redisUserOnlineRepository.setOffline(memberId);
+        } catch (Exception e) {
+            // Redis 연결 문제는 이미 RedisUserOnlineRepository에서 처리되므로
+            // 여기서는 최소한의 로깅만 수행
+            log.debug("SSE emitter 제거 중 Redis 오프라인 상태 변경 예외 (무시) - memberId: {}, 이유: {}", memberId, reason);
+        }
         log.info("SSE emitter 제거 - memberId: {}, 이유: {}, 현재 연결 수: {}", memberId, reason, emitters.size());
     }
 

@@ -4,8 +4,10 @@ import com.app.replant.domain.post.entity.Post;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -70,20 +72,29 @@ public class PostResponse {
             userProfileImg = post.getUser().getProfileImg();
         }
 
-        // 인증글인 경우 title은 null이므로 미션 제목을 사용, 일반 게시글은 title 사용
+        // 일반 게시글과 인증글 모두 title 컬럼 사용
+        // 인증글의 경우 title이 비어있으면 미션 제목을 fallback으로 사용 (기존 데이터 호환성)
         String title = post.getTitle();
-        if (title == null) {
-            if (post.isVerificationPost() && post.getUserMission() != null) {
-                // 인증글인 경우 미션 제목을 title로 사용
-                title = post.getMissionTitle();
-                // getMissionTitle()이 null을 반환할 수 있으므로 null 체크
-                if (title == null) {
-                    title = ""; // undefined 방지
+        String missionTitle = null;
+        
+        // 미션 정보 설정 (인증글일 경우 userMission -> mission 경로로 가져옴)
+        if (post.getUserMission() != null && post.getUserMission().getMission() != null) {
+            var mission = post.getUserMission().getMission();
+            Long missionId = mission.getId();
+            missionTitle = mission.getTitle();
+            String missionType = mission.isOfficialMission() ? "OFFICIAL" : "CUSTOM";
+
+            // 인증글인 경우: title이 비어있으면 무조건 미션 제목 사용
+            if (post.isVerificationPost()) {
+                if (title == null || title.trim().isEmpty()) {
+                    title = missionTitle != null ? missionTitle : "";
                 }
-            } else {
-                // 일반 게시글이지만 title이 null인 경우 빈 문자열로 처리 (undefined 방지)
-                title = "";
             }
+        }
+        
+        // 최종 fallback: 그래도 비어있으면 빈 문자열
+        if (title == null || title.trim().isEmpty()) {
+            title = "";
         }
         
         PostResponseBuilder builder = PostResponse.builder()
@@ -103,13 +114,13 @@ public class PostResponse {
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt());
 
-        // 미션 정보 설정 (인증글일 경우 userMission에서 가져옴)
-        if (post.getUserMission() != null) {
-            Long missionId = post.getMissionId();
-            String missionTitle = post.getMissionTitle();
-            String missionType = post.getMissionType();
+        // missionTag 설정
+        if (missionTitle != null && post.getUserMission() != null && post.getUserMission().getMission() != null) {
+            var mission = post.getUserMission().getMission();
+            Long missionId = mission.getId();
+            String missionType = mission.isOfficialMission() ? "OFFICIAL" : "CUSTOM";
 
-            if (missionId != null && missionTitle != null) {
+            if (missionId != null) {
                 builder.missionTag(MissionTag.builder()
                         .id(missionId)
                         .title(missionTitle)

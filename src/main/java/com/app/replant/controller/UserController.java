@@ -1,6 +1,7 @@
 package com.app.replant.controller;
 
 import com.app.replant.common.ApiResponse;
+import com.app.replant.controller.dto.RestoreAccountRequest;
 import com.app.replant.controller.dto.UserResponse;
 import com.app.replant.controller.dto.UserUpdateRequest;
 import com.app.replant.domain.reant.entity.Reant;
@@ -14,6 +15,9 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Tag(name = "User", description = "사용자 API")
 @RestController
@@ -46,6 +50,26 @@ public class UserController {
         User user = userService.findById(userId);
         Reant reant = reantService.findByUserId(userId);
         return ApiResponse.success(UserProfileResponse.from(user, reant));
+    }
+
+    @Operation(summary = "회원 탈퇴", description = "회원 탈퇴를 처리합니다. Soft Delete 방식으로 처리되며, 개인정보는 마스킹됩니다.")
+    @DeleteMapping("/me")
+    public ApiResponse<Map<String, String>> deleteMyAccount(@AuthenticationPrincipal Long userId) {
+        userService.deleteUser(userId);
+        
+        Map<String, String> result = new HashMap<>();
+        result.put("message", "회원 탈퇴가 완료되었습니다.");
+        return ApiResponse.success(result);
+    }
+
+    @Operation(summary = "계정 복구", description = "탈퇴한 계정을 이메일과 비밀번호로 복구합니다. 탈퇴 후 30일 이내에만 복구 가능합니다.")
+    @PostMapping("/restore")
+    public ApiResponse<Map<String, String>> restoreAccount(@RequestBody @Valid RestoreAccountRequest request) {
+        userService.restoreUserByEmail(request.getEmail(), request.getPassword());
+        
+        Map<String, String> result = new HashMap<>();
+        result.put("message", "계정이 복구되었습니다.");
+        return ApiResponse.success(result);
     }
 
     @Getter

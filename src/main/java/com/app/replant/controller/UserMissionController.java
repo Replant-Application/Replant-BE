@@ -2,7 +2,6 @@ package com.app.replant.controller;
 
 import com.app.replant.common.ApiResponse;
 import com.app.replant.domain.usermission.dto.*;
-import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.service.UserMissionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -58,11 +57,31 @@ public class UserMissionController {
         @GetMapping
         public ApiResponse<Page<UserMissionResponse>> getUserMissions(
                         @AuthenticationPrincipal Long userId,
-                        @Parameter(description = "미션 상태 필터 (ASSIGNED, PENDING, COMPLETED, EXPIRED)") @RequestParam(required = false) UserMissionStatus status,
-                        @Parameter(description = "미션 타입 필터 (SYSTEM, CUSTOM)") @RequestParam(required = false) String missionType,
                         @PageableDefault(size = 20, sort = "assignedAt", direction = Sort.Direction.DESC) Pageable pageable) {
-                Page<UserMissionResponse> missions = userMissionService.getUserMissions(userId, status, missionType,
-                                pageable);
+                // 정렬 필드 검증: 허용된 필드만 사용 (id, assignedAt, dueDate, createdAt, status)
+                Pageable validatedPageable = pageable;
+                if (pageable.getSort().isSorted()) {
+                        String sortProperty = pageable.getSort().stream()
+                                        .findFirst()
+                                        .map(Sort.Order::getProperty)
+                                        .orElse("assignedAt");
+                        
+                        // 허용된 정렬 필드 목록
+                        if (!sortProperty.equals("id") && 
+                            !sortProperty.equals("assignedAt") && 
+                            !sortProperty.equals("dueDate") && 
+                            !sortProperty.equals("createdAt") && 
+                            !sortProperty.equals("status")) {
+                                // 잘못된 필드면 기본값으로 대체
+                                validatedPageable = org.springframework.data.domain.PageRequest.of(
+                                        pageable.getPageNumber(),
+                                        pageable.getPageSize(),
+                                        Sort.by(Sort.Direction.DESC, "assignedAt")
+                                );
+                        }
+                }
+                
+                Page<UserMissionResponse> missions = userMissionService.getUserMissions(userId, validatedPageable);
                 return ApiResponse.success(missions);
         }
 
@@ -105,51 +124,6 @@ public class UserMissionController {
                 return ApiResponse.success(mission);
         }
 
-        @Operation(summary = "미션 인증 (GPS/TIME)", description = "GPS 위치 또는 시간으로 미션을 인증합니다.")
-        @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = {
-                        @ExampleObject(name = "GPS 인증", value = """
-                                        {
-                                          "type": "GPS",
-                                          "latitude": 37.5665,
-                                          "longitude": 126.9780
-                                        }
-                                        """),
-                        @ExampleObject(name = "TIME 인증", value = """
-                                        {
-                                          "type": "TIME",
-                                          "startedAt": "2024-01-15T09:00:00",
-                                          "endedAt": "2024-01-15T09:30:00"
-                                        }
-                                        """)
-        }))
-        @ApiResponses(value = {
-                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "인증 성공", content = @Content(examples = @ExampleObject(value = """
-                                        {
-                                          "success": true,
-                                          "data": {
-                                            "userMissionId": 1,
-                                            "status": "COMPLETED",
-                                            "rewards": {
-                                              "expEarned": 20,
-                                              "badge": {
-                                                "id": 5,
-                                                "expiresAt": "2024-01-18T23:59:59"
-                                              }
-                                            }
-                                          }
-                                        }
-                                        """))),
-                        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "인증 실패 (위치 불일치 등)")
-        })
-        @PostMapping("/{userMissionId}/verify")
-        public ApiResponse<VerifyMissionResponse> verifyMission(
-                        @Parameter(description = "사용자 미션 ID", example = "1") @PathVariable Long userMissionId,
-                        @AuthenticationPrincipal Long userId,
-                        @RequestBody @Valid VerifyMissionRequest request) {
-                VerifyMissionResponse response = userMissionService.verifyMission(userMissionId, userId, request);
-                return ApiResponse.success(response);
-        }
-
         @GetMapping("/history")
         @Operation(summary = "미션 완료 이력 조회", description = "완료한 미션의 이력을 조회합니다.")
         public ApiResponse<Page<UserMissionResponse>> getMissionHistory(
@@ -157,5 +131,60 @@ public class UserMissionController {
                         @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
                 Page<UserMissionResponse> history = userMissionService.getMissionHistory(userId, pageable);
                 return ApiResponse.success(history);
+        }
+
+        @Operation(summary = "돌발 미션 인증", description = "돌발 미션을 인증합니다. 기상 미션은 시간 제한(10분), 식사 미션은 게시글 작성으로 인증합니다.")
+        @PostMapping("/{userMissionId}/verify-spontaneous")
+        public ApiResponse<VerifyMissionResponse> verifySpontaneousMission(
+                        @Parameter(description = "사용자 미션 ID", example = "1") @PathVariable Long userMissionId,
+                        @AuthenticationPrincipal Long userId,
+                        @RequestBody @Valid VerifySpontaneousMissionRequest request) {
+                VerifyMissionResponse response = userMissionService.verifySpontaneousMission(userMissionId, userId, request);
+                return ApiResponse.success(response);
+        }
+
+        @Operation(summary = "기상 미션 상태 조회", description = "현재 사용자의 활성화된 기상 미션 상태를 조회합니다.")
+        @GetMapping("/wakeup/current")
+        public ApiResponse<WakeUpMissionStatusResponse> getCurrentWakeUpMission(
+                        @AuthenticationPrincipal Long userId) {
+                WakeUpMissionStatusResponse status = userMissionService.getCurrentWakeUpMissionStatus(userId);
+                if (status == null) {
+                        throw new com.app.replant.exception.CustomException(
+                                        com.app.replant.exception.ErrorCode.USER_MISSION_NOT_FOUND,
+                                        "현재 활성화된 기상 미션이 없습니다.");
+                }
+                return ApiResponse.success(status);
+        }
+
+        @Operation(summary = "기상 미션 인증 (간편)", description = "기상 미션을 간편하게 인증합니다. userMissionId를 쿼리 파라미터로 받습니다. userMissionId가 없으면 자동으로 찾습니다. GET/POST 모두 지원 (POST 권장).")
+        @RequestMapping(value = "/wakeup/verify-time", method = {RequestMethod.GET, RequestMethod.POST})
+        public ApiResponse<VerifyMissionResponse> verifyWakeUpMissionWithQuery(
+                        @Parameter(description = "사용자 미션 ID (선택사항, 없으면 자동으로 찾음)", example = "1") @RequestParam(required = false) Long userMissionId,
+                        @AuthenticationPrincipal Long userId) {
+                // userMissionId가 없으면 현재 사용자의 ASSIGNED 상태인 기상 미션을 자동으로 찾기
+                if (userMissionId == null) {
+                        userMissionId = userMissionService.findCurrentWakeUpMissionId(userId);
+                        if (userMissionId == null) {
+                                throw new com.app.replant.exception.CustomException(
+                                                com.app.replant.exception.ErrorCode.USER_MISSION_NOT_FOUND,
+                                                "인증할 기상 미션을 찾을 수 없습니다.");
+                        }
+                }
+                
+                // 기상 미션 인증 요청 생성 (postId 없음)
+                VerifySpontaneousMissionRequest request = new VerifySpontaneousMissionRequest();
+                VerifyMissionResponse response = userMissionService.verifySpontaneousMission(userMissionId, userId, request);
+                return ApiResponse.success(response);
+        }
+        
+        @Operation(summary = "기상 미션 인증 (경로 변수)", description = "기상 미션을 경로 변수로 인증합니다. userMissionId를 URL 경로에 포함합니다.")
+        @RequestMapping(value = "/wakeup/{userMissionId}/verify-time", method = {RequestMethod.GET, RequestMethod.POST})
+        public ApiResponse<VerifyMissionResponse> verifyWakeUpMissionWithPath(
+                        @Parameter(description = "사용자 미션 ID", example = "1") @PathVariable Long userMissionId,
+                        @AuthenticationPrincipal Long userId) {
+                // 기상 미션 인증 요청 생성 (postId 없음)
+                VerifySpontaneousMissionRequest request = new VerifySpontaneousMissionRequest();
+                VerifyMissionResponse response = userMissionService.verifySpontaneousMission(userMissionId, userId, request);
+                return ApiResponse.success(response);
         }
 }
