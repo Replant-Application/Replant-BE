@@ -176,4 +176,10 @@ public class MissionController {
         missionService.deleteCustomMission(customMissionId, userId);
         return ApiResponse.success(null);
     }
+
+    @Operation(summary = "[DEBUG] 사용자 미션 상태 확인", description = "특정 이메일 사용자의 공식 미션 수행/완료 상태를 확인합니다.")
+    @GetMapping("/debug/user-status")
+    public ApiResponse<Object> getUserMissionStatus(@RequestParam String email) {
+        return ApiResponse.success(missionService.getUserMissionStatusForDebug(email));
+    }
 }

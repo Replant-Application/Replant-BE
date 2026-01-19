@@ -17,13 +17,17 @@ import com.app.replant.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -44,16 +48,25 @@ public class MissionService {
     }
 
     public Page<MissionResponse> getMissions(MissionCategory category, VerificationType verificationType, Pageable pageable, Long userId) {
-        Page<Mission> missions = missionRepository.findMissions(category, verificationType, pageable);
+        // 전체 미션을 먼저 조회 (페이지네이션 없이)
+        // Pageable.unpaged()를 사용하여 전체 미션을 조회
+        Page<Mission> allMissions = missionRepository.findMissions(category, verificationType, Pageable.unpaged());
         
-        // 사용자가 완료한 미션 ID 목록 조회 (한 번에 조회하여 성능 최적화)
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회 (전체 미션 기준)
+        Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
-        if (userId != null && !missions.getContent().isEmpty()) {
+        if (userId != null && !allMissions.getContent().isEmpty()) {
             List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
                     userId, 
-                    missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
+                    allMissions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );
-            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            // 수행한 미션 ID 목록 (UserMission이 존재하면 수행한 것으로 간주, 상태 무관)
+            attemptedMissionIds = userMissions.stream()
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+            // 완료한 미션 ID 목록 (COMPLETED 상태만)
             completedMissionIds = userMissions.stream()
                     .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
                     .filter(um -> um.getMission() != null)  // null 체크
@@ -62,11 +75,53 @@ public class MissionService {
                     .collect(Collectors.toSet());
         }
         
+        final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
-        return missions.map(mission -> {
-            boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-            return MissionResponse.from(mission, isCompleted);
-        });
+        
+        // MissionResponse로 변환 (전체 미션)
+        List<MissionResponse> allMissionResponses = allMissions.getContent().stream()
+                .map(mission -> {
+                    boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
+                    boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
+                    return MissionResponse.from(mission, isAttempted, isCompleted);
+                })
+                .collect(Collectors.toList());
+        
+        // 전체 미션을 정렬: 수행한 미션을 먼저, 미수행 미션을 나중에 (자물쇠는 항상 마지막)
+        if (userId != null) {
+            // 수행한 미션과 미수행 미션을 명확히 분리
+            List<MissionResponse> attemptedMissions = new ArrayList<>();
+            List<MissionResponse> notAttemptedMissions = new ArrayList<>();
+            
+            for (MissionResponse mission : allMissionResponses) {
+                Boolean isAttempted = mission.getIsAttempted();
+                boolean isAttemptedValue = isAttempted != null && isAttempted;
+                
+                if (isAttemptedValue) {
+                    attemptedMissions.add(mission);
+                } else {
+                    notAttemptedMissions.add(mission);
+                }
+            }
+            
+            // 수행한 미션들 + 미수행 미션들 순서로 합치기 (자물쇠는 항상 마지막)
+            allMissionResponses = new ArrayList<>();
+            allMissionResponses.addAll(attemptedMissions);
+            allMissionResponses.addAll(notAttemptedMissions);
+        }
+        
+        // 정렬된 전체 미션에서 페이지네이션 적용
+        int totalElements = allMissionResponses.size();
+        int page = pageable.getPageNumber();
+        int size = pageable.getPageSize();
+        int start = page * size;
+        int end = Math.min(start + size, totalElements);
+        
+        List<MissionResponse> pagedMissionResponses = start < totalElements 
+                ? allMissionResponses.subList(start, end)
+                : Collections.emptyList();
+        
+        return new PageImpl<>(pagedMissionResponses, pageable, totalElements);
     }
 
     /**
@@ -98,14 +153,21 @@ public class MissionService {
                 category, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable
         );
         
-        // 사용자가 완료한 미션 ID 목록 조회
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회
+        Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
         if (userId != null && !missions.getContent().isEmpty()) {
             List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
                     userId, 
                     missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );
-            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            // 수행한 미션 ID 목록 (UserMission이 존재하면 수행한 것으로 간주, 상태 무관)
+            attemptedMissionIds = userMissions.stream()
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+            // 완료한 미션 ID 목록 (COMPLETED 상태만)
             completedMissionIds = userMissions.stream()
                     .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
                     .filter(um -> um.getMission() != null)  // null 체크
@@ -114,10 +176,12 @@ public class MissionService {
                     .collect(Collectors.toSet());
         }
         
+        final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
         return missions.map(mission -> {
+            boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-            return MissionResponse.from(mission, isCompleted);
+            return MissionResponse.from(mission, isAttempted, isCompleted);
         });
     }
 
@@ -153,14 +217,21 @@ public class MissionService {
                 genderType, regionType, difficultyLevel, pageable
         );
         
-        // 사용자가 완료한 미션 ID 목록 조회
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회
+        Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
         if (userId != null && !missions.getContent().isEmpty()) {
             List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
                     userId, 
                     missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );
-            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            // 수행한 미션 ID 목록 (UserMission이 존재하면 수행한 것으로 간주, 상태 무관)
+            attemptedMissionIds = userMissions.stream()
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+            // 완료한 미션 ID 목록 (COMPLETED 상태만)
             completedMissionIds = userMissions.stream()
                     .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
                     .filter(um -> um.getMission() != null)  // null 체크
@@ -169,10 +240,12 @@ public class MissionService {
                     .collect(Collectors.toSet());
         }
         
+        final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
         return missions.map(mission -> {
+            boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-            return MissionResponse.from(mission, isCompleted);
+            return MissionResponse.from(mission, isAttempted, isCompleted);
         });
     }
 
@@ -184,16 +257,18 @@ public class MissionService {
         Mission mission = findMissionById(missionId);
         long reviewCount = reviewRepository.countByMissionId(missionId);
         
-        // 사용자가 해당 미션을 완료했는지 확인
+        // 사용자가 해당 미션을 수행했는지 및 완료했는지 확인
+        boolean isAttempted = false;
         boolean isCompleted = false;
         if (userId != null) {
             List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionId(userId, missionId);
+            isAttempted = !userMissions.isEmpty();  // UserMission이 존재하면 수행한 것으로 간주
             isCompleted = userMissions.stream()
                     .filter(um -> um.getMission() != null)  // null 체크
                     .anyMatch(um -> um.getStatus() == UserMissionStatus.COMPLETED);
         }
         
-        return MissionResponse.from(mission, reviewCount, isCompleted);
+        return MissionResponse.from(mission, reviewCount, isAttempted, isCompleted);
     }
 
     public Page<MissionReviewResponse> getReviews(Long missionId, Pageable pageable) {
@@ -338,14 +413,21 @@ public class MissionService {
     public Page<MissionResponse> getCustomMissions(Pageable pageable, Long userId) {
         Page<Mission> missions = missionRepository.findCustomMissions(pageable);
         
-        // 사용자가 완료한 미션 ID 목록 조회
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회
+        Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
         if (userId != null && !missions.getContent().isEmpty()) {
             List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
                     userId, 
                     missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );
-            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            // 수행한 미션 ID 목록 (UserMission이 존재하면 수행한 것으로 간주, 상태 무관)
+            attemptedMissionIds = userMissions.stream()
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+            // 완료한 미션 ID 목록 (COMPLETED 상태만)
             completedMissionIds = userMissions.stream()
                     .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
                     .filter(um -> um.getMission() != null)  // null 체크
@@ -354,10 +436,12 @@ public class MissionService {
                     .collect(Collectors.toSet());
         }
         
+        final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
         return missions.map(mission -> {
+            boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-            return MissionResponse.from(mission, isCompleted);
+            return MissionResponse.from(mission, isAttempted, isCompleted);
         });
     }
 
@@ -382,14 +466,21 @@ public class MissionService {
                 keyword, worryType, difficultyLevel, pageable
         );
         
-        // 사용자가 완료한 미션 ID 목록 조회
+        // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회
+        Set<Long> attemptedMissionIds = Collections.emptySet();
         Set<Long> completedMissionIds = Collections.emptySet();
         if (userId != null && !missions.getContent().isEmpty()) {
             List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
                     userId, 
                     missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
             );
-            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            // 수행한 미션 ID 목록 (UserMission이 존재하면 수행한 것으로 간주, 상태 무관)
+            attemptedMissionIds = userMissions.stream()
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+            // 완료한 미션 ID 목록 (COMPLETED 상태만)
             completedMissionIds = userMissions.stream()
                     .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
                     .filter(um -> um.getMission() != null)  // null 체크
@@ -398,10 +489,12 @@ public class MissionService {
                     .collect(Collectors.toSet());
         }
         
+        final Set<Long> finalAttemptedMissionIds = attemptedMissionIds;
         final Set<Long> finalCompletedMissionIds = completedMissionIds;
         return missions.map(mission -> {
+            boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
-            return MissionResponse.from(mission, isCompleted);
+            return MissionResponse.from(mission, isAttempted, isCompleted);
         });
     }
 
@@ -420,16 +513,18 @@ public class MissionService {
             throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
         }
 
-        // 사용자가 해당 미션을 완료했는지 확인
+        // 사용자가 해당 미션을 수행했는지 및 완료했는지 확인
+        boolean isAttempted = false;
         boolean isCompleted = false;
         if (userId != null) {
             List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionId(userId, missionId);
+            isAttempted = !userMissions.isEmpty();  // UserMission이 존재하면 수행한 것으로 간주
             isCompleted = userMissions.stream()
                     .filter(um -> um.getMission() != null)  // null 체크
                     .anyMatch(um -> um.getStatus() == UserMissionStatus.COMPLETED);
         }
 
-        return MissionResponse.from(mission, isCompleted);
+        return MissionResponse.from(mission, isAttempted, isCompleted);
     }
 
     /**
@@ -531,5 +626,74 @@ public class MissionService {
     private User findUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
+     * [DEBUG] 특정 이메일 사용자의 공식 미션 수행/완료 상태 확인
+     */
+    public Map<String, Object> getUserMissionStatusForDebug(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        
+        Long userId = user.getId();
+        
+        // 전체 공식 미션 개수 및 ID 목록
+        Page<Mission> allOfficialMissions = missionRepository.findMissions(null, null, Pageable.unpaged());
+        long totalOfficialMissions = allOfficialMissions.getTotalElements();
+        List<Long> allOfficialMissionIds = allOfficialMissions.getContent().stream()
+                .map(Mission::getId)
+                .collect(Collectors.toList());
+        
+        // 사용자가 수행한 공식 미션들 조회 (전체 기간)
+        List<UserMission> officialUserMissions = allOfficialMissionIds.isEmpty() 
+                ? Collections.emptyList()
+                : userMissionRepository.findByUserIdAndMissionIds(userId, allOfficialMissionIds);
+        
+        // 완료한 미션들
+        List<UserMission> completedMissions = officialUserMissions.stream()
+                .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
+                .collect(Collectors.toList());
+        
+        // 미완료 미션들
+        List<UserMission> incompleteMissions = officialUserMissions.stream()
+                .filter(um -> um.getStatus() != UserMissionStatus.COMPLETED)
+                .collect(Collectors.toList());
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("userId", userId);
+        result.put("email", email);
+        result.put("nickname", user.getNickname());
+        result.put("totalOfficialMissions", totalOfficialMissions);
+        result.put("attemptedCount", officialUserMissions.size());
+        result.put("completedCount", completedMissions.size());
+        result.put("incompleteCount", incompleteMissions.size());
+        result.put("notAttemptedCount", totalOfficialMissions - officialUserMissions.size());
+        
+        // 화면 표시 요약
+        Map<String, Object> screenDisplay = new HashMap<>();
+        screenDisplay.put("MissionScreen_공식미션탭_정상카드표시", completedMissions.size() + "개 (완료한 미션)");
+        screenDisplay.put("MissionScreen_공식미션탭_자물쇠표시", (incompleteMissions.size() + (totalOfficialMissions - officialUserMissions.size())) + "개 (미완료 + 미수행)");
+        screenDisplay.put("MissionGroupScreen_표시되는미션", officialUserMissions.size() + "개 (수행한 미션만)");
+        screenDisplay.put("MissionGroupScreen_정상정보표시", completedMissions.size() + "개 (완료한 미션)");
+        screenDisplay.put("MissionGroupScreen_물음표마스킹", incompleteMissions.size() + "개 (미완료 미션)");
+        
+        result.put("screenDisplay", screenDisplay);
+        
+        // 샘플 미션 목록 (최근 10개)
+        List<Map<String, Object>> sampleMissions = officialUserMissions.stream()
+                .limit(10)
+                .map(um -> {
+                    Map<String, Object> missionInfo = new HashMap<>();
+                    missionInfo.put("missionId", um.getMission().getId());
+                    missionInfo.put("title", um.getMission().getTitle());
+                    missionInfo.put("status", um.getStatus().toString());
+                    missionInfo.put("isCompleted", um.getStatus() == UserMissionStatus.COMPLETED);
+                    return missionInfo;
+                })
+                .collect(Collectors.toList());
+        
+        result.put("sampleMissions", sampleMissions);
+        
+        return result;
     }
 }

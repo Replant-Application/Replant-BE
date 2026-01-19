@@ -11,6 +11,7 @@ import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.support.PageableExecutionUtils;
 
@@ -419,6 +420,12 @@ public class MissionRepositoryCustomImpl implements MissionRepositoryCustom {
      * QueryDSL 쿼리를 Page로 변환
      */
     private Page<Mission> getPage(JPAQuery<Mission> query, Pageable pageable) {
+        // Pageable.unpaged()인 경우 전체 조회
+        if (pageable.isUnpaged()) {
+            List<Mission> content = query.fetch();
+            return new PageImpl<>(content, pageable, content.size());
+        }
+        
         // 페이징 적용
         JPAQuery<Mission> pagedQuery = query
                 .offset(pageable.getOffset())
