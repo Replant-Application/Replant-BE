@@ -408,8 +408,8 @@ public class SpontaneousMissionScheduler {
                 content = "기상 미션이 도착했습니다. 10분 안에 인증해주세요!";
                 notificationType = NotificationType.SPONTANEOUS_WAKE_UP;  // 프론트에서 인증 화면으로 라우팅
             } else if (missionType.contains("식사")) {
-                title = String.format("%s 식사 시간입니다! 🍽️", missionType);
-                content = String.format("%s 식사 미션이 도착했습니다. 식사 후 게시글을 작성해주세요!", missionType);
+                title = String.format("%s 시간입니다! 🍽️", missionType);
+                content = String.format("%s 미션이 도착했습니다. 게시글을 작성해주세요!", missionType);
                 notificationType = NotificationType.SPONTANEOUS_MEAL;  // 프론트에서 인증 화면으로 라우팅
             } else if ("감성일기".equals(missionType)) {
                 title = "감성일기 작성 시간입니다! ✍️";

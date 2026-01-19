@@ -20,14 +20,22 @@ public class CommentResponse {
     private Long parentId;
     private List<CommentResponse> replies;
     private int replyCount;
+    private Boolean isAuthor;  // 본인 댓글 여부 (프론트엔드에서 수정/삭제 버튼 표시용)
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public static CommentResponse from(Comment comment) {
+        return from(comment, null);
+    }
+
+    public static CommentResponse from(Comment comment, Long currentUserId) {
         // User가 이미 로딩되어 있어야 함 (LAZY 로딩 문제 방지)
         Long userId = comment.getUser() != null ? comment.getUser().getId() : null;
         String userNickname = comment.getUser() != null ? comment.getUser().getNickname() : "알 수 없음";
         String userProfileImg = comment.getUser() != null ? comment.getUser().getProfileImg() : null;
+
+        // 본인 댓글 여부 확인 (user_id로 비교)
+        Boolean isAuthor = currentUserId != null && userId != null && userId.equals(currentUserId);
 
         return CommentResponse.builder()
                 .id(comment.getId())
@@ -37,6 +45,7 @@ public class CommentResponse {
                 .content(comment.getContent())
                 .parentId(comment.getParentId())
                 .replyCount(comment.getReplies() != null ? comment.getReplies().size() : 0)
+                .isAuthor(isAuthor)
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt())
                 .build();
@@ -46,10 +55,14 @@ public class CommentResponse {
      * 대댓글까지 포함해서 반환 (최상위 댓글용)
      */
     public static CommentResponse fromWithReplies(Comment comment) {
+        return fromWithReplies(comment, null);
+    }
+
+    public static CommentResponse fromWithReplies(Comment comment, Long currentUserId) {
         List<CommentResponse> replyResponses = null;
         if (comment.getReplies() != null && !comment.getReplies().isEmpty()) {
             replyResponses = comment.getReplies().stream()
-                    .map(CommentResponse::from)
+                    .map(reply -> CommentResponse.from(reply, currentUserId))
                     .collect(Collectors.toList());
         }
 
@@ -57,6 +70,9 @@ public class CommentResponse {
         Long userId = comment.getUser() != null ? comment.getUser().getId() : null;
         String userNickname = comment.getUser() != null ? comment.getUser().getNickname() : "알 수 없음";
         String userProfileImg = comment.getUser() != null ? comment.getUser().getProfileImg() : null;
+
+        // 본인 댓글 여부 확인 (user_id로 비교)
+        Boolean isAuthor = currentUserId != null && userId != null && userId.equals(currentUserId);
 
         return CommentResponse.builder()
                 .id(comment.getId())
@@ -67,6 +83,7 @@ public class CommentResponse {
                 .parentId(comment.getParentId())
                 .replies(replyResponses)
                 .replyCount(comment.getReplies() != null ? comment.getReplies().size() : 0)
+                .isAuthor(isAuthor)
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt())
                 .build();

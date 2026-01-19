@@ -79,7 +79,7 @@ public class PostService {
                     long commentCount = commentRepository.countByPostId(post.getId());
                     long likeCount = postLikeRepository.countByPostId(post.getId());
                     boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
-                    return PostResponse.from(post, commentCount, likeCount, isLiked);
+                    return PostResponse.from(post, commentCount, likeCount, isLiked, currentUserId);
                 });
     }
 
@@ -95,7 +95,7 @@ public class PostService {
         long likeCount = postLikeRepository.countByPostId(postId);
         boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
 
-        return PostResponse.from(post, commentCount, likeCount, isLiked);
+        return PostResponse.from(post, commentCount, likeCount, isLiked, currentUserId);
     }
 
     /**
@@ -127,7 +127,7 @@ public class PostService {
         Post saved = postRepository.save(post);
         log.info("일반 게시글 생성 완료 - postId={}, postType={}, userId={}, title={}", 
                 saved.getId(), saved.getPostType(), userId, saved.getTitle());
-        return PostResponse.from(saved, 0L, 0L, false);
+        return PostResponse.from(saved, 0L, 0L, false, userId);
     }
 
     /**
@@ -176,7 +176,7 @@ public class PostService {
             long likeCount = postLikeRepository.countByPostId(verifiedPost.getId());
             long commentCount = commentRepository.countByPostId(verifiedPost.getId());
             
-            return PostResponse.from(verifiedPost, commentCount, likeCount, false);
+            return PostResponse.from(verifiedPost, commentCount, likeCount, false, userId);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
             // UNIQUE 제약조건 위반 시 (동시 요청으로 인한 중복 생성 시도)
             log.warn("인증글 중복 생성 시도 감지 - userMissionId={}, userId={}", userMission.getId(), userId);
@@ -188,7 +188,7 @@ public class PostService {
             long likeCount = postLikeRepository.countByPostId(existingPost.getId());
             long commentCount = commentRepository.countByPostId(existingPost.getId());
             
-            return PostResponse.from(existingPost, commentCount, likeCount, false);
+            return PostResponse.from(existingPost, commentCount, likeCount, false, userId);
         }
     }
 
@@ -206,7 +206,7 @@ public class PostService {
                     long commentCount = commentRepository.countByPostId(post.getId());
                     long likeCount = postLikeRepository.countByPostId(post.getId());
                     boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
-                    PostResponse response = PostResponse.from(post, commentCount, likeCount, isLiked);
+                    PostResponse response = PostResponse.from(post, commentCount, likeCount, isLiked, currentUserId);
                     // 디버깅: title이 비어있는 경우 로그
                     if (post.isVerificationPost() && (response.getTitle() == null || response.getTitle().isEmpty())) {
                         log.warn("인증글 title 누락 - postId={}, dbTitle={}, missionTitle={}", 
@@ -231,7 +231,7 @@ public class PostService {
         long likeCount = postLikeRepository.countByPostId(postId);
         boolean isLiked = currentUser != null && postLikeRepository.existsByPostAndUser(post, currentUser);
 
-        return PostResponse.from(post, commentCount, likeCount, isLiked);
+        return PostResponse.from(post, commentCount, likeCount, isLiked, currentUserId);
     }
 
     @Transactional
@@ -254,7 +254,7 @@ public class PostService {
         post.update(request.getTitle(), request.getContent(), imageUrlsJson);
         long commentCount = commentRepository.countByPostId(postId);
         long likeCount = postLikeRepository.countByPostId(postId);
-        return PostResponse.from(post, commentCount, likeCount, false);
+        return PostResponse.from(post, commentCount, likeCount, false, userId);
     }
 
     @Transactional
@@ -284,10 +284,14 @@ public class PostService {
     // ========================================
 
     public Page<CommentResponse> getComments(Long postId, Pageable pageable) {
+        return getComments(postId, pageable, null);
+    }
+
+    public Page<CommentResponse> getComments(Long postId, Pageable pageable, Long currentUserId) {
         findPostById(postId);
         List<Comment> comments = commentRepository.findParentCommentsByPostIdWithUser(postId);
         List<CommentResponse> responseList = comments.stream()
-                .map(CommentResponse::fromWithReplies)
+                .map(comment -> CommentResponse.fromWithReplies(comment, currentUserId))
                 .collect(Collectors.toList());
 
         int start = (int) pageable.getOffset();
@@ -330,7 +334,7 @@ public class PostService {
             sendReplyNotification(parentComment.getUser(), user, post);
         }
 
-        return CommentResponse.from(saved);
+        return CommentResponse.from(saved, userId);
     }
 
     @Transactional
@@ -342,7 +346,7 @@ public class PostService {
         }
 
         comment.updateContent(request.getContent());
-        return CommentResponse.from(comment);
+        return CommentResponse.from(comment, userId);
     }
 
     @Transactional

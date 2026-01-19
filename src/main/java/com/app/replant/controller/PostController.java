@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/community/posts")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "JWT Token")
 public class PostController {
 
     private final PostService postService;
@@ -67,8 +69,9 @@ public class PostController {
             @RequestParam(required = false) Long missionId,
             @Parameter(description = "뱃지 소유자 게시글만 조회")
             @RequestParam(required = false) Boolean badgeOnly,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<PostResponse> posts = postService.getPosts(missionId, badgeOnly, pageable);
+        Page<PostResponse> posts = postService.getPosts(missionId, badgeOnly, pageable, userId);
         return ApiResponse.success(posts);
     }
 
@@ -76,8 +79,9 @@ public class PostController {
     @GetMapping("/{postId}")
     public ApiResponse<PostResponse> getPost(
             @Parameter(description = "게시글 ID", example = "1")
-            @PathVariable Long postId) {
-        PostResponse post = postService.getPost(postId);
+            @PathVariable Long postId,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId) {
+        PostResponse post = postService.getPost(postId, userId);
         return ApiResponse.success(post);
     }
 
@@ -135,8 +139,9 @@ public class PostController {
     public ApiResponse<Page<CommentResponse>> getComments(
             @Parameter(description = "게시글 ID", example = "1")
             @PathVariable Long postId,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<CommentResponse> comments = postService.getComments(postId, pageable);
+        Page<CommentResponse> comments = postService.getComments(postId, pageable, userId);
         return ApiResponse.success(comments);
     }
 

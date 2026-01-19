@@ -23,6 +23,10 @@ public class MissionResponse {
     private Integer badgeDurationDays;
     private Boolean isActive;
     private Long reviewCount;
+    
+    // 미션 도감용: 사용자가 해당 미션을 완료했는지 여부 (인증 완료 = 잠금 해제)
+    @lombok.Builder.Default
+    private Boolean isCompleted = false;
 
     // ============ 사용자 맞춤 필드들 ============
     // 고민 종류
@@ -47,6 +51,10 @@ public class MissionResponse {
     private Boolean isPromoted;
 
     public static MissionResponse from(Mission mission) {
+        return from(mission, false);  // 기본값 false
+    }
+
+    public static MissionResponse from(Mission mission, boolean isCompleted) {
         MissionResponseBuilder builder = MissionResponse.builder()
                 .id(mission.getId())
                 .missionType(mission.getMissionType())
@@ -58,6 +66,7 @@ public class MissionResponse {
                 .expReward(mission.isCustomMission() ? 0 : mission.getExpReward())
                 .badgeDurationDays(mission.getBadgeDurationDays())
                 .isActive(mission.getIsActive())
+                .isCompleted(isCompleted)
                 // 사용자 맞춤 필드
                 .worryType(mission.getWorryType())
                 .ageRanges(mission.getAgeRanges())
@@ -80,6 +89,10 @@ public class MissionResponse {
     }
 
     public static MissionResponse from(Mission mission, long reviewCount) {
+        return from(mission, reviewCount, false);
+    }
+
+    public static MissionResponse from(Mission mission, long reviewCount, boolean isCompleted) {
         MissionResponseBuilder builder = MissionResponse.builder()
                 .id(mission.getId())
                 .missionType(mission.getMissionType())
@@ -92,6 +105,7 @@ public class MissionResponse {
                 .badgeDurationDays(mission.getBadgeDurationDays())
                 .isActive(mission.getIsActive())
                 .reviewCount(reviewCount)
+                .isCompleted(isCompleted)
                 // 사용자 맞춤 필드
                 .worryType(mission.getWorryType())
                 .ageRanges(mission.getAgeRanges())

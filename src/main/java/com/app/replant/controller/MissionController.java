@@ -5,6 +5,7 @@ import com.app.replant.domain.mission.dto.*;
 import com.app.replant.domain.mission.enums.*;
 import com.app.replant.domain.mission.service.MissionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,13 +26,27 @@ public class MissionController {
 
     private final MissionService missionService;
 
-    @Operation(summary = "미션 목록 조회")
+    @Operation(summary = "미션 목록 조회 (미션 도감용)", 
+               description = "미션 도감에서 전체 미션을 조회합니다. 페이징 크기를 크게 설정하거나 size 파라미터로 조정 가능합니다.")
     @GetMapping
     public ApiResponse<Page<MissionResponse>> getMissions(
             @RequestParam(required = false) MissionCategory category,
             @RequestParam(required = false) VerificationType verificationType,
-            @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<MissionResponse> missions = missionService.getMissions(category, verificationType, pageable);
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+            @PageableDefault(size = 1000, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<MissionResponse> missions = missionService.getMissions(category, verificationType, pageable, userId);
+        return ApiResponse.success(missions);
+    }
+
+    @Operation(summary = "미션 도감 목록 조회 (collection 경로 지원)", 
+               description = "/api/missions/collection은 /api/missions와 동일한 기능을 제공합니다. 전체 미션을 조회합니다.")
+    @GetMapping("/collection")
+    public ApiResponse<Page<MissionResponse>> getMissionsCollection(
+            @RequestParam(required = false) MissionCategory category,
+            @RequestParam(required = false) VerificationType verificationType,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
+            @PageableDefault(size = 1000, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<MissionResponse> missions = missionService.getMissions(category, verificationType, pageable, userId);
         return ApiResponse.success(missions);
     }
 
@@ -45,9 +60,10 @@ public class MissionController {
             @RequestParam(required = false) GenderType genderType,
             @RequestParam(required = false) RegionType regionType,
             @RequestParam(required = false) DifficultyLevel difficultyLevel,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<MissionResponse> missions = missionService.getFilteredMissions(
-                category, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable);
+                category, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable, userId);
         return ApiResponse.success(missions);
     }
 
@@ -62,17 +78,20 @@ public class MissionController {
             @RequestParam(required = false) GenderType genderType,
             @RequestParam(required = false) RegionType regionType,
             @RequestParam(required = false) DifficultyLevel difficultyLevel,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<MissionResponse> missions = missionService.searchOfficialMissions(
                 keyword, category, verificationType, worryType, ageRange,
-                genderType, regionType, difficultyLevel, pageable);
+                genderType, regionType, difficultyLevel, pageable, userId);
         return ApiResponse.success(missions);
     }
 
     @Operation(summary = "미션 상세 조회")
     @GetMapping("/{missionId}")
-    public ApiResponse<MissionResponse> getMission(@PathVariable Long missionId) {
-        MissionResponse mission = missionService.getMission(missionId);
+    public ApiResponse<MissionResponse> getMission(
+            @PathVariable Long missionId,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId) {
+        MissionResponse mission = missionService.getMission(missionId, userId);
         return ApiResponse.success(mission);
     }
 
@@ -101,8 +120,9 @@ public class MissionController {
     @Operation(summary = "커스텀 미션 목록 조회", description = "공개된 커스텀 미션 목록을 조회합니다.")
     @GetMapping("/custom")
     public ApiResponse<Page<MissionResponse>> getCustomMissions(
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<MissionResponse> missions = missionService.getCustomMissions(pageable);
+        Page<MissionResponse> missions = missionService.getCustomMissions(pageable, userId);
         return ApiResponse.success(missions);
     }
 
@@ -112,16 +132,19 @@ public class MissionController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) WorryType worryType,
             @RequestParam(required = false) DifficultyLevel difficultyLevel,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<MissionResponse> missions = missionService.searchCustomMissions(
-                keyword, worryType, difficultyLevel, pageable);
+                keyword, worryType, difficultyLevel, pageable, userId);
         return ApiResponse.success(missions);
     }
 
     @Operation(summary = "커스텀 미션 상세 조회")
     @GetMapping("/custom/{customMissionId}")
-    public ApiResponse<MissionResponse> getCustomMission(@PathVariable Long customMissionId) {
-        MissionResponse mission = missionService.getCustomMission(customMissionId);
+    public ApiResponse<MissionResponse> getCustomMission(
+            @PathVariable Long customMissionId,
+            @Parameter(hidden = true) @AuthenticationPrincipal Long userId) {
+        MissionResponse mission = missionService.getCustomMission(customMissionId, userId);
         return ApiResponse.success(mission);
     }
 

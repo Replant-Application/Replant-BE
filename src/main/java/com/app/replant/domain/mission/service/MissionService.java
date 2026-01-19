@@ -9,6 +9,9 @@ import com.app.replant.domain.review.entity.MissionReview;
 import com.app.replant.domain.review.repository.MissionReviewRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
+import com.app.replant.domain.usermission.entity.UserMission;
+import com.app.replant.domain.usermission.enums.UserMissionStatus;
+import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -32,10 +37,36 @@ public class MissionService {
     private final MissionReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final UserBadgeRepository userBadgeRepository;
+    private final UserMissionRepository userMissionRepository;
 
     public Page<MissionResponse> getMissions(MissionCategory category, VerificationType verificationType, Pageable pageable) {
-        return missionRepository.findMissions(category, verificationType, pageable)
-                .map(MissionResponse::from);
+        return getMissions(category, verificationType, pageable, null);
+    }
+
+    public Page<MissionResponse> getMissions(MissionCategory category, VerificationType verificationType, Pageable pageable, Long userId) {
+        Page<Mission> missions = missionRepository.findMissions(category, verificationType, pageable);
+        
+        // 사용자가 완료한 미션 ID 목록 조회 (한 번에 조회하여 성능 최적화)
+        Set<Long> completedMissionIds = Collections.emptySet();
+        if (userId != null && !missions.getContent().isEmpty()) {
+            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+                    userId, 
+                    missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
+            );
+            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            completedMissionIds = userMissions.stream()
+                    .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+        }
+        
+        final Set<Long> finalCompletedMissionIds = completedMissionIds;
+        return missions.map(mission -> {
+            boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
+            return MissionResponse.from(mission, isCompleted);
+        });
     }
 
     /**
@@ -50,9 +81,44 @@ public class MissionService {
             RegionType regionType,
             DifficultyLevel difficultyLevel,
             Pageable pageable) {
-        return missionRepository.findFilteredMissions(
+        return getFilteredMissions(category, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable, null);
+    }
+
+    public Page<MissionResponse> getFilteredMissions(
+            MissionCategory category,
+            VerificationType verificationType,
+            WorryType worryType,
+            AgeRange ageRange,
+            GenderType genderType,
+            RegionType regionType,
+            DifficultyLevel difficultyLevel,
+            Pageable pageable,
+            Long userId) {
+        Page<Mission> missions = missionRepository.findFilteredMissions(
                 category, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable
-        ).map(MissionResponse::from);
+        );
+        
+        // 사용자가 완료한 미션 ID 목록 조회
+        Set<Long> completedMissionIds = Collections.emptySet();
+        if (userId != null && !missions.getContent().isEmpty()) {
+            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+                    userId, 
+                    missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
+            );
+            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            completedMissionIds = userMissions.stream()
+                    .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+        }
+        
+        final Set<Long> finalCompletedMissionIds = completedMissionIds;
+        return missions.map(mission -> {
+            boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
+            return MissionResponse.from(mission, isCompleted);
+        });
     }
 
     /**
@@ -68,17 +134,66 @@ public class MissionService {
             RegionType regionType,
             DifficultyLevel difficultyLevel,
             Pageable pageable) {
-        return missionRepository.searchOfficialMissions(
+        return searchOfficialMissions(keyword, category, verificationType, worryType, ageRange, genderType, regionType, difficultyLevel, pageable, null);
+    }
+
+    public Page<MissionResponse> searchOfficialMissions(
+            String keyword,
+            MissionCategory category,
+            VerificationType verificationType,
+            WorryType worryType,
+            AgeRange ageRange,
+            GenderType genderType,
+            RegionType regionType,
+            DifficultyLevel difficultyLevel,
+            Pageable pageable,
+            Long userId) {
+        Page<Mission> missions = missionRepository.searchOfficialMissions(
                 keyword, category, verificationType, worryType, ageRange,
                 genderType, regionType, difficultyLevel, pageable
-        ).map(MissionResponse::from);
+        );
+        
+        // 사용자가 완료한 미션 ID 목록 조회
+        Set<Long> completedMissionIds = Collections.emptySet();
+        if (userId != null && !missions.getContent().isEmpty()) {
+            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+                    userId, 
+                    missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
+            );
+            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            completedMissionIds = userMissions.stream()
+                    .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+        }
+        
+        final Set<Long> finalCompletedMissionIds = completedMissionIds;
+        return missions.map(mission -> {
+            boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
+            return MissionResponse.from(mission, isCompleted);
+        });
     }
 
     public MissionResponse getMission(Long missionId) {
+        return getMission(missionId, null);
+    }
+
+    public MissionResponse getMission(Long missionId, Long userId) {
         Mission mission = findMissionById(missionId);
         long reviewCount = reviewRepository.countByMissionId(missionId);
         
-        return MissionResponse.from(mission, reviewCount);
+        // 사용자가 해당 미션을 완료했는지 확인
+        boolean isCompleted = false;
+        if (userId != null) {
+            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionId(userId, missionId);
+            isCompleted = userMissions.stream()
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .anyMatch(um -> um.getStatus() == UserMissionStatus.COMPLETED);
+        }
+        
+        return MissionResponse.from(mission, reviewCount, isCompleted);
     }
 
     public Page<MissionReviewResponse> getReviews(Long missionId, Pageable pageable) {
@@ -217,8 +332,33 @@ public class MissionService {
      * 커스텀 미션 목록 조회 (공개된 것만, 전체 조회)
      */
     public Page<MissionResponse> getCustomMissions(Pageable pageable) {
-        return missionRepository.findCustomMissions(pageable)
-                .map(MissionResponse::from);
+        return getCustomMissions(pageable, null);
+    }
+
+    public Page<MissionResponse> getCustomMissions(Pageable pageable, Long userId) {
+        Page<Mission> missions = missionRepository.findCustomMissions(pageable);
+        
+        // 사용자가 완료한 미션 ID 목록 조회
+        Set<Long> completedMissionIds = Collections.emptySet();
+        if (userId != null && !missions.getContent().isEmpty()) {
+            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+                    userId, 
+                    missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
+            );
+            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            completedMissionIds = userMissions.stream()
+                    .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+        }
+        
+        final Set<Long> finalCompletedMissionIds = completedMissionIds;
+        return missions.map(mission -> {
+            boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
+            return MissionResponse.from(mission, isCompleted);
+        });
     }
 
     /**
@@ -229,15 +369,50 @@ public class MissionService {
             WorryType worryType,
             DifficultyLevel difficultyLevel,
             Pageable pageable) {
-        return missionRepository.searchCustomMissions(
+        return searchCustomMissions(keyword, worryType, difficultyLevel, pageable, null);
+    }
+
+    public Page<MissionResponse> searchCustomMissions(
+            String keyword,
+            WorryType worryType,
+            DifficultyLevel difficultyLevel,
+            Pageable pageable,
+            Long userId) {
+        Page<Mission> missions = missionRepository.searchCustomMissions(
                 keyword, worryType, difficultyLevel, pageable
-        ).map(MissionResponse::from);
+        );
+        
+        // 사용자가 완료한 미션 ID 목록 조회
+        Set<Long> completedMissionIds = Collections.emptySet();
+        if (userId != null && !missions.getContent().isEmpty()) {
+            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionIds(
+                    userId, 
+                    missions.getContent().stream().map(Mission::getId).collect(Collectors.toList())
+            );
+            // 같은 미션에 대해 여러 UserMission이 있을 수 있으므로, 하나라도 COMPLETED 상태이면 완료로 표시
+            completedMissionIds = userMissions.stream()
+                    .filter(um -> um.getStatus() == UserMissionStatus.COMPLETED)
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .map(um -> um.getMission().getId())
+                    .filter(id -> id != null)  // null ID 제외
+                    .collect(Collectors.toSet());
+        }
+        
+        final Set<Long> finalCompletedMissionIds = completedMissionIds;
+        return missions.map(mission -> {
+            boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
+            return MissionResponse.from(mission, isCompleted);
+        });
     }
 
     /**
      * 커스텀 미션 상세 조회
      */
     public MissionResponse getCustomMission(Long missionId) {
+        return getCustomMission(missionId, null);
+    }
+
+    public MissionResponse getCustomMission(Long missionId, Long userId) {
         Mission mission = missionRepository.findById(missionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND));
 
@@ -245,7 +420,16 @@ public class MissionService {
             throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
         }
 
-        return MissionResponse.from(mission);
+        // 사용자가 해당 미션을 완료했는지 확인
+        boolean isCompleted = false;
+        if (userId != null) {
+            List<UserMission> userMissions = userMissionRepository.findByUserIdAndMissionId(userId, missionId);
+            isCompleted = userMissions.stream()
+                    .filter(um -> um.getMission() != null)  // null 체크
+                    .anyMatch(um -> um.getStatus() == UserMissionStatus.COMPLETED);
+        }
+
+        return MissionResponse.from(mission, isCompleted);
     }
 
     /**

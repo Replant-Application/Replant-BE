@@ -147,8 +147,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/restore").permitAll() // 계정 복구 (인증 불필요)
                         .requestMatchers("/api/missions/**").permitAll() // 미션 목록 조회 (공개)
                         .requestMatchers("/api/custom-missions/**").permitAll() // 커스텀 미션 목록 (공개)
-                        .requestMatchers("/api/verifications").permitAll() // 인증 게시판 목록 (공개)
-                        .requestMatchers("/api/posts").permitAll() // 게시글 목록 (공개)
                         .requestMatchers("/api/todolists/public/**").permitAll() // 공개 투두리스트 (공개)
                         .requestMatchers("/ws/**").permitAll() // WebSocket
                         .requestMatchers("/files/**").permitAll() // 파일 업로드/다운로드
@@ -175,6 +173,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/v1/fcm/**").authenticated() // FCM 전송 API
                         .requestMatchers("/sse/**").authenticated() // SSE
+                        .requestMatchers("/api/community/posts/**").authenticated() // 커뮤니티 게시글 (인증 필요)
+                        .requestMatchers("/api/verifications/**").authenticated() // 인증 게시판 (인증 필요)
 
                         // 관리자 API (일부 개발/초기 설정용으로 공개)
                         .requestMatchers("/admin/reset-missions", "/admin/mission-count", "/admin/setup-admin").permitAll()

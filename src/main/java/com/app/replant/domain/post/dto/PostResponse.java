@@ -4,10 +4,8 @@ import com.app.replant.domain.post.entity.Post;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -37,6 +35,9 @@ public class PostResponse {
     private Long likeCount;
     private Long commentCount;
     private Boolean isLiked;
+    
+    // 본인 게시글 여부 (프론트엔드에서 수정/삭제 버튼 표시용)
+    private Boolean isAuthor;
 
     // 인증 상태 (VERIFICATION일 경우)
     private String status;  // PENDING, APPROVED
@@ -54,14 +55,18 @@ public class PostResponse {
     }
 
     public static PostResponse from(Post post) {
-        return from(post, 0L, 0L, false);
+        return from(post, 0L, 0L, false, null);
     }
 
     public static PostResponse from(Post post, Long commentCount) {
-        return from(post, commentCount, 0L, false);
+        return from(post, commentCount, 0L, false, null);
     }
 
     public static PostResponse from(Post post, Long commentCount, Long likeCount, Boolean isLiked) {
+        return from(post, commentCount, likeCount, isLiked, null);
+    }
+
+    public static PostResponse from(Post post, Long commentCount, Long likeCount, Boolean isLiked, Long currentUserId) {
         // NPE 방어: User null 체크
         Long userId = null;
         String userNickname = null;
@@ -97,6 +102,9 @@ public class PostResponse {
             title = "";
         }
         
+        // 본인 게시글 여부 확인 (user_id로 비교)
+        Boolean isAuthor = currentUserId != null && userId != null && userId.equals(currentUserId);
+        
         PostResponseBuilder builder = PostResponse.builder()
                 .id(post.getId())
                 .postType(post.getPostType() != null ? post.getPostType().name() : "GENERAL")
@@ -109,6 +117,7 @@ public class PostResponse {
                 .likeCount(likeCount)
                 .commentCount(commentCount)
                 .isLiked(isLiked)
+                .isAuthor(isAuthor)
                 .status(post.getStatus())
                 .verifiedAt(post.getVerifiedAt())
                 .createdAt(post.getCreatedAt())

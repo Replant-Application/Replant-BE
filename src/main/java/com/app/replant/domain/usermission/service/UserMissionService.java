@@ -6,7 +6,6 @@ import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.enums.VerificationType;
 import com.app.replant.domain.mission.repository.MissionRepository;
-import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
@@ -21,7 +20,6 @@ import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
-import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.exception.CustomException;
 import com.app.replant.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -213,6 +211,8 @@ public class UserMissionService {
 
         // 미션 완료 처리
         userMission.updateStatus(UserMissionStatus.COMPLETED);
+        // 명시적으로 저장하여 DB에 반영
+        userMissionRepository.saveAndFlush(userMission);
 
         // 보상 지급 (커스텀 미션은 경험치 지급 없음)
         int expReward = getExpReward(userMission);
@@ -281,20 +281,18 @@ public class UserMissionService {
             throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE);
         }
 
-        // 미션 완료 처리
-        userMission.updateStatus(UserMissionStatus.COMPLETED);
+        // 미션 완료 처리 (투두리스트 미션 완료 처리 포함)
+        completeMissionVerification(userMission);
 
-        // 보상 지급 (커스텀 미션은 경험치 지급 없음)
+        // 보상 지급 정보 조회 (이미 completeMissionVerification에서 처리됨)
         int expReward = getExpReward(userMission);
-
-        Reant reant = reantRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.REANT_NOT_FOUND));
-        if (expReward > 0) {  // 커스텀 미션은 0 반환
-            reant.addExp(expReward);
-        }
-
-        // 뱃지 발급
-        UserBadge badge = createBadge(userMission);
+        
+        // 뱃지 조회 (이미 completeMissionVerification에서 발급됨)
+        UserBadge badge = userBadgeRepository.findValidBadgeForMission(
+                userId, 
+                userMission.getMission().getId(), 
+                LocalDateTime.now()
+        ).orElse(null);
 
         // 유사 유저 추천 생성 (RecommendationService 삭제로 인해 임시 비활성화)
         // TODO: 추천 시스템 재구현 시 활성화
@@ -594,18 +592,18 @@ public class UserMissionService {
                     "기상 미션 인증 시간(10분)이 초과되었습니다.");
         }
 
-        // 인증 성공 처리
-        userMission.complete();
-        
-        // 경험치 지급 (10점)
-        int expReward = 10;
-        User user = userMission.getUser();
-        Reant reant = reantRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new CustomException(ErrorCode.REANT_NOT_FOUND));
-        reant.addExp(expReward);
+        // 인증 성공 처리 (투두리스트 미션 완료 처리 포함)
+        completeMissionVerification(userMission);
 
-        // 뱃지 발급
-        UserBadge badge = createBadge(userMission);
+        // 경험치 지급 정보 (이미 completeMissionVerification에서 처리됨)
+        int expReward = 10;
+        
+        // 뱃지 조회 (이미 completeMissionVerification에서 발급됨)
+        UserBadge badge = userBadgeRepository.findValidBadgeForMission(
+                userMission.getUser().getId(), 
+                userMission.getMission().getId(), 
+                now
+        ).orElse(null);
 
         // 인증 기록 생성
         MissionVerification verification = MissionVerification.builder()
@@ -615,7 +613,7 @@ public class UserMissionService {
         verificationRepository.save(verification);
 
         log.info("기상 미션 인증 완료: userMissionId={}, userId={}, elapsedMinutes={}", 
-                userMission.getId(), user.getId(), elapsed.toMinutes());
+                userMission.getId(), userMission.getUser().getId(), elapsed.toMinutes());
 
         return buildVerifyResponse(userMission, verification, expReward, badge);
     }
@@ -633,18 +631,18 @@ public class UserMissionService {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
-        // 인증 성공 처리
-        userMission.complete();
-        
-        // 경험치 지급 (10점)
-        int expReward = 10;
-        User user = userMission.getUser();
-        Reant reant = reantRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new CustomException(ErrorCode.REANT_NOT_FOUND));
-        reant.addExp(expReward);
+        // 인증 성공 처리 (투두리스트 미션 완료 처리 포함)
+        completeMissionVerification(userMission);
 
-        // 뱃지 발급
-        UserBadge badge = createBadge(userMission);
+        // 경험치 지급 정보 (이미 completeMissionVerification에서 처리됨)
+        int expReward = 10;
+        
+        // 뱃지 조회 (이미 completeMissionVerification에서 발급됨)
+        UserBadge badge = userBadgeRepository.findValidBadgeForMission(
+                userId, 
+                userMission.getMission().getId(), 
+                now
+        ).orElse(null);
 
         // 인증 기록 생성 (게시글 연결)
         MissionVerification verification = MissionVerification.builder()
@@ -655,7 +653,7 @@ public class UserMissionService {
         verificationRepository.save(verification);
 
         log.info("식사 미션 인증 완료: userMissionId={}, userId={}, postId={}", 
-                userMission.getId(), user.getId(), postId);
+                userMission.getId(), userId, postId);
 
         return buildVerifyResponse(userMission, verification, expReward, badge);
     }
