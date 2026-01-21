@@ -18,6 +18,13 @@ configurations {
     compileOnly {
         extendsFrom annotationProcessor
     }
+    // 간접 의존성 버전 강제 지정 (보안 취약점 해결)
+    all {
+        resolutionStrategy {
+            force 'io.grpc:grpc-netty-shaded:1.75.0'
+            force 'org.apache.commons:commons-lang3:3.18.0'
+        }
+    }
 }
 
 repositories {
@@ -72,7 +79,7 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
     
     // Database
-    implementation 'com.mysql:mysql-connector-j:9.2.0'
+    implementation 'com.mysql:mysql-connector-j:9.3.0'
     runtimeOnly 'com.h2database:h2'
 
     // Flyway Migration (비활성화 - 나중에 사용 가능)
