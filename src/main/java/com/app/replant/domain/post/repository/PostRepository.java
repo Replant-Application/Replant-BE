@@ -1,7 +1,6 @@
 package com.app.replant.domain.post.repository;
 
 import com.app.replant.domain.post.entity.Post;
-import com.app.replant.domain.post.enums.PostType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,8 +26,10 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
       Optional<Post> findByIdAndDelFlagFalse(Long postId);
       
       /**
-       * 사용자별 삭제되지 않은 게시글 조회 (delFlag = false)
+       * 사용자별 삭제되지 않은 게시글 조회
+       * @deprecated findByUserIdAndNotDeleted를 사용하세요 (QueryDSL 구현)
        */
+      @Deprecated
       Page<Post> findByUserIdAndDelFlagFalse(Long userId, Pageable pageable);
 
       // ========================================

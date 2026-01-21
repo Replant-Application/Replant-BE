@@ -112,29 +112,15 @@ public class SpontaneousMissionScheduler {
                 
                 // 각 사용자별 작업을 병렬로 처리 (TaskScheduler 스레드 풀 활용)
                 wakeUpUsers.parallelStream().forEach(user -> {
-                    try {
-                        // 설정한 날짜가 오늘이면 미션을 할당하지 않음 (악용 방지 - 다음날부터만 적용)
-                        LocalDate setupDate = user.getUpdatedAt() != null ? user.getUpdatedAt().toLocalDate() : null;
-                        LocalDate today = now.toLocalDate();
-                        
-                        // 설정일이 오늘이면 스킵 (다음날부터만 적용)
-                        if (setupDate != null && setupDate.equals(today)) {
-                            log.debug("사용자 {}는 오늘 설정을 완료했으므로 다음날부터만 미션 할당됨 (설정일: {}, 오늘: {})", 
-                                    user.getId(), setupDate, today);
-                            return;
-                        }
-                        
-                        String roundedWakeTime = roundTimeTo5Minutes(user.getWakeTime());
-                        if (roundedWakeTime != null && targetTime.equals(roundedWakeTime)) {
-                            log.info("기상 시간 매칭! 사용자 {} 기상 미션 할당 시작 (wakeTime: {})", 
-                                    user.getId(), user.getWakeTime());
-                            assignWakeUpMission(user, now);
-                            assignedCount.incrementAndGet();
-                        }
-                    } catch (Exception e) {
-                        log.error("사용자 {} 기상 미션 할당 실패: {}", user.getId(), e.getMessage(), e);
-                        skippedCount.incrementAndGet();
-                    }
+                    processUserForTimeBasedMission(user, now, targetTime, 
+                            user.getWakeTime(), 
+                            () -> {
+                                log.info("기상 시간 매칭! 사용자 {} 기상 미션 할당 시작 (wakeTime: {})", 
+                                        user.getId(), user.getWakeTime());
+                                assignWakeUpMission(user, now);
+                            },
+                            "기상",
+                            assignedCount, skippedCount);
                 });
                 
                 // 2. 식사 시간에 해당하는 사용자 조회 (아침/점심/저녁)
@@ -143,42 +129,7 @@ public class SpontaneousMissionScheduler {
                 
                 // 각 사용자별 작업을 병렬로 처리
                 mealUsers.parallelStream().forEach(user -> {
-                    try {
-                        // 설정한 날짜가 오늘이면 미션을 할당하지 않음 (악용 방지 - 다음날부터만 적용)
-                        LocalDate setupDate = user.getUpdatedAt() != null ? user.getUpdatedAt().toLocalDate() : null;
-                        LocalDate today = now.toLocalDate();
-                        
-                        // 설정일이 오늘이면 스킵 (다음날부터만 적용)
-                        if (setupDate != null && setupDate.equals(today)) {
-                            log.debug("사용자 {}는 오늘 설정을 완료했으므로 다음날부터만 미션 할당됨 (설정일: {}, 오늘: {})", 
-                                    user.getId(), setupDate, today);
-                            return;
-                        }
-                        
-                        String roundedBreakfastTime = roundTimeTo5Minutes(user.getBreakfastTime());
-                        String roundedLunchTime = roundTimeTo5Minutes(user.getLunchTime());
-                        String roundedDinnerTime = roundTimeTo5Minutes(user.getDinnerTime());
-                        
-                        if (roundedBreakfastTime != null && targetTime.equals(roundedBreakfastTime)) {
-                            log.info("아침 식사 시간 매칭! 사용자 {} 아침 식사 미션 할당 (breakfastTime: {})", 
-                                    user.getId(), user.getBreakfastTime());
-                            assignMealMission(user, now, "아침");
-                            assignedCount.incrementAndGet();
-                        } else if (roundedLunchTime != null && targetTime.equals(roundedLunchTime)) {
-                            log.info("점심 식사 시간 매칭! 사용자 {} 점심 식사 미션 할당 (lunchTime: {})", 
-                                    user.getId(), user.getLunchTime());
-                            assignMealMission(user, now, "점심");
-                            assignedCount.incrementAndGet();
-                        } else if (roundedDinnerTime != null && targetTime.equals(roundedDinnerTime)) {
-                            log.info("저녁 식사 시간 매칭! 사용자 {} 저녁 식사 미션 할당 (dinnerTime: {})", 
-                                    user.getId(), user.getDinnerTime());
-                            assignMealMission(user, now, "저녁");
-                            assignedCount.incrementAndGet();
-                        }
-                    } catch (Exception e) {
-                        log.error("사용자 {} 식사 미션 할당 실패: {}", user.getId(), e.getMessage(), e);
-                        skippedCount.incrementAndGet();
-                    }
+                    processMealTimeUser(user, now, targetTime, assignedCount, skippedCount);
                 });
                 
                 // 3. 취침 시간에 해당하는 사용자만 조회
@@ -187,29 +138,15 @@ public class SpontaneousMissionScheduler {
                 
                 // 각 사용자별 작업을 병렬로 처리
                 sleepUsers.parallelStream().forEach(user -> {
-                    try {
-                        // 설정한 날짜가 오늘이면 미션을 할당하지 않음 (악용 방지 - 다음날부터만 적용)
-                        LocalDate setupDate = user.getUpdatedAt() != null ? user.getUpdatedAt().toLocalDate() : null;
-                        LocalDate today = now.toLocalDate();
-                        
-                        // 설정일이 오늘이면 스킵 (다음날부터만 적용)
-                        if (setupDate != null && setupDate.equals(today)) {
-                            log.debug("사용자 {}는 오늘 설정을 완료했으므로 다음날부터만 미션 할당됨 (설정일: {}, 오늘: {})", 
-                                    user.getId(), setupDate, today);
-                            return;
-                        }
-                        
-                        String roundedSleepTime = roundTimeTo5Minutes(user.getSleepTime());
-                        if (roundedSleepTime != null && targetTime.equals(roundedSleepTime)) {
-                            log.info("취침 시간 매칭! 사용자 {} 감성일기 미션 할당 (sleepTime: {})", 
-                                    user.getId(), user.getSleepTime());
-                            assignEmotionalDiaryMission(user, now);
-                            assignedCount.incrementAndGet();
-                        }
-                    } catch (Exception e) {
-                        log.error("사용자 {} 감성일기 미션 할당 실패: {}", user.getId(), e.getMessage(), e);
-                        skippedCount.incrementAndGet();
-                    }
+                    processUserForTimeBasedMission(user, now, targetTime, 
+                            user.getSleepTime(), 
+                            () -> {
+                                log.info("취침 시간 매칭! 사용자 {} 감성일기 미션 할당 (sleepTime: {})", 
+                                        user.getId(), user.getSleepTime());
+                                assignEmotionalDiaryMission(user, now);
+                            },
+                            "감성일기",
+                            assignedCount, skippedCount);
                 });
                 
             } catch (Exception e) {
@@ -223,6 +160,92 @@ public class SpontaneousMissionScheduler {
         } catch (Exception e) {
             log.error("돌발 미션 할당 스케줄러 실행 중 오류 발생", e);
         }
+    }
+
+    /**
+     * 시간 기반 미션을 위한 사용자 처리 공통 로직
+     * 설정일 체크, 시간 매칭, 미션 할당을 통합 처리
+     */
+    private void processUserForTimeBasedMission(
+            User user, 
+            LocalDateTime now, 
+            String targetTime, 
+            String userTime,
+            Runnable missionAssigner,
+            String missionType,
+            AtomicInteger assignedCount,
+            AtomicInteger skippedCount) {
+        try {
+            // 설정한 날짜가 오늘이면 미션을 할당하지 않음 (악용 방지 - 다음날부터만 적용)
+            if (shouldSkipUserForToday(user, now)) {
+                return;
+            }
+            
+            String roundedTime = roundTimeTo5Minutes(userTime);
+            if (roundedTime != null && targetTime.equals(roundedTime)) {
+                missionAssigner.run();
+                assignedCount.incrementAndGet();
+            }
+        } catch (Exception e) {
+            log.error("사용자 {} {} 미션 할당 실패: {}", user.getId(), missionType, e.getMessage(), e);
+            skippedCount.incrementAndGet();
+        }
+    }
+
+    /**
+     * 식사 시간 사용자 처리 (아침/점심/저녁 구분)
+     */
+    private void processMealTimeUser(
+            User user,
+            LocalDateTime now,
+            String targetTime,
+            AtomicInteger assignedCount,
+            AtomicInteger skippedCount) {
+        try {
+            // 설정한 날짜가 오늘이면 미션을 할당하지 않음 (악용 방지 - 다음날부터만 적용)
+            if (shouldSkipUserForToday(user, now)) {
+                return;
+            }
+            
+            String roundedBreakfastTime = roundTimeTo5Minutes(user.getBreakfastTime());
+            String roundedLunchTime = roundTimeTo5Minutes(user.getLunchTime());
+            String roundedDinnerTime = roundTimeTo5Minutes(user.getDinnerTime());
+            
+            if (roundedBreakfastTime != null && targetTime.equals(roundedBreakfastTime)) {
+                log.info("아침 식사 시간 매칭! 사용자 {} 아침 식사 미션 할당 (breakfastTime: {})", 
+                        user.getId(), user.getBreakfastTime());
+                assignMealMission(user, now, "아침");
+                assignedCount.incrementAndGet();
+            } else if (roundedLunchTime != null && targetTime.equals(roundedLunchTime)) {
+                log.info("점심 식사 시간 매칭! 사용자 {} 점심 식사 미션 할당 (lunchTime: {})", 
+                        user.getId(), user.getLunchTime());
+                assignMealMission(user, now, "점심");
+                assignedCount.incrementAndGet();
+            } else if (roundedDinnerTime != null && targetTime.equals(roundedDinnerTime)) {
+                log.info("저녁 식사 시간 매칭! 사용자 {} 저녁 식사 미션 할당 (dinnerTime: {})", 
+                        user.getId(), user.getDinnerTime());
+                assignMealMission(user, now, "저녁");
+                assignedCount.incrementAndGet();
+            }
+        } catch (Exception e) {
+            log.error("사용자 {} 식사 미션 할당 실패: {}", user.getId(), e.getMessage(), e);
+            skippedCount.incrementAndGet();
+        }
+    }
+
+    /**
+     * 오늘 설정한 사용자는 다음날부터만 미션 할당 (악용 방지)
+     */
+    private boolean shouldSkipUserForToday(User user, LocalDateTime now) {
+        LocalDate setupDate = user.getUpdatedAt() != null ? user.getUpdatedAt().toLocalDate() : null;
+        LocalDate today = now.toLocalDate();
+        
+        if (setupDate != null && setupDate.equals(today)) {
+            log.debug("사용자 {}는 오늘 설정을 완료했으므로 다음날부터만 미션 할당됨 (설정일: {}, 오늘: {})", 
+                    user.getId(), setupDate, today);
+            return true;
+        }
+        return false;
     }
 
     /**
