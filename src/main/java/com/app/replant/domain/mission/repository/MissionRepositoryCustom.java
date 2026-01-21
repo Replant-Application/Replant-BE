@@ -117,6 +117,12 @@ public interface MissionRepositoryCustom {
      */
     List<Mission> findRandomOfficialNonChallengeMissions(int count);
 
+    /**
+     * 랜덤 공식 미션 1개 조회 (리롤용, 특정 미션 ID 제외)
+     * Native query는 EntityManager를 사용하여 구현
+     */
+    Optional<Mission> findRandomOfficialNonChallengeMissionExcluding(List<Long> excludeMissionIds);
+
     List<Mission> findNonChallengeCustomMissionsByCreator(Long creatorId);
 
     List<Mission> findAllPublicNonChallengeCustomMissions();

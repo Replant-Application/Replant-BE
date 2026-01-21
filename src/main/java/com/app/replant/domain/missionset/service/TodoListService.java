@@ -66,6 +66,18 @@ public class TodoListService {
         }
 
         /**
+         * 랜덤 미션 리롤 - 기존 미션을 제외하고 새로운 랜덤 미션 1개 조회
+         */
+        public TodoListDto.MissionSimpleResponse rerollRandomMission(Long userId, List<Long> excludeMissionIds) {
+                Mission newMission = missionRepository
+                                .findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND, 
+                                                "교체할 수 있는 공식 미션이 없습니다."));
+                
+                return TodoListDto.MissionSimpleResponse.from(newMission);
+        }
+
+        /**
          * 커스텀 미션 도감 조회 (투두리스트 선택용)
          * 본인 것 + 다른 사람의 공개 커스텀 미션
          */

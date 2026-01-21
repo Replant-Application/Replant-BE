@@ -50,6 +50,21 @@ public class TodoListController {
                 return ApiResponse.success(response);
         }
 
+        @Operation(summary = "랜덤 미션 리롤", description = "기존 미션을 제외하고 새로운 랜덤 공식 미션 1개를 조회합니다. (투두리스트 생성 시 미션 교체용)")
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = """
+                        {
+                          "excludeMissionIds": [1, 2, 3]
+                        }
+                        """)))
+        @PostMapping("/reroll-mission")
+        public ApiResponse<TodoListDto.MissionSimpleResponse> rerollRandomMission(
+                        @AuthenticationPrincipal Long userId,
+                        @RequestBody Map<String, List<Long>> request) {
+                List<Long> excludeMissionIds = request.getOrDefault("excludeMissionIds", java.util.Collections.emptyList());
+                TodoListDto.MissionSimpleResponse response = todoListService.rerollRandomMission(userId, excludeMissionIds);
+                return ApiResponse.success(response);
+        }
+
         @Operation(summary = "투두리스트 생성", description = "필수 공식 미션 3개 + 선택 커스텀 미션(0개 이상)으로 투두리스트를 생성합니다. 각 미션에 시간대를 설정할 수 있습니다.")
         @io.swagger.v3.oas.annotations.parameters.RequestBody(content = @Content(examples = @ExampleObject(value = """
                         {
