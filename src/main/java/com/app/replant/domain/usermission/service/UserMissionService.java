@@ -20,8 +20,8 @@ import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
-import com.app.replant.exception.CustomException;
-import com.app.replant.exception.ErrorCode;
+import com.app.replant.global.exception.CustomException;
+import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -71,12 +71,11 @@ public class UserMissionService {
      */
     @Transactional(readOnly = true)
     public Long findCurrentWakeUpMissionId(Long userId) {
-        Page<UserMission> missionsPage = userMissionRepository.findByUserIdWithFilters(
-                userId, 
-                org.springframework.data.domain.PageRequest.of(0, 10)
-        );
+        // 오늘 날짜에 할당된 모든 미션 조회 (페이지 크기 제한 없이)
+        LocalDate today = LocalDate.now();
+        List<UserMission> todayMissions = userMissionRepository.findByUserIdAndAssignedDate(userId, today);
         
-        return missionsPage.getContent().stream()
+        return todayMissions.stream()
                 .filter(UserMission::isSpontaneousMission)
                 .filter(um -> um.getStatus() == UserMissionStatus.ASSIGNED)
                 .filter(um -> {
@@ -97,12 +96,11 @@ public class UserMissionService {
      */
     @Transactional(readOnly = true)
     public WakeUpMissionStatusResponse getCurrentWakeUpMissionStatus(Long userId) {
-        Page<UserMission> missionsPage = userMissionRepository.findByUserIdWithFilters(
-                userId, 
-                org.springframework.data.domain.PageRequest.of(0, 10)
-        );
+        // 오늘 날짜에 할당된 모든 미션 조회 (페이지 크기 제한 없이)
+        LocalDate today = LocalDate.now();
+        List<UserMission> todayMissions = userMissionRepository.findByUserIdAndAssignedDate(userId, today);
         
-        Optional<UserMission> wakeUpMission = missionsPage.getContent().stream()
+        Optional<UserMission> wakeUpMission = todayMissions.stream()
                 .filter(UserMission::isSpontaneousMission)
                 .filter(um -> um.getStatus() == UserMissionStatus.ASSIGNED)
                 .filter(um -> {

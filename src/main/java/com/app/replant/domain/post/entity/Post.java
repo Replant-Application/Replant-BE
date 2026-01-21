@@ -1,6 +1,6 @@
 package com.app.replant.domain.post.entity;
 
-import com.app.replant.common.BaseEntity;
+import com.app.replant.global.common.BaseEntity;
 import com.app.replant.domain.post.enums.PostType;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.usermission.entity.UserMission;

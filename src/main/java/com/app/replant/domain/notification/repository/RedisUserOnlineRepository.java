@@ -25,8 +25,9 @@ public class RedisUserOnlineRepository {
 
     /**
      * 사용자 온라인 상태 저장
-     * @param userId 사용자 ID
-     * @param ttlSeconds TTL (초 단위)
+     *
+     * @param userId      사용자 ID
+     * @param ttlSeconds  TTL (초 단위)
      */
     public void setOnline(Long userId, long ttlSeconds) {
         try {
@@ -41,6 +42,7 @@ public class RedisUserOnlineRepository {
 
     /**
      * 사용자 온라인 상태 저장 (기본 TTL 사용)
+     *
      * @param userId 사용자 ID
      */
     public void setOnline(Long userId) {
@@ -49,6 +51,7 @@ public class RedisUserOnlineRepository {
 
     /**
      * 사용자 온라인 상태 확인
+     *
      * @param userId 사용자 ID
      * @return 온라인 여부
      */
@@ -67,6 +70,7 @@ public class RedisUserOnlineRepository {
 
     /**
      * 사용자 오프라인 상태로 변경 (키 삭제)
+     *
      * @param userId 사용자 ID
      */
     public void setOffline(Long userId) {
@@ -92,7 +96,8 @@ public class RedisUserOnlineRepository {
 
     /**
      * TTL 갱신 (heartbeat)
-     * @param userId 사용자 ID
+     *
+     * @param userId     사용자 ID
      * @param ttlSeconds 새로운 TTL (초 단위)
      */
     public void refreshTTL(Long userId, long ttlSeconds) {
@@ -100,7 +105,7 @@ public class RedisUserOnlineRepository {
             String key = getKey(userId);
             Duration ttl = Duration.ofSeconds(ttlSeconds);
             Boolean exists = redisTemplate.hasKey(key);
-            
+
             if (Boolean.TRUE.equals(exists)) {
                 redisTemplate.expire(key, ttl);
                 log.debug("[Redis] 사용자 온라인 상태 TTL 갱신 - userId: {}, TTL: {}초", userId, ttlSeconds);
@@ -116,6 +121,7 @@ public class RedisUserOnlineRepository {
 
     /**
      * TTL 갱신 (기본 TTL 사용)
+     *
      * @param userId 사용자 ID
      */
     public void refreshTTL(Long userId) {
@@ -124,6 +130,7 @@ public class RedisUserOnlineRepository {
 
     /**
      * 남은 TTL 조회
+     *
      * @param userId 사용자 ID
      * @return 남은 TTL (초), 키가 없으면 -1
      */
@@ -138,11 +145,6 @@ public class RedisUserOnlineRepository {
         }
     }
 
-    /**
-     * Redis 키 생성
-     * @param userId 사용자 ID
-     * @return Redis 키
-     */
     private String getKey(Long userId) {
         return KEY_PREFIX + userId;
     }

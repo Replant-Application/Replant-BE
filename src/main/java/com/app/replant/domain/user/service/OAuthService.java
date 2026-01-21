@@ -1,7 +1,7 @@
 package com.app.replant.domain.user.service;
 
-import com.app.replant.controller.dto.OAuthLoginResponse;
-import com.app.replant.controller.dto.TokenDto;
+import com.app.replant.domain.user.dto.OAuthLoginResponse;
+import com.app.replant.domain.user.dto.TokenDto;
 import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
 import com.app.replant.domain.user.dto.OAuthUserInfo;
@@ -11,10 +11,10 @@ import com.app.replant.domain.user.enums.OAuthProvider;
 import com.app.replant.domain.user.repository.UserOauthRepository;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.user.service.oauth.OAuthClient;
-import com.app.replant.exception.CustomException;
-import com.app.replant.exception.ErrorCode;
+import com.app.replant.global.exception.CustomException;
+import com.app.replant.global.exception.ErrorCode;
 import com.app.replant.domain.user.security.UserDetail;
-import com.app.replant.jwt.TokenProvider;
+import com.app.replant.global.security.jwt.TokenProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

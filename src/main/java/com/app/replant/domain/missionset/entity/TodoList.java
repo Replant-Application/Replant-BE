@@ -1,6 +1,6 @@
 package com.app.replant.domain.missionset.entity;
 
-import com.app.replant.common.SoftDeletableEntity;
+import com.app.replant.global.common.SoftDeletableEntity;
 import com.app.replant.domain.missionset.enums.MissionSetType;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
 import com.app.replant.domain.user.entity.User;

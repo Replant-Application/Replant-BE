@@ -216,7 +216,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     @Override
-    public Page<Post> getUserPostsExcludingDeleted(Long userId, Pageable pageable) {
+    public Page<Post> findByUserIdAndNotDeleted(Long userId, Pageable pageable) {
         JPAQuery<Post> query = queryFactory
                 .selectFrom(post)
                 .where(post.user.id.eq(userId).and(isNotDeleted()))

@@ -64,7 +64,11 @@ public interface PostRepositoryCustom {
 
     Optional<Post> findByIdAndUserId(Long postId, Long userId);
 
-    Page<Post> getUserPostsExcludingDeleted(Long userId, Pageable pageable);
+    /**
+     * 사용자별 삭제되지 않은 게시글 조회
+     * 통합된 메서드: getUserPostsExcludingDeleted와 동일한 기능
+     */
+    Page<Post> findByUserIdAndNotDeleted(Long userId, Pageable pageable);
 
     // ========================================
     // 통계

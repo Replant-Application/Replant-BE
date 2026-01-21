@@ -17,8 +17,8 @@ import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.badge.repository.UserBadgeRepository;
-import com.app.replant.exception.CustomException;
-import com.app.replant.exception.ErrorCode;
+import com.app.replant.global.exception.CustomException;
+import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -63,6 +63,18 @@ public class TodoListService {
                                                 .map(TodoListDto.MissionSimpleResponse::from)
                                                 .collect(Collectors.toList()))
                                 .build();
+        }
+
+        /**
+         * 랜덤 미션 리롤 - 기존 미션을 제외하고 새로운 랜덤 미션 1개 조회
+         */
+        public TodoListDto.MissionSimpleResponse rerollRandomMission(Long userId, List<Long> excludeMissionIds) {
+                Mission newMission = missionRepository
+                                .findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND, 
+                                                "교체할 수 있는 공식 미션이 없습니다."));
+                
+                return TodoListDto.MissionSimpleResponse.from(newMission);
         }
 
         /**
