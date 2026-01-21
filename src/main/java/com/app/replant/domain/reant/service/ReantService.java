@@ -1,13 +1,13 @@
 package com.app.replant.domain.reant.service;
 
-import com.app.replant.controller.dto.InteractionResponse;
-import com.app.replant.controller.dto.ReantResponse;
-import com.app.replant.controller.dto.ReantStatusResponse;
-import com.app.replant.controller.dto.ReantUpdateRequest;
+import com.app.replant.domain.reant.dto.InteractionResponse;
+import com.app.replant.domain.reant.dto.ReantResponse;
+import com.app.replant.domain.reant.dto.ReantStatusResponse;
+import com.app.replant.domain.reant.dto.ReantUpdateRequest;
 import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.reant.repository.ReantRepository;
-import com.app.replant.exception.CustomException;
-import com.app.replant.exception.ErrorCode;
+import com.app.replant.global.exception.CustomException;
+import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

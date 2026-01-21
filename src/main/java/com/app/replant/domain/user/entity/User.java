@@ -1,6 +1,6 @@
 package com.app.replant.domain.user.entity;
 
-import com.app.replant.common.BaseEntity;
+import com.app.replant.global.common.BaseEntity;
 import com.app.replant.domain.mission.enums.PlaceType;
 import com.app.replant.domain.mission.enums.WorryType;
 import com.app.replant.domain.user.enums.Gender;
@@ -24,11 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "`user`", indexes = {
-    @Index(name = "idx_user_email", columnList = "email"),
-    @Index(name = "idx_user_nickname", columnList = "nickname"),
-    @Index(name = "idx_user_status", columnList = "status")
-})
+@Table(name = "`user`")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {

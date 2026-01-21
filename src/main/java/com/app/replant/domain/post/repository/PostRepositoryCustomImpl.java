@@ -225,6 +225,12 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return getPage(query, pageable);
     }
 
+    @Override
+    public Page<Post> findByUserIdAndNotDeleted(Long userId, Pageable pageable) {
+        // getUserPostsExcludingDeleted와 동일한 구현
+        return getUserPostsExcludingDeleted(userId, pageable);
+    }
+
     // ========================================
     // 통계
     // ========================================

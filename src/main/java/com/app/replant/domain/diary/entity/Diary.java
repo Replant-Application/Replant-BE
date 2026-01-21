@@ -1,6 +1,6 @@
 package com.app.replant.domain.diary.entity;
 
-import com.app.replant.common.SoftDeletableEntity;
+import com.app.replant.global.common.SoftDeletableEntity;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -13,7 +13,7 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "diary", indexes = {
-    @Index(name = "idx_diary_user_date", columnList = "user_id, date")
+        @Index(name = "idx_diary_user_date", columnList = "user_id, date")
 })
 @SQLRestriction("deleted_at IS NULL")
 @Getter
