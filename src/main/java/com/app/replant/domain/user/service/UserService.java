@@ -1,11 +1,11 @@
 package com.app.replant.domain.user.service;
 
-import com.app.replant.controller.dto.UserUpdateRequest;
+import com.app.replant.domain.user.dto.UserUpdateRequest;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.enums.MetropolitanArea;
 import com.app.replant.domain.user.repository.UserRepository;
-import com.app.replant.exception.CustomException;
-import com.app.replant.exception.ErrorCode;
+import com.app.replant.global.exception.CustomException;
+import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;

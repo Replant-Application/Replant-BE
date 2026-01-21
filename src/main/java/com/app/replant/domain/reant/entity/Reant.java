@@ -1,6 +1,6 @@
 package com.app.replant.domain.reant.entity;
 
-import com.app.replant.common.BaseEntity;
+import com.app.replant.global.common.BaseEntity;
 import com.app.replant.domain.reant.enums.ReantStage;
 import com.app.replant.domain.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;

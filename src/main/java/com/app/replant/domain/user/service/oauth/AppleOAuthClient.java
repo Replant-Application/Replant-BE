@@ -2,8 +2,8 @@ package com.app.replant.domain.user.service.oauth;
 
 import com.app.replant.domain.user.dto.OAuthUserInfo;
 import com.app.replant.domain.user.enums.OAuthProvider;
-import com.app.replant.exception.CustomException;
-import com.app.replant.exception.ErrorCode;
+import com.app.replant.global.exception.CustomException;
+import com.app.replant.global.exception.ErrorCode;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;

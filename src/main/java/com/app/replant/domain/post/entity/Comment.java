@@ -1,6 +1,6 @@
 package com.app.replant.domain.post.entity;
 
-import com.app.replant.common.SoftDeletableEntity;
+import com.app.replant.global.common.SoftDeletableEntity;
 import com.app.replant.domain.post.enums.CommentTargetType;
 import com.app.replant.domain.user.entity.User;
 import jakarta.persistence.*;
