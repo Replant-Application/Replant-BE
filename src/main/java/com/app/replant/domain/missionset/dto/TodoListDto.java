@@ -85,6 +85,8 @@ public class TodoListDto {
         private Boolean canCreateNew;
         private TodoListStatus status;
         private LocalDateTime createdAt;
+        private Long creatorId;
+        private String creatorNickname;
 
         public static SimpleResponse from(TodoList todoList) {
             return SimpleResponse.builder()
@@ -97,6 +99,8 @@ public class TodoListDto {
                     .canCreateNew(todoList.canCreateNewTodoList())
                     .status(todoList.getTodolistStatus())
                     .createdAt(todoList.getCreatedAt())
+                    .creatorId(todoList.getCreator() != null ? todoList.getCreator().getId() : null)
+                    .creatorNickname(todoList.getCreator() != null ? todoList.getCreator().getNickname() : null)
                     .build();
         }
     }
