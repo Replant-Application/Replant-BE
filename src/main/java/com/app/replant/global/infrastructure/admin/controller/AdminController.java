@@ -3,6 +3,7 @@ package com.app.replant.global.infrastructure.admin.controller;
 import com.app.replant.global.common.ApiResponse;
 import com.app.replant.global.dto.AdminDiaryNotificationRequestDto;
 import com.app.replant.global.dto.NotificationSendRequestDto;
+import com.app.replant.global.dto.UpdateNotificationRequestDto;
 import com.app.replant.domain.user.dto.UserResponseDto;
 import com.app.replant.domain.notification.enums.NotificationType;
 import com.app.replant.domain.notification.service.NotificationService;
@@ -11,6 +12,7 @@ import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
 import com.app.replant.global.infrastructure.service.sse.SseService;
+import com.app.replant.global.infrastructure.service.fcm.FcmService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -39,6 +41,7 @@ public class AdminController {
     private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final FcmService fcmService;
 
     @Operation(summary = "전체 회원 조회", description = "모든 회원 정보를 조회합니다 (관리자 전용)")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공")
@@ -165,6 +168,35 @@ public class AdminController {
             response.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(response);
         }
+    }
+
+    @Operation(summary = "전체 사용자에게 업데이트 알림 전송 (FCM)", description = "모든 활성 사용자에게 FCM을 통해 업데이트 알림을 전송합니다 (관리자 전용)")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "알림 전송 성공")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "잘못된 요청")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "권한 없음")
+    @PostMapping("/send/update")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> sendUpdateNotification(
+            @Parameter(description = "업데이트 알림 전송 요청 정보", required = true) @Valid @RequestBody UpdateNotificationRequestDto requestDto) {
+        log.info("관리자 - 업데이트 알림 전송 요청: isRequired={}, message={}", requestDto.isRequired(), requestDto.getMessage());
+
+        String storeUrl = requestDto.getStoreUrl();
+        if (storeUrl == null || storeUrl.trim().isEmpty()) {
+            storeUrl = "https://play.google.com/store/apps/details?id=com.anonymous.replantmobileapp";
+        }
+
+        int successCount = fcmService.sendUpdateNotificationToAllUsers(
+                requestDto.isRequired(),
+                requestDto.getMessage(),
+                storeUrl
+        );
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("successCount", successCount);
+        result.put("isRequired", requestDto.isRequired());
+        result.put("message", String.format("업데이트 알림이 %d명의 사용자에게 전송되었습니다.", successCount));
+
+        log.info("관리자 - 업데이트 알림 전송 완료: 성공={}명", successCount);
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
 }

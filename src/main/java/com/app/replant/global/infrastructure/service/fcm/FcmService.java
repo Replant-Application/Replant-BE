@@ -50,4 +50,14 @@ public interface FcmService {
      * @return 전송 성공 여부
      */
     boolean sendCustomNotification(Long userId, String title, String body, java.util.Map<String, String> data);
+
+    /**
+     * 모든 활성 사용자에게 업데이트 알림 전송
+     *
+     * @param isRequired 강제 업데이트 여부
+     * @param message 업데이트 메시지
+     * @param storeUrl 스토어 URL
+     * @return 전송 성공한 사용자 수
+     */
+    int sendUpdateNotificationToAllUsers(boolean isRequired, String message, String storeUrl);
 }

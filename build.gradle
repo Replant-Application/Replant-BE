@@ -126,6 +126,7 @@ sourceSets {
 
 tasks.withType(JavaCompile).configureEach {
     options.annotationProcessorGeneratedSourcesDirectory = file(querydslDir)
+    options.encoding = 'UTF-8' // 소스 파일 인코딩 명시
 }
 
 tasks.named('test') {

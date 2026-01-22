@@ -450,4 +450,57 @@ public class FcmServiceImpl implements FcmService {
         log.error("[FCM] 알림 전송 최종 실패 (최대 재시도 횟수 초과) - userId: {}, 총 시도 횟수: {}", userId, attempt);
         return false;
     }
+
+    /**
+     * 모든 활성 사용자에게 업데이트 알림 전송
+     *
+     * @param isRequired 강제 업데이트 여부
+     * @param message 업데이트 메시지
+     * @param storeUrl 스토어 URL
+     * @return 전송 성공한 사용자 수
+     */
+    @Override
+    public int sendUpdateNotificationToAllUsers(boolean isRequired, String message, String storeUrl) {
+        log.info("[FCM] 모든 활성 사용자에게 업데이트 알림 전송 시작 - isRequired: {}", isRequired);
+        
+        List<User> activeUsers = userRepository.findAllActiveUsers();
+        log.info("[FCM] 활성 사용자 수: {}", activeUsers.size());
+        
+        int successCount = 0;
+        int failCount = 0;
+        
+        for (User user : activeUsers) {
+            if (user.getFcmToken() == null || user.getFcmToken().isEmpty()) {
+                log.debug("[FCM] FCM 토큰 없음 - userId: {}", user.getId());
+                continue;
+            }
+            
+            try {
+                Map<String, String> data = new HashMap<>();
+                data.put("type", "APP_UPDATE");
+                data.put("isRequired", String.valueOf(isRequired));
+                data.put("message", message);
+                data.put("storeUrl", storeUrl);
+                
+                boolean success = sendCustomNotification(
+                        user.getId(),
+                        "업데이트 알림",
+                        message,
+                        data
+                );
+                
+                if (success) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (Exception e) {
+                log.error("[FCM] 업데이트 알림 전송 실패 - userId: {}", user.getId(), e);
+                failCount++;
+            }
+        }
+        
+        log.info("[FCM] 업데이트 알림 전송 완료 - 성공: {}, 실패: {}", successCount, failCount);
+        return successCount;
+    }
 }
