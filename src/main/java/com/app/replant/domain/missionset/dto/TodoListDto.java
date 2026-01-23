@@ -40,6 +40,7 @@ public class TodoListDto {
     public static class UpdateRequest {
         private String title;
         private String description;
+        private Boolean isPublic; // 공개 여부
     }
 
     @Getter

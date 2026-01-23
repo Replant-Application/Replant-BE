@@ -1,15 +1,14 @@
 package com.app.replant.domain.missionset.entity;
 
-import com.app.replant.global.common.SoftDeletableEntity;
 import com.app.replant.domain.missionset.enums.MissionSetType;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
 import com.app.replant.domain.user.entity.User;
+import com.app.replant.domain.missionset.entity.TodoListMission;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -24,10 +23,9 @@ import java.util.List;
         @Index(name = "idx_todolist_creator", columnList = "creator_id"),
         @Index(name = "idx_todolist_type", columnList = "set_type")
 })
-@SQLRestriction("deleted_at IS NULL")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class TodoList extends SoftDeletableEntity {
+public class TodoList {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,9 +41,13 @@ public class TodoList extends SoftDeletableEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    // 활성 여부
+    // 활성 여부 (개인 투두리스트 활성화 여부)
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
+
+    // 공개 여부 (커뮤니티 공유 게시판에 표시되는지)
+    @Column(name = "is_public", nullable = false)
+    private Boolean isPublic;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -85,7 +87,8 @@ public class TodoList extends SoftDeletableEntity {
         todoList.creator = creator;
         todoList.title = title;
         todoList.description = description;
-        todoList.isActive = true;
+        todoList.isActive = true; // 투두리스트는 기본적으로 활성화 (개인 투두리스트는 항상 활성)
+        todoList.isPublic = false; // 기본적으로 비공개, 사용자가 공유 버튼을 눌렀을 때만 공개
         todoList.setType = MissionSetType.TODOLIST;
         todoList.completedCount = 0;
         todoList.totalCount = totalCount != null ? totalCount : 5;
@@ -110,7 +113,15 @@ public class TodoList extends SoftDeletableEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void setPublic(Boolean isPublic) {
+        this.isPublic = isPublic;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public boolean isCreator(Long userId) {
+        if (this.creator == null || userId == null) {
+            return false;
+        }
         return this.creator.getId().equals(userId);
     }
 

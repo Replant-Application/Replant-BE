@@ -263,6 +263,14 @@ public class TodoListService {
         }
 
         /**
+         * 공개 투두리스트 목록 조회
+         */
+        public Page<TodoListDto.SimpleResponse> getPublicTodoLists(Pageable pageable, String sortBy) {
+                return todoListRepository.findPublicTodoLists(pageable, sortBy)
+                                .map(TodoListDto.SimpleResponse::from);
+        }
+
+        /**
          * 투두리스트 상세 조회
          */
         public TodoListDto.DetailResponse getTodoListDetail(Long todoListId, Long userId) {
@@ -274,6 +282,23 @@ public class TodoListService {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
+        }
+
+        /**
+         * 공개 투두리스트 상세 조회
+         */
+        public TodoListDto.DetailResponse getPublicTodoListDetail(Long todoListId, Long userId) {
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+                // 공개된 투두리스트만 조회 가능
+                Boolean isPublic = todoList.getIsPublic();
+                if (isPublic == null || !isPublic) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                // 공개 투두리스트는 모든 사용자가 조회 가능 (본인 체크 없음)
                 return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
@@ -478,6 +503,12 @@ public class TodoListService {
                 }
 
                 todoList.update(request.getTitle(), request.getDescription());
+                
+                // 공개 여부 변경 (isPublic이 null이 아니면 업데이트)
+                if (request.getIsPublic() != null) {
+                        todoList.setPublic(request.getIsPublic());
+                        log.info("투두리스트 공개 상태 변경: id={}, isPublic={}", todoListId, request.getIsPublic());
+                }
 
                 log.info("투두리스트 수정 완료: id={}, userId={}", todoListId, userId);
                 return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);

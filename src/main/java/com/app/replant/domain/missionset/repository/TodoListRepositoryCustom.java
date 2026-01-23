@@ -34,4 +34,6 @@ public interface TodoListRepositoryCustom {
     Optional<TodoList> findTodoListByIdWithMissions(Long id);
 
     List<TodoList> findAllActiveTodoLists();
+
+    Page<TodoList> findPublicTodoLists(Pageable pageable, String sortBy);
 }

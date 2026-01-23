@@ -174,6 +174,11 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV29Migration(conn);
             log.info("V29 마이그레이션 완료");
 
+            // V30: todolist 테이블에 is_public 컬럼 추가
+            log.info("V30 마이그레이션 실행 중: todolist 테이블 is_public 컬럼 추가...");
+            executeV30Migration(conn);
+            log.info("V30 마이그레이션 완료");
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -818,6 +823,23 @@ public class ManualMigrationRunner implements CommandLineRunner {
             }
 
             log.info("V29 마이그레이션: UserMission 테이블 돌발 미션 구분 컬럼 추가 완료");
+        }
+    }
+
+    private void executeV30Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V30: todolist 테이블에 is_public 컬럼 추가
+
+            if (!columnExists(stmt, "todolist", "is_public")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `todolist` ADD COLUMN `is_public` BOOLEAN NOT NULL DEFAULT FALSE"
+                );
+                log.info("V30 마이그레이션: todolist.is_public 컬럼 추가 완료");
+            } else {
+                log.info("V30 마이그레이션: todolist.is_public 컬럼이 이미 존재함");
+            }
+
+            log.info("V30 마이그레이션: todolist 테이블 is_public 컬럼 추가 완료");
         }
     }
 }

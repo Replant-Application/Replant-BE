@@ -168,7 +168,7 @@ public class TodoListRepositoryCustomImpl implements TodoListRepositoryCustom {
                 .selectFrom(todoList)
                 .leftJoin(todoList.creator, user).fetchJoin()
                 .where(todoList.setType.eq(MissionSetType.TODOLIST)
-                        .and(isActive()))
+                        .and(todoList.isPublic.isTrue()))
                 .distinct();
 
         // 정렬 기준에 따라 정렬
