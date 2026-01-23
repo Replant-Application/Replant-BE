@@ -13,13 +13,11 @@ public class TodoListReviewDto {
     @Getter
     public static class CreateRequest {
         private Integer rating;
-        private String content;
     }
 
     @Getter
     public static class UpdateRequest {
         private Integer rating;
-        private String content;
     }
 
     // ============ Response DTOs ============
@@ -32,7 +30,6 @@ public class TodoListReviewDto {
         private String todoListTitle;
         private UserInfo user;
         private Integer rating;
-        private String content;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
 
@@ -51,7 +48,6 @@ public class TodoListReviewDto {
                     .todoListTitle(review.getTodoList().getTitle())
                     .user(userInfo)
                     .rating(review.getRating())
-                    .content(review.getContent())
                     .createdAt(review.getCreatedAt())
                     .updatedAt(review.getUpdatedAt())
                     .build();

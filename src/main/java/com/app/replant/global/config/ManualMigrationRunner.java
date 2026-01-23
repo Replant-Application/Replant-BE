@@ -184,6 +184,11 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV31Migration(conn);
             log.info("V31 마이그레이션 완료");
 
+            // V32: todolist_review 테이블에서 content 컬럼 제거
+            log.info("V32 마이그레이션 실행 중: todolist_review 테이블 content 컬럼 제거...");
+            executeV32Migration(conn);
+            log.info("V32 마이그레이션 완료");
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -862,6 +867,30 @@ public class ManualMigrationRunner implements CommandLineRunner {
             }
 
             log.info("V31 마이그레이션: post 테이블 completion_rate 컬럼 추가 완료");
+        }
+    }
+
+    private void executeV32Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V32: todolist_review 테이블에서 content 컬럼 제거
+
+            if (columnExists(stmt, "todolist_review", "content")) {
+                // 기존 리뷰의 content를 NULL로 업데이트 (안전을 위해)
+                executeIgnore(stmt,
+                    "UPDATE todolist_review SET content = NULL WHERE content IS NOT NULL"
+                );
+                log.info("V32 마이그레이션: 기존 리뷰의 content를 NULL로 업데이트 완료");
+
+                // content 컬럼 제거
+                executeIgnore(stmt,
+                    "ALTER TABLE todolist_review DROP COLUMN content"
+                );
+                log.info("V32 마이그레이션: todolist_review.content 컬럼 제거 완료");
+            } else {
+                log.info("V32 마이그레이션: todolist_review.content 컬럼이 이미 존재하지 않음");
+            }
+
+            log.info("V32 마이그레이션: todolist_review 테이블 content 컬럼 제거 완료");
         }
     }
 }

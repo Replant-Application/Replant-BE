@@ -51,7 +51,6 @@ public class TodoListReviewService {
                 .todoList(todoList)
                 .user(user)
                 .rating(request.getRating())
-                .content(request.getContent())
                 .build();
 
         reviewRepository.save(review);
@@ -76,7 +75,7 @@ public class TodoListReviewService {
             throw new CustomException(ErrorCode.ACCESS_DENIED);
         }
 
-        review.update(request.getRating(), request.getContent());
+        review.update(request.getRating());
 
         // 투두리스트 평균 별점 업데이트
         updateTodoListRating(review.getTodoList());

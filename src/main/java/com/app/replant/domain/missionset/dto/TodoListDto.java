@@ -328,13 +328,11 @@ public class TodoListDto {
     @Getter
     public static class ReviewRequest {
         private Integer rating; // 1-5
-        private String content;
     }
 
     @Getter
     public static class UpdateReviewRequest {
         private Integer rating;
-        private String content;
     }
 
     @Getter
@@ -345,7 +343,6 @@ public class TodoListDto {
         private Long userId;
         private String userNickname;
         private Integer rating;
-        private String content;
         private LocalDateTime createdAt;
         private LocalDateTime updatedAt;
     }

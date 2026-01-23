@@ -509,7 +509,6 @@ public class TodoListService {
                                 .todoList(todoList)
                                 .user(user)
                                 .rating(request.getRating())
-                                .content(request.getContent())
                                 .build();
                 reviewRepository.save(review);
 
@@ -548,7 +547,6 @@ public class TodoListService {
                                 .userId(review.getUser().getId())
                                 .userNickname(review.getUser().getNickname())
                                 .rating(review.getRating())
-                                .content(review.getContent())
                                 .createdAt(review.getCreatedAt())
                                 .updatedAt(review.getUpdatedAt())
                                 .build();
@@ -608,7 +606,7 @@ public class TodoListService {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
-                review.update(request.getRating(), request.getContent());
+                review.update(request.getRating());
 
                 // 평균 별점 업데이트
                 updateAverageRating(review.getTodoList());

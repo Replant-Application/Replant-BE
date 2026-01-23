@@ -39,9 +39,6 @@ public class TodoListReview {
     @Column(nullable = false)
     private Integer rating; // 1-5 별점
 
-    @Column(columnDefinition = "TEXT")
-    private String content; // 리뷰 내용 (선택)
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -49,21 +46,17 @@ public class TodoListReview {
     private LocalDateTime updatedAt;
 
     @Builder
-    private TodoListReview(TodoList todoList, User user, Integer rating, String content) {
+    private TodoListReview(TodoList todoList, User user, Integer rating) {
         this.todoList = todoList;
         this.user = user;
         this.rating = rating != null ? Math.min(5, Math.max(1, rating)) : 5;
-        this.content = content;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void update(Integer rating, String content) {
+    public void update(Integer rating) {
         if (rating != null) {
             this.rating = Math.min(5, Math.max(1, rating));
-        }
-        if (content != null) {
-            this.content = content;
         }
         this.updatedAt = LocalDateTime.now();
     }
