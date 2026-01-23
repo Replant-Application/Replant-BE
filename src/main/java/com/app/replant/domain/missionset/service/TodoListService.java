@@ -267,7 +267,26 @@ public class TodoListService {
          */
         public Page<TodoListDto.SimpleResponse> getPublicTodoLists(Pageable pageable, String sortBy) {
                 return todoListRepository.findPublicTodoLists(pageable, sortBy)
-                                .map(TodoListDto.SimpleResponse::from);
+                                .map(todoList -> {
+                                        TodoListDto.SimpleResponse response = TodoListDto.SimpleResponse.from(todoList);
+                                        // 평균 별점 계산
+                                        Double averageRating = reviewRepository.calculateAverageRating(todoList);
+                                        response = TodoListDto.SimpleResponse.builder()
+                                                        .id(response.getId())
+                                                        .title(response.getTitle())
+                                                        .description(response.getDescription())
+                                                        .completedCount(response.getCompletedCount())
+                                                        .totalCount(response.getTotalCount())
+                                                        .progressRate(response.getProgressRate())
+                                                        .canCreateNew(response.getCanCreateNew())
+                                                        .status(response.getStatus())
+                                                        .createdAt(response.getCreatedAt())
+                                                        .creatorId(response.getCreatorId())
+                                                        .creatorNickname(response.getCreatorNickname())
+                                                        .averageRating(averageRating != null ? averageRating : 0.0)
+                                                        .build();
+                                        return response;
+                                });
         }
 
         /**
@@ -279,7 +298,26 @@ public class TodoListService {
                         return getPublicTodoLists(pageable, sortBy);
                 }
                 return todoListRepository.searchPublicTodoLists(keyword.trim(), pageable, sortBy)
-                                .map(TodoListDto.SimpleResponse::from);
+                                .map(todoList -> {
+                                        TodoListDto.SimpleResponse response = TodoListDto.SimpleResponse.from(todoList);
+                                        // 평균 별점 계산
+                                        Double averageRating = reviewRepository.calculateAverageRating(todoList);
+                                        response = TodoListDto.SimpleResponse.builder()
+                                                        .id(response.getId())
+                                                        .title(response.getTitle())
+                                                        .description(response.getDescription())
+                                                        .completedCount(response.getCompletedCount())
+                                                        .totalCount(response.getTotalCount())
+                                                        .progressRate(response.getProgressRate())
+                                                        .canCreateNew(response.getCanCreateNew())
+                                                        .status(response.getStatus())
+                                                        .createdAt(response.getCreatedAt())
+                                                        .creatorId(response.getCreatorId())
+                                                        .creatorNickname(response.getCreatorNickname())
+                                                        .averageRating(averageRating != null ? averageRating : 0.0)
+                                                        .build();
+                                        return response;
+                                });
         }
 
         /**
@@ -464,15 +502,6 @@ public class TodoListService {
                 // 이미 리뷰를 작성했는지 확인
                 if (reviewRepository.existsByTodoListAndUser(todoList, user)) {
                         throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 리뷰를 작성했습니다.");
-                }
-
-                // 뱃지 보유 여부 확인 (투두리스트 내 미션 중 하나라도 뱃지가 있어야 함)
-                boolean hasBadge = todoList.getMissions().stream()
-                                .anyMatch(msm -> userBadgeRepository.hasValidBadgeForMission(userId,
-                                                msm.getMission().getId(), LocalDateTime.now()));
-
-                if (!hasBadge) {
-                        throw new CustomException(ErrorCode.BADGE_REQUIRED, "이 투두리스트의 미션 뱃지를 획득해야 리뷰를 작성할 수 있습니다.");
                 }
 
                 // 리뷰 생성

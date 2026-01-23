@@ -187,6 +187,16 @@ public class TodoListController {
                 return ApiResponse.success(null);
         }
 
+        @Operation(summary = "투두리스트 리뷰 작성", description = "투두리스트에 리뷰를 작성합니다. 자신의 투두리스트에는 리뷰를 작성할 수 없습니다.")
+        @PostMapping("/{todoListId}/reviews")
+        @ResponseStatus(HttpStatus.CREATED)
+        public ApiResponse<TodoListDto.ReviewResponse> createReview(
+                        @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
+                        @AuthenticationPrincipal Long userId,
+                        @RequestBody TodoListDto.ReviewRequest request) {
+                TodoListDto.ReviewResponse response = todoListService.createReview(todoListId, userId, request);
+                return ApiResponse.success(response);
+        }
 
         @Operation(summary = "투두리스트 리뷰 목록 조회", description = "투두리스트의 리뷰 목록을 조회합니다.")
         @GetMapping("/{todoListId}/reviews")

@@ -88,6 +88,7 @@ public class TodoListDto {
         private LocalDateTime createdAt;
         private Long creatorId;
         private String creatorNickname;
+        private Double averageRating;  // 평균 별점
 
         public static SimpleResponse from(TodoList todoList) {
             return SimpleResponse.builder()
@@ -102,6 +103,7 @@ public class TodoListDto {
                     .createdAt(todoList.getCreatedAt())
                     .creatorId(todoList.getCreator() != null ? todoList.getCreator().getId() : null)
                     .creatorNickname(todoList.getCreator() != null ? todoList.getCreator().getNickname() : null)
+                    .averageRating(null)  // from 메서드에서는 null로 설정, 서비스에서 계산하여 설정
                     .build();
         }
     }
