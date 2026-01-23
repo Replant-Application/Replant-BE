@@ -213,11 +213,39 @@ public class UserMissionService {
         userMissionRepository.saveAndFlush(userMission);
 
         // 보상 지급 (커스텀 미션은 경험치 지급 없음)
-        int expReward = getExpReward(userMission);
+        int baseExpReward = getExpReward(userMission);
 
-        if (expReward > 0) {  // 커스텀 미션은 0 반환
-            reantRepository.findByUserId(userMission.getUser().getId())
-                    .ifPresent(reant -> reant.addExp(expReward));
+        if (baseExpReward > 0) {  // 커스텀 미션은 0 반환
+            // Post에서 completionRate 조회 (completion_rate에 따라 경험치 비례 지급)
+            Optional<Post> postOpt = postRepository.findByUserMissionId(userMission.getId());
+            Integer completionRate = postOpt.map(Post::getCompletionRate).orElse(null);
+            
+            // completionRate가 null이면 100%로 처리 (기존 동작 유지)
+            if (completionRate == null) {
+                completionRate = 100;
+            }
+            
+            // completionRate 범위 검증 (0-100)
+            if (completionRate < 0) {
+                completionRate = 0;
+            } else if (completionRate > 100) {
+                completionRate = 100;
+            }
+            
+            // 경험치 비례 계산 (0-100% 범위)
+            int actualExpReward = (int) Math.round(baseExpReward * (completionRate / 100.0));
+            
+            // 경험치 지급
+            if (actualExpReward > 0) {
+                reantRepository.findByUserId(userMission.getUser().getId())
+                        .ifPresent(reant -> reant.addExp(actualExpReward));
+                
+                log.info("경험치 비례 지급: userMissionId={}, baseExp={}, completionRate={}%, actualExp={}", 
+                        userMission.getId(), baseExpReward, completionRate, actualExpReward);
+            } else {
+                log.info("경험치 지급 없음: userMissionId={}, baseExp={}, completionRate={}%, actualExp=0", 
+                        userMission.getId(), baseExpReward, completionRate);
+            }
         }
 
         // 뱃지 발급
