@@ -201,6 +201,45 @@ public class UserMissionService {
         return UserMissionResponse.from(saved);
     }
 
+    /**
+     * 커스텀 미션 완료 처리 (인증 없이 즉시 완료)
+     * 내 미션에 추가된 ASSIGNED 상태의 커스텀 미션만 완료 가능
+     */
+    @Transactional
+    public UserMissionResponse completeCustomMission(Long userId, Long missionId) {
+        List<UserMission> list = userMissionRepository.findByUserIdAndMissionIdAndStatusAssigned(userId, missionId);
+        if (list == null || list.isEmpty()) {
+            throw new CustomException(ErrorCode.USER_MISSION_NOT_FOUND, "내 미션에 추가한 후 완료할 수 있습니다.");
+        }
+        UserMission userMission = list.get(0);
+        if (!userMission.isCustomMission()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "공식 미션은 이 방법으로 완료할 수 없습니다.");
+        }
+        userMission.complete();
+        userMissionRepository.saveAndFlush(userMission);
+
+        // 투두리스트에 포함된 같은 미션이 있으면 TodoListMission도 완료 처리 (동기화)
+        if (userMission.getMission() != null) {
+            Long umMissionId = userMission.getMission().getId();
+            Long umUserId = userMission.getUser().getId();
+            List<TodoListMission> todoListMissions = todoListMissionRepository
+                    .findIncompleteByUserIdAndMissionId(umUserId, umMissionId);
+            for (TodoListMission todoListMission : todoListMissions) {
+                if (!todoListMission.isCompletedMission()) {
+                    todoListMission.complete();
+                    var todoList = todoListMission.getTodoList();
+                    todoList.incrementCompletedCount();
+                    todoListMissionRepository.save(todoListMission);
+                    todoListRepository.save(todoList);
+                    log.info("completeCustomMission: TodoListMission 동기화 완료 todoListId={}, missionId={}, userId={}",
+                            todoList.getId(), umMissionId, umUserId);
+                }
+            }
+        }
+
+        return UserMissionResponse.from(userMission, LocalDateTime.now());
+    }
+
     @Transactional
     public void completeMissionVerification(UserMission userMission) {
         if (userMission.getStatus() == UserMissionStatus.COMPLETED) {
