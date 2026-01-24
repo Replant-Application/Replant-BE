@@ -128,6 +128,15 @@ public class UserMissionController {
                 return ApiResponse.success(mission);
         }
 
+        @Operation(summary = "커스텀 미션 완료", description = "내 미션에 추가된 커스텀 미션을 인증 없이 완료합니다.")
+        @PutMapping("/complete-custom/{missionId}")
+        public ApiResponse<UserMissionResponse> completeCustomMission(
+                        @Parameter(description = "미션 ID (Mission ID)", example = "1") @PathVariable Long missionId,
+                        @AuthenticationPrincipal Long userId) {
+                UserMissionResponse mission = userMissionService.completeCustomMission(userId, missionId);
+                return ApiResponse.success(mission);
+        }
+
         @GetMapping("/history")
         @Operation(summary = "미션 완료 이력 조회", description = "완료한 미션의 이력을 조회합니다.")
         public ApiResponse<Page<UserMissionResponse>> getMissionHistory(

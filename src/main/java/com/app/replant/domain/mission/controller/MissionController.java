@@ -87,7 +87,7 @@ public class MissionController {
     }
 
     @Operation(summary = "미션 상세 조회")
-    @GetMapping("/{missionId}")
+    @GetMapping("/{missionId:\\d+}")
     public ApiResponse<MissionResponse> getMission(
             @PathVariable Long missionId,
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId) {
@@ -96,7 +96,7 @@ public class MissionController {
     }
 
     @Operation(summary = "미션 리뷰 목록 조회")
-    @GetMapping("/{missionId}/reviews")
+    @GetMapping("/{missionId:\\d+}/reviews")
     public ApiResponse<Page<MissionReviewResponse>> getReviews(
             @PathVariable Long missionId,
             @PageableDefault(size = 20) Pageable pageable) {
@@ -105,7 +105,7 @@ public class MissionController {
     }
 
     @Operation(summary = "미션 리뷰 작성")
-    @PostMapping("/{missionId}/reviews")
+    @PostMapping("/{missionId:\\d+}/reviews")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<MissionReviewResponse> createReview(
             @PathVariable Long missionId,
