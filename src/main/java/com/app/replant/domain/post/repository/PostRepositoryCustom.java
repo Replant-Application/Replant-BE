@@ -56,6 +56,12 @@ public interface PostRepositoryCustom {
 
     Optional<Post> findByUserMissionId(Long userMissionId);
 
+    /**
+     * UserMission ID로 인증 게시글 조회 (삭제된 게시글 포함)
+     * UNIQUE 제약조건 위반 시 삭제된 게시글을 찾기 위해 사용
+     */
+    Optional<Post> findByUserMissionIdIncludingDeleted(Long userMissionId);
+
     // ========================================
     // 단건 조회
     // ========================================

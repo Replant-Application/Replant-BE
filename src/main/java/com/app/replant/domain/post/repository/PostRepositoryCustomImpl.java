@@ -186,6 +186,21 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return Optional.ofNullable(result);
     }
 
+    @Override
+    public Optional<Post> findByUserMissionIdIncludingDeleted(Long userMissionId) {
+        Post result = queryFactory
+                .selectFrom(post)
+                .join(post.user, user).fetchJoin()
+                .leftJoin(post.userMission, userMission).fetchJoin()
+                .leftJoin(userMission.mission, mission).fetchJoin()
+                .where(post.userMission.id.eq(userMissionId)
+                        .and(isVerificationType()))
+                        // isNotDeleted() 조건 제거 - 삭제된 게시글도 조회
+                .fetchOne();
+
+        return Optional.ofNullable(result);
+    }
+
     // ========================================
     // 단건 조회
     // ========================================
