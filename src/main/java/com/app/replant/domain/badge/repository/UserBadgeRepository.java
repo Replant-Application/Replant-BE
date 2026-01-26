@@ -36,6 +36,6 @@ public interface UserBadgeRepository extends JpaRepository<UserBadge, Long> {
 
     @Query("SELECT ub FROM UserBadge ub WHERE ub.user.id = :userId " +
            "AND ub.userMission.mission.id = :missionId " +
-           "AND ub.expiresAt > :now ORDER BY ub.issuedAt DESC")
+           "AND ub.expiresAt > :now ORDER BY ub.issuedAt DESC LIMIT 1")
     Optional<UserBadge> findValidBadgeForMission(@Param("userId") Long userId, @Param("missionId") Long missionId, @Param("now") LocalDateTime now);
 }

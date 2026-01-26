@@ -1,5 +1,8 @@
 package com.app.replant.global.scheduler;
 
+import com.app.replant.domain.meallog.entity.MealLog;
+import com.app.replant.domain.meallog.enums.MealType;
+import com.app.replant.domain.meallog.service.MealLogService;
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.enums.MissionType;
@@ -51,6 +54,7 @@ public class SpontaneousMissionScheduler {
     private final UserMissionRepository userMissionRepository;
     private final NotificationService notificationService;
     private final FcmService fcmService;
+    private final MealLogService mealLogService;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
     
@@ -106,9 +110,18 @@ public class SpontaneousMissionScheduler {
             AtomicInteger skippedCount = new AtomicInteger(0);
             
             try {
-                // 1. 기상 시간에 해당하는 사용자만 조회
-                List<User> wakeUpUsers = userRepository.findUsersByWakeTime(targetTime);
-                log.info("기상 시간({})에 해당하는 사용자 수: {}", targetTime, wakeUpUsers.size());
+                // DB에 "7:00"(H:mm)과 "07:00"(HH:mm) 형식이 혼재할 수 있으므로 둘 다 조회
+                String targetTimeHH = targetTime; // "07:00" 형식
+                String targetTimeH = currentTime.format(DateTimeFormatter.ofPattern("H:mm")); // "7:00" 형식
+                
+                log.info("조회 시간 형식: HH:mm={}, H:mm={}", targetTimeHH, targetTimeH);
+                
+                // 1. 기상 시간에 해당하는 사용자 조회 (두 가지 형식 모두)
+                List<User> wakeUpUsers = new java.util.ArrayList<>(userRepository.findUsersByWakeTime(targetTimeHH));
+                if (!targetTimeHH.equals(targetTimeH)) {
+                    wakeUpUsers.addAll(userRepository.findUsersByWakeTime(targetTimeH));
+                }
+                log.info("기상 시간({}, {})에 해당하는 사용자 수: {}", targetTimeHH, targetTimeH, wakeUpUsers.size());
                 
                 // 각 사용자별 작업을 병렬로 처리 (TaskScheduler 스레드 풀 활용)
                 wakeUpUsers.parallelStream().forEach(user -> {
@@ -123,18 +136,24 @@ public class SpontaneousMissionScheduler {
                             assignedCount, skippedCount);
                 });
                 
-                // 2. 식사 시간에 해당하는 사용자 조회 (아침/점심/저녁)
-                List<User> mealUsers = userRepository.findUsersByMealTime(targetTime);
-                log.info("식사 시간({})에 해당하는 사용자 수: {}", targetTime, mealUsers.size());
+                // 2. 식사 시간에 해당하는 사용자 조회 (두 가지 형식 모두)
+                List<User> mealUsers = new java.util.ArrayList<>(userRepository.findUsersByMealTime(targetTimeHH));
+                if (!targetTimeHH.equals(targetTimeH)) {
+                    mealUsers.addAll(userRepository.findUsersByMealTime(targetTimeH));
+                }
+                log.info("식사 시간({}, {})에 해당하는 사용자 수: {}", targetTimeHH, targetTimeH, mealUsers.size());
                 
                 // 각 사용자별 작업을 병렬로 처리
                 mealUsers.parallelStream().forEach(user -> {
                     processMealTimeUser(user, now, targetTime, assignedCount, skippedCount);
                 });
                 
-                // 3. 취침 시간에 해당하는 사용자만 조회
-                List<User> sleepUsers = userRepository.findUsersBySleepTime(targetTime);
-                log.info("취침 시간({})에 해당하는 사용자 수: {}", targetTime, sleepUsers.size());
+                // 3. 취침 시간에 해당하는 사용자 조회 (두 가지 형식 모두)
+                List<User> sleepUsers = new java.util.ArrayList<>(userRepository.findUsersBySleepTime(targetTimeHH));
+                if (!targetTimeHH.equals(targetTimeH)) {
+                    sleepUsers.addAll(userRepository.findUsersBySleepTime(targetTimeH));
+                }
+                log.info("취침 시간({}, {})에 해당하는 사용자 수: {}", targetTimeHH, targetTimeH, sleepUsers.size());
                 
                 // 각 사용자별 작업을 병렬로 처리
                 sleepUsers.parallelStream().forEach(user -> {
@@ -176,15 +195,26 @@ public class SpontaneousMissionScheduler {
             AtomicInteger assignedCount,
             AtomicInteger skippedCount) {
         try {
+            log.info("[DEBUG] 사용자 {} {} 미션 처리 시작 - userTime: {}, targetTime: {}", 
+                    user.getId(), missionType, userTime, targetTime);
+            
             // 설정한 날짜가 오늘이면 미션을 할당하지 않음 (악용 방지 - 다음날부터만 적용)
             if (shouldSkipUserForToday(user, now)) {
+                log.info("[DEBUG] 사용자 {} - shouldSkipUserForToday 조건에 걸림", user.getId());
+                skippedCount.incrementAndGet();
                 return;
             }
             
             String roundedTime = roundTimeTo5Minutes(userTime);
+            log.info("[DEBUG] 사용자 {} - roundedTime: {}, targetTime: {}, 매칭: {}", 
+                    user.getId(), roundedTime, targetTime, targetTime.equals(roundedTime));
+            
             if (roundedTime != null && targetTime.equals(roundedTime)) {
                 missionAssigner.run();
                 assignedCount.incrementAndGet();
+            } else {
+                log.info("[DEBUG] 사용자 {} - 시간 매칭 실패 (roundedTime={}, targetTime={})", 
+                        user.getId(), roundedTime, targetTime);
             }
         } catch (Exception e) {
             log.error("사용자 {} {} 미션 할당 실패: {}", user.getId(), missionType, e.getMessage(), e);
@@ -235,22 +265,29 @@ public class SpontaneousMissionScheduler {
 
     /**
      * 오늘 설정한 사용자는 다음날부터만 미션 할당 (악용 방지)
+     * 돌발 미션 설정 시점(spontaneousMissionSetupAt)을 기준으로 체크
+     * 
+     * TODO: 프로덕션에서는 악용 방지를 위해 활성화 필요
      */
     private boolean shouldSkipUserForToday(User user, LocalDateTime now) {
-        LocalDate setupDate = user.getUpdatedAt() != null ? user.getUpdatedAt().toLocalDate() : null;
+        // 돌발 미션 설정 시점을 기준으로 체크 (updatedAt이 아닌 전용 필드 사용)
+        LocalDateTime setupAt = user.getSpontaneousMissionSetupAt();
+        LocalDate setupDate = setupAt != null ? setupAt.toLocalDate() : null;
         LocalDate today = now.toLocalDate();
         
         if (setupDate != null && setupDate.equals(today)) {
-            log.debug("사용자 {}는 오늘 설정을 완료했으므로 다음날부터만 미션 할당됨 (설정일: {}, 오늘: {})", 
+            // 테스트를 위해 로그만 남기고 스킵하지 않음 (프로덕션에서는 return true로 변경)
+            log.info("사용자 {}는 오늘 돌발 미션 설정을 완료함 (설정일: {}, 오늘: {}) - 테스트 모드로 미션 할당 허용", 
                     user.getId(), setupDate, today);
-            return true;
+            // return true;  // 테스트 중 비활성화
         }
         return false;
     }
 
     /**
-     * 시간 문자열을 그대로 반환 (1분 단위 매칭)
-     * 예: "12:51" -> "12:51", "12:07" -> "12:07"
+     * 시간 문자열을 HH:mm 형식으로 정규화 (1분 단위 매칭)
+     * 예: "7:00" -> "07:00", "9:30" -> "09:30", "12:51" -> "12:51"
+     * DB에 "7:00" 형식과 "07:00" 형식이 혼재할 수 있으므로 정규화 필요
      */
     private String roundTimeTo5Minutes(String timeStr) {
         if (timeStr == null || timeStr.isEmpty()) {
@@ -258,9 +295,10 @@ public class SpontaneousMissionScheduler {
         }
         
         try {
-            // 시간 형식 검증만 수행
-            LocalTime.parse(timeStr, TIME_FORMATTER);
-            return timeStr;  // 그대로 반환
+            // 다양한 형식 지원 (H:mm, HH:mm 등)
+            LocalTime time = LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("[HH:mm][H:mm][HH:m][H:m]"));
+            // 항상 HH:mm 형식으로 정규화하여 반환
+            return time.format(TIME_FORMATTER);
         } catch (Exception e) {
             log.warn("시간 파싱 실패: {}", timeStr, e);
             return null;
@@ -312,45 +350,67 @@ public class SpontaneousMissionScheduler {
     }
 
     /**
-     * 식사 관련 미션 할당
+     * 식사 관련 미션 할당 (MealLog 테이블 사용)
      */
     private void assignMealMission(User user, LocalDateTime now, String mealType) {
-        // 오늘 이미 해당 식사 미션이 할당되었는지 확인
-        if (hasSpontaneousMissionToday(user, mealType, now.toLocalDate())) {
-            log.debug("사용자 {}는 오늘 이미 {} 식사 미션이 할당됨", user.getId(), mealType);
+        // MealType enum 변환
+        MealType mealTypeEnum;
+        try {
+            mealTypeEnum = MealType.fromDisplayName(mealType);
+        } catch (IllegalArgumentException e) {
+            log.warn("알 수 없는 식사 타입: {}", mealType);
             return;
         }
+
+        // MealLogService를 통해 미션 할당
+        MealLog mealLog = mealLogService.assignMealMission(user, mealTypeEnum, now.toLocalDate());
         
-        // 식사 관련 미션 찾기
-        Optional<Mission> mealMission = missionRepository.findAll().stream()
-                .filter(mission -> mission.getMissionType() == MissionType.OFFICIAL)
-                .filter(mission -> Boolean.TRUE.equals(mission.getIsActive()))
-                .filter(mission -> mission.getCategory() == MissionCategory.HEALTH 
-                        || mission.getCategory() == MissionCategory.DAILY_LIFE)
-                .filter(mission -> mission.getTitle().contains("식사") 
-                        || mission.getTitle().contains("아침") 
-                        || mission.getTitle().contains("점심")
-                        || mission.getTitle().contains("저녁")
-                        || mission.getTitle().contains("밥"))
-                .findFirst();
-        
-        if (mealMission.isEmpty()) {
-            log.warn("{} 식사 미션을 찾을 수 없습니다. 기본 미션을 할당합니다.", mealType);
-            mealMission = missionRepository.findAll().stream()
-                    .filter(mission -> mission.getMissionType() == MissionType.OFFICIAL)
-                    .filter(mission -> Boolean.TRUE.equals(mission.getIsActive()))
-                    .filter(mission -> mission.getCategory() == MissionCategory.HEALTH)
-                    .findFirst();
-        }
-        
-        if (mealMission.isPresent()) {
-            UserMission userMission = assignMissionToUser(user, mealMission.get(), now, mealType);
-            log.info("{} 식사 미션 할당: userId={}, missionId={}", mealType, user.getId(), mealMission.get().getId());
+        if (mealLog != null) {
+            log.info("{} 식사 미션 할당 완료: userId={}, mealLogId={}", 
+                    mealType, user.getId(), mealLog.getId());
             
-            // 알림 전송 (SSE/FCM)
-            sendSpontaneousMissionNotification(user, mealMission.get().getTitle(), mealType + " 식사", userMission.getId());
+            // 알림 전송 (SSE/FCM) - mealLogId 전달
+            sendMealMissionNotification(user, mealTypeEnum, mealLog.getId());
         } else {
-            log.warn("할당할 {} 식사 미션이 없습니다.", mealType);
+            log.debug("사용자 {}는 오늘 이미 {} 식사 미션이 할당됨", user.getId(), mealType);
+        }
+    }
+
+    /**
+     * 식사 미션 알림 전송 (MealLog용)
+     */
+    private void sendMealMissionNotification(User user, MealType mealType, Long mealLogId) {
+        String title = mealType.getDisplayName() + " 식사 시간입니다! 🍽️";
+        String content = mealType.getDisplayName() + " 식사 미션이 도착했습니다. 게시글을 작성해주세요!";
+        
+        try {
+            Notification savedNotification = notificationService.createAndPushNotification(
+                    user,
+                    NotificationType.SPONTANEOUS_MEAL,
+                    title,
+                    content,
+                    "MEAL_LOG",  // 참조 타입
+                    mealLogId    // 참조 ID (mealLogId)
+            );
+            
+            // FCM 추가 전송
+            if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
+                try {
+                    boolean fcmSent = fcmService.sendNotificationWithRetry(user.getId(), savedNotification);
+                    if (fcmSent) {
+                        log.info("식사 미션 FCM 알림 전송 성공: userId={}, mealLogId={}", user.getId(), mealLogId);
+                    }
+                } catch (Exception e) {
+                    log.warn("식사 미션 FCM 알림 전송 실패: userId={}, mealLogId={}, error={}", 
+                            user.getId(), mealLogId, e.getMessage());
+                }
+            }
+            
+            log.info("식사 미션 알림 전송 완료: userId={}, mealType={}, mealLogId={}", 
+                    user.getId(), mealType.getDisplayName(), mealLogId);
+        } catch (Exception e) {
+            log.error("식사 미션 알림 전송 실패: userId={}, mealType={}, mealLogId={}, error={}", 
+                    user.getId(), mealType.getDisplayName(), mealLogId, e.getMessage(), e);
         }
     }
 
@@ -387,10 +447,15 @@ public class SpontaneousMissionScheduler {
         
         if (diaryMission.isPresent()) {
             UserMission userMission = assignMissionToUser(user, diaryMission.get(), now, "감성일기");
-            log.info("감성일기 미션 할당: userId={}, missionId={}", user.getId(), diaryMission.get().getId());
-            
-            // 알림 전송 (SSE/FCM)
-            sendSpontaneousMissionNotification(user, diaryMission.get().getTitle(), "감성일기", userMission.getId());
+            if (userMission != null) {
+                log.info("감성일기 미션 할당 완료: userId={}, missionId={}, userMissionId={}", 
+                        user.getId(), diaryMission.get().getId(), userMission.getId());
+                
+                // 알림 전송 (SSE/FCM)
+                sendSpontaneousMissionNotification(user, diaryMission.get().getTitle(), "감성일기", userMission.getId());
+            } else {
+                log.warn("감성일기 미션 할당 실패: userMission이 null입니다. (이미 할당되었거나 중복일 수 있음)");
+            }
         } else {
             log.warn("할당할 감성일기 미션이 없습니다.");
         }
@@ -545,18 +610,26 @@ public class SpontaneousMissionScheduler {
                 }
             }
             
-            // 식사 미션 체크 (아침/점심/저녁 구분)
-            if (missionType.contains("식사")) {
+            // 식사 미션 체크 (아침/점심/저녁 각각 별도로 체크)
+            // 식사 미션은 공통 미션을 사용하므로, 할당 시간과 사용자 설정 시간을 비교하여 구분
+            if ("아침".equals(missionType) || "점심".equals(missionType) || "저녁".equals(missionType)) {
                 if (missionTitle.contains("식사") || missionTitle.contains("밥")) {
-                    // 아침/점심/저녁 구분
-                    if (missionType.contains("아침") && missionTitle.contains("아침")) {
-                        log.debug("사용자 {}는 오늘 이미 아침 식사 미션이 할당됨: missionId={}", user.getId(), um.getMission().getId());
-                        return true;
-                    } else if (missionType.contains("점심") && missionTitle.contains("점심")) {
-                        log.debug("사용자 {}는 오늘 이미 점심 식사 미션이 할당됨: missionId={}", user.getId(), um.getMission().getId());
-                        return true;
-                    } else if (missionType.contains("저녁") && missionTitle.contains("저녁")) {
-                        log.debug("사용자 {}는 오늘 이미 저녁 식사 미션이 할당됨: missionId={}", user.getId(), um.getMission().getId());
+                    // 할당 시간을 정규화하여 사용자 설정 시간과 비교
+                    String assignedTime = um.getAssignedAt().format(TIME_FORMATTER);
+                    String userMealTime = null;
+                    
+                    if ("아침".equals(missionType)) {
+                        userMealTime = roundTimeTo5Minutes(user.getBreakfastTime());
+                    } else if ("점심".equals(missionType)) {
+                        userMealTime = roundTimeTo5Minutes(user.getLunchTime());
+                    } else if ("저녁".equals(missionType)) {
+                        userMealTime = roundTimeTo5Minutes(user.getDinnerTime());
+                    }
+                    
+                    // 같은 시간대의 식사 미션인 경우에만 중복으로 처리
+                    if (userMealTime != null && assignedTime.equals(userMealTime)) {
+                        log.debug("사용자 {}는 오늘 이미 {} 식사 미션이 할당됨: missionId={}, assignedAt={}", 
+                                user.getId(), missionType, um.getMission().getId(), um.getAssignedAt());
                         return true;
                     }
                 }

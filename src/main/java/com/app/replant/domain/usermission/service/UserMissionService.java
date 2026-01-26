@@ -75,17 +75,13 @@ public class UserMissionService {
         LocalDate today = LocalDate.now();
         List<UserMission> todayMissions = userMissionRepository.findByUserIdAndAssignedDate(userId, today);
         
+        // 돌발 미션 중 가장 최근 ASSIGNED 미션 조회
         return todayMissions.stream()
                 .filter(UserMission::isSpontaneousMission)
                 .filter(um -> um.getStatus() == UserMissionStatus.ASSIGNED)
-                .filter(um -> {
-                    Mission mission = um.getMission();
-                    if (mission == null) return false;
-                    String title = mission.getTitle();
-                    return title != null && (title.contains("기상") || title.contains("일어나"));
-                })
+                // 가장 최근에 할당된 미션 조회 (assignedAt 기준 내림차순)
+                .max(java.util.Comparator.comparing(UserMission::getAssignedAt))
                 .map(UserMission::getId)
-                .findFirst()
                 .orElse(null);
     }
 
@@ -100,16 +96,13 @@ public class UserMissionService {
         LocalDate today = LocalDate.now();
         List<UserMission> todayMissions = userMissionRepository.findByUserIdAndAssignedDate(userId, today);
         
+        // 돌발 미션 중 가장 최근 ASSIGNED 미션 조회 (기상 미션은 제목에 의존하지 않음)
+        // 식사 미션은 postId로 인증하므로, postId 없이 인증하는 돌발 미션 = 기상 미션
         Optional<UserMission> wakeUpMission = todayMissions.stream()
                 .filter(UserMission::isSpontaneousMission)
                 .filter(um -> um.getStatus() == UserMissionStatus.ASSIGNED)
-                .filter(um -> {
-                    Mission mission = um.getMission();
-                    if (mission == null) return false;
-                    String title = mission.getTitle();
-                    return title != null && (title.contains("기상") || title.contains("일어나"));
-                })
-                .findFirst();
+                // 가장 최근에 할당된 미션 조회 (assignedAt 기준 내림차순)
+                .max(java.util.Comparator.comparing(UserMission::getAssignedAt));
         
         if (wakeUpMission.isEmpty()) {
             return null;
@@ -624,18 +617,14 @@ public class UserMissionService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        Mission mission = userMission.getMission();
         
-        // 기상 미션: 시간 제한 인증 (10분)
-        if (mission != null && (mission.getTitle().contains("기상") || mission.getTitle().contains("일어나"))) {
+        // postId가 없으면 기상 미션 (버튼만 클릭), 있으면 식사 미션 (게시글 인증)
+        if (request == null || request.getPostId() == null) {
+            // 기상 미션: 시간 제한 인증 (10분 안에 버튼 클릭)
             return verifyWakeUpMission(userMission, now);
-        }
-        
-        // 식사 미션: 게시글 작성 인증
-        if (request.getPostId() != null) {
-            return verifyMealMission(userMission, request.getPostId(), userId, now);
         } else {
-            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE, "식사 미션은 게시글 ID가 필요합니다.");
+            // 식사 미션: 게시글 작성 인증
+            return verifyMealMission(userMission, request.getPostId(), userId, now);
         }
     }
 
@@ -662,13 +651,6 @@ public class UserMissionService {
 
         // 경험치 지급 정보 (이미 completeMissionVerification에서 처리됨)
         int expReward = 10;
-        
-        // 뱃지 조회 (이미 completeMissionVerification에서 발급됨)
-        UserBadge badge = userBadgeRepository.findValidBadgeForMission(
-                userMission.getUser().getId(), 
-                userMission.getMission().getId(), 
-                now
-        ).orElse(null);
 
         // 인증 기록 생성
         MissionVerification verification = MissionVerification.builder()
@@ -680,14 +662,29 @@ public class UserMissionService {
         log.info("기상 미션 인증 완료: userMissionId={}, userId={}, elapsedMinutes={}", 
                 userMission.getId(), userMission.getUser().getId(), elapsed.toMinutes());
 
-        return buildVerifyResponse(userMission, verification, expReward, badge);
+        // 돌발 미션은 뱃지 없음
+        return buildVerifyResponse(userMission, verification, expReward, null);
     }
 
     /**
      * 식사 미션 인증 (게시글 작성)
+     * 설정 시간 + 2시간 이내에만 인증 가능
      */
     private VerifyMissionResponse verifyMealMission(UserMission userMission, Long postId, 
                                                     Long userId, LocalDateTime now) {
+        // 시간 제한 체크 (할당 시간 + 2시간)
+        LocalDateTime assignedAt = userMission.getAssignedAt();
+        Duration elapsed = Duration.between(assignedAt, now);
+        long MEAL_DEADLINE_MINUTES = 120;  // 2시간
+        
+        if (elapsed.toMinutes() > MEAL_DEADLINE_MINUTES) {
+            // 시간 초과 - 미션 실패 처리
+            userMission.updateStatus(UserMissionStatus.FAILED);
+            userMissionRepository.save(userMission);
+            throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
+                    "식사 미션 인증 시간(2시간)이 초과되었습니다.");
+        }
+
         // 게시글 조회 및 소유자 확인
         Post post = postRepository.findByIdAndDelFlagFalse(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
@@ -701,13 +698,6 @@ public class UserMissionService {
 
         // 경험치 지급 정보 (이미 completeMissionVerification에서 처리됨)
         int expReward = 10;
-        
-        // 뱃지 조회 (이미 completeMissionVerification에서 발급됨)
-        UserBadge badge = userBadgeRepository.findValidBadgeForMission(
-                userId, 
-                userMission.getMission().getId(), 
-                now
-        ).orElse(null);
 
         // 인증 기록 생성 (게시글 연결)
         MissionVerification verification = MissionVerification.builder()
@@ -720,7 +710,8 @@ public class UserMissionService {
         log.info("식사 미션 인증 완료: userMissionId={}, userId={}, postId={}", 
                 userMission.getId(), userId, postId);
 
-        return buildVerifyResponse(userMission, verification, expReward, badge);
+        // 돌발 미션은 뱃지 없음
+        return buildVerifyResponse(userMission, verification, expReward, null);
     }
 
     private User findUserById(Long userId) {

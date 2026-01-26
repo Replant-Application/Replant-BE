@@ -249,4 +249,14 @@ public class Post extends BaseEntity {
         }
         return null;
     }
+
+    /**
+     * 식사 인증용 게시글로 변환 (userMission 없이)
+     * MealLog와 연결되는 인증 게시글용
+     */
+    public void convertToMealVerification() {
+        this.postType = PostType.VERIFICATION;
+        this.status = "APPROVED";  // 식사 인증은 바로 승인
+        this.verifiedAt = LocalDateTime.now();
+    }
 }

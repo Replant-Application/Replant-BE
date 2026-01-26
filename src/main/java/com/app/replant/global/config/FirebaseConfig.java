@@ -17,7 +17,7 @@ import java.io.InputStream;
 @Slf4j
 public class FirebaseConfig {
 
-    @Value("${firebase.config.path:firebase/replant-application-firebase-adminsdk-fbsvc-d9a154f6f3.json}")
+    @Value("${firebase.config.path:firebase/replant-admin.json}")
     private String firebaseConfigPath;
 
     @PostConstruct

@@ -12,6 +12,7 @@ import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
@@ -188,6 +189,26 @@ public class ManualMigrationRunner implements CommandLineRunner {
             log.info("V32 마이그레이션 실행 중: todolist_review 테이블 content 컬럼 제거...");
             executeV32Migration(conn);
             log.info("V32 마이그레이션 완료");
+
+            // V33: user 테이블에 spontaneous_mission_setup_at 컬럼 추가 (돌발 미션 설정 시점)
+            log.info("V33 마이그레이션 실행 중: user 테이블 spontaneous_mission_setup_at 컬럼 추가...");
+            executeV33Migration(conn);
+            log.info("V33 마이그레이션 완료");
+
+            // V34: 시간 형식 정규화 (H:mm → HH:mm)
+            log.info("V34 마이그레이션 실행 중: 시간 형식 정규화...");
+            executeV34Migration(conn);
+            log.info("V34 마이그레이션 완료");
+
+            // V35: 기상 미션 및 식사 미션 추가
+            log.info("V35 마이그레이션 실행 중: 돌발 미션 시드 데이터 추가...");
+            executeV35Migration(conn);
+            log.info("V35 마이그레이션 완료");
+
+            // V36: meal_log 테이블 생성 (식사 인증 전용)
+            log.info("V36 마이그레이션 실행 중: meal_log 테이블 생성...");
+            executeV36Migration(conn);
+            log.info("V36 마이그레이션 완료");
 
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
@@ -891,6 +912,166 @@ public class ManualMigrationRunner implements CommandLineRunner {
             }
 
             log.info("V32 마이그레이션: todolist_review 테이블 content 컬럼 제거 완료");
+        }
+    }
+
+    private void executeV33Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V33: user 테이블에 spontaneous_mission_setup_at 컬럼 추가 (돌발 미션 설정 시점)
+            // 기존에 updatedAt을 사용하던 악용 방지 로직을 전용 필드로 분리
+
+            if (!columnExists(stmt, "user", "spontaneous_mission_setup_at")) {
+                executeIgnore(stmt,
+                    "ALTER TABLE `user` ADD COLUMN `spontaneous_mission_setup_at` DATETIME NULL " +
+                    "COMMENT '돌발 미션 설정 시점 (악용 방지용 - 설정 당일에는 미션 할당 안 함)'"
+                );
+                log.info("V33 마이그레이션: user.spontaneous_mission_setup_at 컬럼 추가 완료");
+                
+                // 기존에 돌발 미션 설정을 완료한 사용자의 경우, 설정 시점을 어제로 설정 (미션 할당 가능하도록)
+                executeIgnore(stmt,
+                    "UPDATE `user` SET `spontaneous_mission_setup_at` = DATE_SUB(NOW(), INTERVAL 1 DAY) " +
+                    "WHERE `is_spontaneous_mission_setup_completed` = TRUE AND `spontaneous_mission_setup_at` IS NULL"
+                );
+                log.info("V33 마이그레이션: 기존 설정 완료 사용자의 spontaneous_mission_setup_at을 어제로 초기화 완료");
+            } else {
+                log.info("V33 마이그레이션: user.spontaneous_mission_setup_at 컬럼이 이미 존재함");
+            }
+
+            log.info("V33 마이그레이션: user 테이블 spontaneous_mission_setup_at 컬럼 추가 완료");
+        }
+    }
+
+    private void executeV34Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V34: 시간 형식 정규화 (H:mm → HH:mm)
+            // DB에 "7:00", "0:42" 같이 1자리 시간으로 저장된 데이터를 "07:00", "00:42"로 정규화
+            
+            log.info("V34 마이그레이션: 시간 형식 정규화 시작 (H:mm → HH:mm)");
+            
+            // wake_time 정규화: "7:00" → "07:00"
+            executeIgnore(stmt,
+                "UPDATE `user` SET `wake_time` = LPAD(`wake_time`, 5, '0') " +
+                "WHERE `wake_time` IS NOT NULL AND LENGTH(`wake_time`) = 4"
+            );
+            log.info("V34 마이그레이션: wake_time 정규화 완료");
+            
+            // sleep_time 정규화
+            executeIgnore(stmt,
+                "UPDATE `user` SET `sleep_time` = LPAD(`sleep_time`, 5, '0') " +
+                "WHERE `sleep_time` IS NOT NULL AND LENGTH(`sleep_time`) = 4"
+            );
+            log.info("V34 마이그레이션: sleep_time 정규화 완료");
+            
+            // breakfast_time 정규화
+            executeIgnore(stmt,
+                "UPDATE `user` SET `breakfast_time` = LPAD(`breakfast_time`, 5, '0') " +
+                "WHERE `breakfast_time` IS NOT NULL AND LENGTH(`breakfast_time`) = 4"
+            );
+            log.info("V34 마이그레이션: breakfast_time 정규화 완료");
+            
+            // lunch_time 정규화
+            executeIgnore(stmt,
+                "UPDATE `user` SET `lunch_time` = LPAD(`lunch_time`, 5, '0') " +
+                "WHERE `lunch_time` IS NOT NULL AND LENGTH(`lunch_time`) = 4"
+            );
+            log.info("V34 마이그레이션: lunch_time 정규화 완료");
+            
+            // dinner_time 정규화
+            executeIgnore(stmt,
+                "UPDATE `user` SET `dinner_time` = LPAD(`dinner_time`, 5, '0') " +
+                "WHERE `dinner_time` IS NOT NULL AND LENGTH(`dinner_time`) = 4"
+            );
+            log.info("V34 마이그레이션: dinner_time 정규화 완료");
+            
+            log.info("V34 마이그레이션: 시간 형식 정규화 완료");
+        }
+    }
+    
+    /**
+     * V35 마이그레이션: 돌발 미션 시드 데이터 추가 (기상, 아침, 점심, 저녁 식사 미션)
+     */
+    private void executeV35Migration(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            // 기상 미션 추가 (없으면 INSERT)
+            executeIgnore(stmt,
+                "INSERT INTO `mission` (`title`, `description`, `category`, `mission_type`, " +
+                "`is_active`, `difficulty_level`, `exp_reward`, `verification_type`, `created_at`) " +
+                "SELECT '기상 미션', '일어나서 10분 안에 인증 버튼을 눌러주세요!', 'DAILY_LIFE', 'OFFICIAL', " +
+                "true, 'EASY', 10, 'BUTTON', NOW() " +
+                "FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `mission` WHERE `title` = '기상 미션')"
+            );
+            log.info("V35 마이그레이션: 기상 미션 추가 완료");
+            
+            // 아침 식사 미션 추가
+            executeIgnore(stmt,
+                "INSERT INTO `mission` (`title`, `description`, `category`, `mission_type`, " +
+                "`is_active`, `difficulty_level`, `exp_reward`, `verification_type`, `created_at`) " +
+                "SELECT '아침 식사 인증', '오늘의 아침 식사를 사진과 함께 공유해주세요!', 'DAILY_LIFE', 'OFFICIAL', " +
+                "true, 'EASY', 15, 'POST', NOW() " +
+                "FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `mission` WHERE `title` = '아침 식사 인증')"
+            );
+            log.info("V35 마이그레이션: 아침 식사 미션 추가 완료");
+            
+            // 점심 식사 미션 추가
+            executeIgnore(stmt,
+                "INSERT INTO `mission` (`title`, `description`, `category`, `mission_type`, " +
+                "`is_active`, `difficulty_level`, `exp_reward`, `verification_type`, `created_at`) " +
+                "SELECT '점심 식사 인증', '오늘의 점심 식사를 사진과 함께 공유해주세요!', 'DAILY_LIFE', 'OFFICIAL', " +
+                "true, 'EASY', 15, 'POST', NOW() " +
+                "FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `mission` WHERE `title` = '점심 식사 인증')"
+            );
+            log.info("V35 마이그레이션: 점심 식사 미션 추가 완료");
+            
+            // 저녁 식사 미션 추가
+            executeIgnore(stmt,
+                "INSERT INTO `mission` (`title`, `description`, `category`, `mission_type`, " +
+                "`is_active`, `difficulty_level`, `exp_reward`, `verification_type`, `created_at`) " +
+                "SELECT '저녁 식사 인증', '오늘의 저녁 식사를 사진과 함께 공유해주세요!', 'DAILY_LIFE', 'OFFICIAL', " +
+                "true, 'EASY', 15, 'POST', NOW() " +
+                "FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM `mission` WHERE `title` = '저녁 식사 인증')"
+            );
+            log.info("V35 마이그레이션: 저녁 식사 미션 추가 완료");
+            
+            log.info("V35 마이그레이션: 돌발 미션 시드 데이터 추가 완료");
+        }
+    }
+
+    /**
+     * V36 마이그레이션: meal_log 테이블 생성 (식사 인증 전용 테이블)
+     */
+    private void executeV36Migration(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            // meal_log 테이블이 없으면 생성
+            if (!tableExists(stmt, "meal_log")) {
+                executeIgnore(stmt,
+                    "CREATE TABLE `meal_log` (" +
+                    "  `id` BIGINT NOT NULL AUTO_INCREMENT," +
+                    "  `user_id` BIGINT NOT NULL," +
+                    "  `meal_type` VARCHAR(20) NOT NULL," +
+                    "  `meal_date` DATE NOT NULL," +
+                    "  `title` VARCHAR(255)," +
+                    "  `description` TEXT," +
+                    "  `rating` INT," +
+                    "  `post_id` BIGINT," +
+                    "  `status` VARCHAR(20) NOT NULL," +
+                    "  `assigned_at` DATETIME," +
+                    "  `verified_at` DATETIME," +
+                    "  `deadline_at` DATETIME," +
+                    "  `exp_reward` INT DEFAULT 15," +
+                    "  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP," +
+                    "  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP," +
+                    "  PRIMARY KEY (`id`)," +
+                    "  UNIQUE KEY `uk_user_meal_date` (`user_id`, `meal_type`, `meal_date`)," +
+                    "  INDEX `idx_meal_log_user_date` (`user_id`, `meal_date`)," +
+                    "  INDEX `idx_meal_log_status` (`status`)," +
+                    "  CONSTRAINT `fk_meal_log_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE," +
+                    "  CONSTRAINT `fk_meal_log_post` FOREIGN KEY (`post_id`) REFERENCES `post` (`id`) ON DELETE SET NULL" +
+                    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+                );
+                log.info("V36 마이그레이션: meal_log 테이블 생성 완료");
+            } else {
+                log.info("V36 마이그레이션: meal_log 테이블이 이미 존재합니다.");
+            }
         }
     }
 }

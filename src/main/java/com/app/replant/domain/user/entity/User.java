@@ -140,6 +140,10 @@ public class User extends BaseEntity {
     
     @Column(name = "dinner_time", length = 5)
     private String dinnerTime;
+    
+    // 돌발 미션 설정 시점 (악용 방지용 - 설정 당일에는 미션 할당 안 함)
+    @Column(name = "spontaneous_mission_setup_at")
+    private LocalDateTime spontaneousMissionSetupAt;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<UserOauth> oauthList = new ArrayList<>();
@@ -278,6 +282,14 @@ public class User extends BaseEntity {
         this.breakfastTime = breakfastTime;
         this.lunchTime = lunchTime;
         this.dinnerTime = dinnerTime;
+        this.spontaneousMissionSetupAt = LocalDateTime.now(); // 설정 시점 기록
+    }
+    
+    /**
+     * 돌발 미션 설정 시점 조회
+     */
+    public LocalDateTime getSpontaneousMissionSetupAt() {
+        return this.spontaneousMissionSetupAt;
     }
 
     /**
