@@ -209,11 +209,32 @@ public class PostService {
                 if (existingPostOpt.isPresent()) {
                     Post existingPost = existingPostOpt.get();
                     
-                    // 삭제된 게시글이면 복원
+                    // 삭제된 게시글이면 복원 및 새 내용으로 업데이트
                     if (existingPost.isDeleted()) {
                         existingPost.restore();
+                        
+                        // 새로 요청된 이미지 URL을 JSON으로 변환
+                        String newImageUrlsJson = null;
+                        if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
+                            try {
+                                newImageUrlsJson = objectMapper.writeValueAsString(request.getImageUrls());
+                            } catch (JsonProcessingException ex) {
+                                log.warn("재인증글 이미지 URL 변환 실패 - postId={}, userMissionId={}", 
+                                        existingPost.getId(), userMission.getId());
+                            }
+                        }
+                        
+                        // 새로 요청된 내용, 이미지, 완료율로 업데이트
+                        existingPost.updateVerificationContent(
+                                request.getContent(), 
+                                newImageUrlsJson, 
+                                request.getCompletionRate()
+                        );
+                        
                         postRepository.save(existingPost);
-                        log.info("삭제된 인증글 복원 - postId={}, userMissionId={}", existingPost.getId(), userMission.getId());
+                        log.info("삭제된 인증글 복원 및 내용 업데이트 - postId={}, userMissionId={}, hasImages={}", 
+                                existingPost.getId(), userMission.getId(), 
+                                newImageUrlsJson != null && !newImageUrlsJson.isEmpty());
                     }
                     
                     // 좋아요 수와 댓글 수 조회
