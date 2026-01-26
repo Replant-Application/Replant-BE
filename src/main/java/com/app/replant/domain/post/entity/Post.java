@@ -160,6 +160,26 @@ public class Post extends BaseEntity {
         }
     }
 
+    /**
+     * 재인증을 위한 내용 업데이트 (APPROVED 상태도 허용)
+     * 삭제된 게시글을 복원하여 재인증할 때 사용
+     */
+    public void updateVerificationContentForReVerification(String content, String imageUrls, Integer completionRate) {
+        if (this.postType != PostType.VERIFICATION) {
+            throw new IllegalStateException("인증글만 이 메서드로 수정할 수 있습니다.");
+        }
+        // 재인증이므로 상태를 PENDING으로 변경
+        if ("APPROVED".equals(this.status)) {
+            this.status = "PENDING";
+            this.verifiedAt = null;
+        }
+        this.content = content;
+        this.imageUrls = imageUrls;
+        if (completionRate != null) {
+            this.completionRate = completionRate;
+        }
+    }
+
     // ========================================
     // 인증 관련 메서드 (좋아요 = 인증)
     // ========================================

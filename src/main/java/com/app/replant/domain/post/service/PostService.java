@@ -224,17 +224,19 @@ public class PostService {
                             }
                         }
                         
-                        // 새로 요청된 내용, 이미지, 완료율로 업데이트
-                        existingPost.updateVerificationContent(
+                        // 재인증을 위한 업데이트 (APPROVED 상태도 허용)
+                        String previousStatus = existingPost.getStatus();
+                        existingPost.updateVerificationContentForReVerification(
                                 request.getContent(), 
                                 newImageUrlsJson, 
                                 request.getCompletionRate()
                         );
                         
                         postRepository.save(existingPost);
-                        log.info("삭제된 인증글 복원 및 내용 업데이트 - postId={}, userMissionId={}, hasImages={}", 
+                        log.info("삭제된 인증글 복원 및 내용 업데이트 - postId={}, userMissionId={}, hasImages={}, previousStatus={}, newStatus={}", 
                                 existingPost.getId(), userMission.getId(), 
-                                newImageUrlsJson != null && !newImageUrlsJson.isEmpty());
+                                newImageUrlsJson != null && !newImageUrlsJson.isEmpty(),
+                                previousStatus, existingPost.getStatus());
                     }
                     
                     // 좋아요 수와 댓글 수 조회
