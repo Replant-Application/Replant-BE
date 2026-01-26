@@ -25,6 +25,9 @@ bin/
 # VS Code
 .vscode/
 
+# Cursor
+.cursor/
+
 # Mac
 .DS_Store
 
@@ -57,3 +60,7 @@ debug.keystore
 
 # Firebase Admin SDK
 *.replant-771e5-firebase-adminsdk-fbsvc-ce70ac8cd2.json
+
+# Docs and Scripts
+docs/
+scripts/
