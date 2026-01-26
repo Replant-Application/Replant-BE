@@ -149,6 +149,11 @@ public class PostService {
         UserMission userMission = userMissionRepository.findByIdAndUserId(request.getUserMissionId(), userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
 
+        // UserMission 상태 검증: COMPLETED 상태에서는 재인증 불가
+        if (userMission.getStatus() == UserMissionStatus.COMPLETED) {
+            throw new CustomException(ErrorCode.MISSION_ALREADY_COMPLETED);
+        }
+
         // 이미 해당 미션에 대한 인증글이 있는지 확인 (동시 요청 방지를 위해 flush 후 재확인)
         postRepository.flush(); // 현재 트랜잭션의 변경사항을 DB에 반영
         if (postRepository.findByUserMissionId(userMission.getId()).isPresent()) {
@@ -186,11 +191,20 @@ public class PostService {
             
             return PostResponse.from(verifiedPost, commentCount, likeCount, false, userId);
         } catch (org.springframework.dao.DataIntegrityViolationException e) {
-            // UNIQUE 제약조건 위반 시 (동시 요청으로 인한 중복 생성 시도)
-            log.warn("인증글 중복 생성 시도 감지 - userMissionId={}, userId={}", userMission.getId(), userId);
-            // 기존 게시글 조회하여 반환 (QueryDSL로 fetch join)
-            Post existingPost = postRepository.findByUserMissionId(userMission.getId())
+            // UNIQUE 제약조건 위반 시 (삭제된 게시글이 남아있거나 동시 요청으로 인한 중복 생성 시도)
+            log.warn("인증글 중복 생성 시도 감지 - userMissionId={}, userId={}, error={}", 
+                    userMission.getId(), userId, e.getMessage());
+            
+            // 삭제된 게시글도 포함하여 조회 시도
+            Post existingPost = postRepository.findByUserMissionIdIncludingDeleted(userMission.getId())
                     .orElseThrow(() -> new CustomException(ErrorCode.VERIFICATION_ALREADY_EXISTS));
+            
+            // 삭제된 게시글이면 복원
+            if (existingPost.isDeleted()) {
+                existingPost.restore();
+                postRepository.save(existingPost);
+                log.info("삭제된 인증글 복원 - postId={}, userMissionId={}", existingPost.getId(), userMission.getId());
+            }
             
             // 좋아요 수와 댓글 수 조회
             long likeCount = postLikeRepository.countByPostId(existingPost.getId());
@@ -320,11 +334,13 @@ public class PostService {
         // 인증글인 경우 UserMission 상태를 되돌림
         if (post.isVerificationPost() && post.getUserMission() != null) {
             UserMission userMission = post.getUserMission();
-            // PENDING 상태였으면 ASSIGNED로 되돌림
-            if (userMission.getStatus() == UserMissionStatus.PENDING) {
+            // PENDING 또는 COMPLETED 상태였으면 ASSIGNED로 되돌림
+            if (userMission.getStatus() == UserMissionStatus.PENDING || 
+                userMission.getStatus() == UserMissionStatus.COMPLETED) {
+                UserMissionStatus previousStatus = userMission.getStatus();
                 userMission.updateStatus(UserMissionStatus.ASSIGNED);
-                log.info("인증글 삭제로 인해 UserMission 상태 복원: userMissionId={}, status={}", 
-                        userMission.getId(), userMission.getStatus());
+                log.info("인증글 삭제로 인해 UserMission 상태 복원: userMissionId={}, previousStatus={}, newStatus={}", 
+                        userMission.getId(), previousStatus, userMission.getStatus());
             }
         }
 
