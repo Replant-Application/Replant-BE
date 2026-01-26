@@ -475,8 +475,16 @@ public class PostService {
                 post = postRepository.findByIdAndDelFlagFalse(postId)
                         .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
                 log.info("인증 완료! postId={}, likeCount={}, status={}", postId, likeCount, post.getStatus());
+                
                 // 인증 완료 처리 (뱃지, 경험치 등)
-                userMissionService.completeMissionVerification(post.getUserMission());
+                // UserMission이 연결되어 있는 경우에만 완료 처리
+                if (post.getUserMission() != null) {
+                    userMissionService.completeMissionVerification(post.getUserMission());
+                    log.info("UserMission 완료 처리: userMissionId={}, userId={}", 
+                            post.getUserMission().getId(), post.getUser().getId());
+                } else {
+                    log.warn("인증 게시글에 UserMission이 연결되어 있지 않습니다. postId={}", postId);
+                }
 
                 // 알림 전송
                 sendVerificationSuccessNotification(post.getUser(), post);
@@ -490,6 +498,60 @@ public class PostService {
         result.put("verified", newlyVerified);
 
         return result;
+    }
+
+    /**
+     * 인증 게시글을 직접 인증 처리 (관리자용 또는 자동 처리용)
+     * Post를 APPROVED로 변경하고, 연결된 UserMission도 COMPLETED로 변경
+     * 
+     * @param postId 인증 게시글 ID
+     * @param userId 요청한 사용자 ID (권한 확인용, null 가능)
+     * @return 인증 처리 성공 여부
+     */
+    @Transactional
+    public boolean approveVerificationPost(Long postId, Long userId) {
+        Post post = postRepository.findVerificationPostById(postId)
+                .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+
+        if (!post.isVerificationPost()) {
+            throw new CustomException(ErrorCode.INVALID_POST_TYPE);
+        }
+
+        // 이미 인증 완료된 경우
+        if ("APPROVED".equals(post.getStatus())) {
+            log.info("인증 게시글이 이미 APPROVED 상태입니다. postId={}", postId);
+            return false;
+        }
+
+        // Post를 APPROVED로 변경 (좋아요 수와 관계없이 강제 인증)
+        boolean newlyApproved = post.approve();
+        if (!newlyApproved) {
+            log.info("인증 게시글이 이미 APPROVED 상태입니다. postId={}", postId);
+            return false;
+        }
+        postRepository.saveAndFlush(post);
+
+        // 저장 후 최신 상태로 다시 조회 (1차 캐시 문제 방지)
+        post = postRepository.findByIdAndDelFlagFalse(postId)
+                .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+
+        log.info("인증 게시글 직접 인증 처리: postId={}, status={}", postId, post.getStatus());
+
+        // 연결된 UserMission이 있으면 완료 처리
+        if (post.getUserMission() != null) {
+            UserMission userMission = post.getUserMission();
+            // 이미 COMPLETED 상태가 아니면 완료 처리
+            if (userMission.getStatus() != UserMissionStatus.COMPLETED) {
+                userMissionService.completeMissionVerification(userMission);
+                log.info("UserMission 완료 처리: userMissionId={}, status={}", 
+                        userMission.getId(), userMission.getStatus());
+            }
+        }
+
+        // 알림 전송
+        sendVerificationSuccessNotification(post.getUser(), post);
+
+        return true;
     }
 
     // ========================================

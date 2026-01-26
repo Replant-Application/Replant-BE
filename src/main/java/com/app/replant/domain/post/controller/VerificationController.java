@@ -138,4 +138,18 @@ public class VerificationController {
         Map<String, Object> result = postService.toggleLike(verificationId, userId);
         return ApiResponse.success(result);
     }
+
+    @Operation(summary = "인증글 직접 인증 처리",
+            description = "인증 게시글을 직접 인증 처리합니다. Post를 APPROVED로 변경하고 연결된 UserMission도 COMPLETED로 변경합니다.")
+    @PostMapping("/{verificationId}/approve")
+    public ApiResponse<Map<String, Object>> approveVerification(
+            @Parameter(description = "인증글 ID", example = "1")
+            @PathVariable Long verificationId,
+            @AuthenticationPrincipal Long userId) {
+        boolean approved = postService.approveVerificationPost(verificationId, userId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("approved", approved);
+        result.put("message", approved ? "인증 처리가 완료되었습니다." : "이미 인증 완료된 게시글입니다.");
+        return ApiResponse.success(result);
+    }
 }

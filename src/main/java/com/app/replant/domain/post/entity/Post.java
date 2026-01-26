@@ -192,6 +192,24 @@ public class Post extends BaseEntity {
         return "APPROVED".equals(this.status);
     }
 
+    /**
+     * 인증 게시글을 직접 인증 처리 (좋아요 수와 관계없이 강제 인증)
+     * 관리자용 또는 자동 처리용
+     * 
+     * @return 인증 처리 성공 여부 (이미 인증되었으면 false)
+     */
+    public boolean approve() {
+        if (this.postType != PostType.VERIFICATION) {
+            return false;
+        }
+        if ("APPROVED".equals(this.status)) {
+            return false; // 이미 인증됨
+        }
+        this.status = "APPROVED";
+        this.verifiedAt = LocalDateTime.now();
+        return true; // 새로 인증됨
+    }
+
     // ========================================
     // 유틸리티 메서드
     // ========================================
