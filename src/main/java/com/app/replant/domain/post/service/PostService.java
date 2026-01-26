@@ -41,6 +41,7 @@ import java.util.Set;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.Collections;
+import java.util.Optional;
 
 @Service
 @Transactional(readOnly = true)
@@ -177,13 +178,19 @@ public class PostService {
         userMission.updateStatus(UserMissionStatus.PENDING);
 
         try {
-            Post saved = postRepository.save(post);
+            Post saved = postRepository.saveAndFlush(post); // 즉시 DB에 반영
             log.info("인증 게시글 생성 완료 - postId={}, postType={}, userMissionId={}, userId={}, status={}", 
                     saved.getId(), saved.getPostType(), userMission.getId(), userId, saved.getStatus());
             
             // QueryDSL로 fetch join하여 user, userMission, mission 정보를 모두 로드
+            // 방금 저장한 게시글이므로 getPostByIdExcludingDeleted로 조회
             Post verifiedPost = postRepository.getPostByIdExcludingDeleted(saved.getId())
-                    .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+                    .orElseGet(() -> {
+                        // 조회 실패 시 저장된 객체를 다시 로드 (fetch join 포함)
+                        log.warn("방금 저장한 게시글 조회 실패, 재조회 시도 - postId={}", saved.getId());
+                        return postRepository.findById(saved.getId())
+                                .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+                    });
             
             // 좋아요 수와 댓글 수 조회
             long likeCount = postLikeRepository.countByPostId(verifiedPost.getId());
@@ -195,22 +202,45 @@ public class PostService {
             log.warn("인증글 중복 생성 시도 감지 - userMissionId={}, userId={}, error={}", 
                     userMission.getId(), userId, e.getMessage());
             
-            // 삭제된 게시글도 포함하여 조회 시도
-            Post existingPost = postRepository.findByUserMissionIdIncludingDeleted(userMission.getId())
-                    .orElseThrow(() -> new CustomException(ErrorCode.VERIFICATION_ALREADY_EXISTS));
-            
-            // 삭제된 게시글이면 복원
-            if (existingPost.isDeleted()) {
-                existingPost.restore();
-                postRepository.save(existingPost);
-                log.info("삭제된 인증글 복원 - postId={}, userMissionId={}", existingPost.getId(), userMission.getId());
+            try {
+                // 삭제된 게시글도 포함하여 조회 시도
+                Optional<Post> existingPostOpt = postRepository.findByUserMissionIdIncludingDeleted(userMission.getId());
+                
+                if (existingPostOpt.isPresent()) {
+                    Post existingPost = existingPostOpt.get();
+                    
+                    // 삭제된 게시글이면 복원
+                    if (existingPost.isDeleted()) {
+                        existingPost.restore();
+                        postRepository.save(existingPost);
+                        log.info("삭제된 인증글 복원 - postId={}, userMissionId={}", existingPost.getId(), userMission.getId());
+                    }
+                    
+                    // 좋아요 수와 댓글 수 조회
+                    long likeCount = postLikeRepository.countByPostId(existingPost.getId());
+                    long commentCount = commentRepository.countByPostId(existingPost.getId());
+                    
+                    return PostResponse.from(existingPost, commentCount, likeCount, false, userId);
+                } else {
+                    // 기존 게시글을 찾을 수 없으면 에러
+                    log.error("UNIQUE 제약조건 위반했지만 기존 게시글을 찾을 수 없음 - userMissionId={}, userId={}", 
+                            userMission.getId(), userId);
+                    throw new CustomException(ErrorCode.VERIFICATION_ALREADY_EXISTS);
+                }
+            } catch (CustomException ce) {
+                // CustomException은 그대로 전파
+                throw ce;
+            } catch (Exception ex) {
+                // 기타 예외는 로그 남기고 원래 예외로 전파
+                log.error("인증글 복원 처리 중 오류 발생 - userMissionId={}, userId={}", 
+                        userMission.getId(), userId, ex);
+                throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
             }
-            
-            // 좋아요 수와 댓글 수 조회
-            long likeCount = postLikeRepository.countByPostId(existingPost.getId());
-            long commentCount = commentRepository.countByPostId(existingPost.getId());
-            
-            return PostResponse.from(existingPost, commentCount, likeCount, false, userId);
+        } catch (Exception e) {
+            // 예상치 못한 예외 처리
+            log.error("인증 게시글 생성 중 예상치 못한 오류 발생 - userMissionId={}, userId={}, error={}", 
+                    userMission.getId(), userId, e.getMessage(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
