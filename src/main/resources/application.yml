@@ -108,7 +108,7 @@ spring:
         chat:
           options:
             model: ${GEMINI_MODEL:${env.GEMINI_MODEL:gemini-3-flash-preview}}
-            temperature: 0.7
+            temperature: ${env.GEMINI_TEMPERATURE:0.7}
     
     # OpenAI 호환 API - Qwen/vLLM (Fallback)
     # 주의: Spring AI가 자동으로 /v1을 추가하므로 base-url에 /v1 제외
@@ -118,7 +118,7 @@ spring:
       chat:
         options:
           model: ${QWEN_MODEL:${env.QWEN_MODEL:Qwen/Qwen2.5-14B-Instruct-AWQ}}
-          temperature: 0.7
+          temperature: ${env.QWEN_TEMPERATURE:0.7}
 
 # ===========================================
 # JWT 설정 - .env에서 로드
