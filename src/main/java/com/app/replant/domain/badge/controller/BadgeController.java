@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Map;
 
-@Tag(name = "Badge", description = "뱃지 API")
+@Tag(name = "Badge", description = "배지 API")
 @RestController
 @RequestMapping("/api/badges")
 @RequiredArgsConstructor
@@ -27,7 +27,7 @@ public class BadgeController {
 
     private final BadgeService badgeService;
 
-    @Operation(summary = "내 유효 뱃지 목록 조회")
+    @Operation(summary = "내 유효 배지 목록 조회")
     @GetMapping
     public ApiResponse<List<BadgeResponse>> getMyBadges(
             @AuthenticationPrincipal Long userId) {
@@ -35,7 +35,7 @@ public class BadgeController {
         return ApiResponse.success(badges);
     }
 
-    @Operation(summary = "뱃지 히스토리 조회 (만료된 뱃지 포함)")
+    @Operation(summary = "배지 히스토리 조회 (만료된 배지 포함)")
     @GetMapping("/history")
     public ApiResponse<Page<BadgeResponse>> getBadgeHistory(
             @AuthenticationPrincipal Long userId,
@@ -44,7 +44,7 @@ public class BadgeController {
         return ApiResponse.success(history);
     }
 
-    @Operation(summary = "특정 미션에 대한 유효 뱃지 보유 여부 확인")
+    @Operation(summary = "특정 미션에 대한 유효 배지 보유 여부 확인")
     @GetMapping("/check/{missionId}")
     public ApiResponse<Map<String, Boolean>> checkBadgeForMission(
             @AuthenticationPrincipal Long userId,

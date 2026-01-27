@@ -573,7 +573,7 @@ public class PostService {
                         .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
                 log.info("인증 완료! postId={}, likeCount={}, status={}", postId, likeCount, post.getStatus());
                 
-                // 인증 완료 처리 (뱃지, 경험치 등)
+                // 인증 완료 처리 (배지, 경험치 등)
                 // UserMission이 연결되어 있는 경우에만 완료 처리
                 if (post.getUserMission() != null) {
                     userMissionService.completeMissionVerification(post.getUserMission());
@@ -652,7 +652,7 @@ public class PostService {
 
     private void sendVerificationSuccessNotification(User postAuthor, Post post) {
         String title = "미션 인증이 완료되었습니다!";
-        String content = String.format("'%s' 미션 인증이 완료되어 뱃지를 획득했습니다.",
+        String content = String.format("'%s' 미션 인증이 완료되어 배지를 획득했습니다.",
                 post.getMissionTitle() != null ? post.getMissionTitle() : "미션");
 
         notificationService.createAndPushNotification(

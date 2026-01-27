@@ -32,7 +32,7 @@ public class BadgeService {
     }
 
     /**
-     * 특정 미션에 대한 유효한 뱃지 보유 여부 확인
+     * 특정 미션에 대한 유효한 배지 보유 여부 확인
      */
     public boolean hasValidBadgeForMission(Long userId, Long missionId) {
         return userBadgeRepository.hasValidBadgeForMission(userId, missionId, LocalDateTime.now());

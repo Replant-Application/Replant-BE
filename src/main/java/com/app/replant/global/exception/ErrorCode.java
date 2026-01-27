@@ -133,8 +133,8 @@ public enum ErrorCode {
     CUSTOM_MISSION_NOT_PUBLIC(HttpStatus.FORBIDDEN, "CM003", "공개되지 않은 미션입니다"),
 
     // Badge
-    BADGE_REQUIRED(HttpStatus.FORBIDDEN, "B001", "유효한 뱃지가 필요합니다"),
-    BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "B002", "뱃지를 찾을 수 없습니다"),
+    BADGE_REQUIRED(HttpStatus.FORBIDDEN, "B001", "유효한 배지가 필요합니다"),
+    BADGE_NOT_FOUND(HttpStatus.NOT_FOUND, "B002", "배지를 찾을 수 없습니다"),
 
     // Review
     REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "RV001", "이미 리뷰를 작성했습니다"),

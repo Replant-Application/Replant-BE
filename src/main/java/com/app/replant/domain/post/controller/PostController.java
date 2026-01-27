@@ -36,7 +36,7 @@ public class PostController {
     private final PostService postService;
 
     @Operation(summary = "게시글 목록 조회",
-            description = "자유 게시판 게시글 목록을 조회합니다. 미션 ID나 뱃지 소유 여부로 필터링 가능합니다.")
+            description = "자유 게시판 게시글 목록을 조회합니다. 미션 ID나 배지 소유 여부로 필터링 가능합니다.")
     @ApiResponses(value = {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공",
                     content = @Content(examples = @ExampleObject(value = """
@@ -67,7 +67,7 @@ public class PostController {
     public ApiResponse<Page<PostResponse>> getPosts(
             @Parameter(description = "시스템 미션 ID로 필터링")
             @RequestParam(required = false) Long missionId,
-            @Parameter(description = "뱃지 소유자 게시글만 조회")
+            @Parameter(description = "배지 소유자 게시글만 조회")
             @RequestParam(required = false) Boolean badgeOnly,
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {

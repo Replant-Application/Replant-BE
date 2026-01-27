@@ -285,7 +285,7 @@ public class Mission {
     }
 
     /**
-     * 완료기한(deadlineDays)에 따른 뱃지 유효기간 계산
+     * 완료기한(deadlineDays)에 따른 배지 유효기간 계산
      * - 1일 → 7일
      * - 3일 → 10일
      * - 7일 → 14일
@@ -306,7 +306,7 @@ public class Mission {
             return 3; // 기본값
         }
 
-        // 완료기한에 따른 뱃지 유효기간 매핑
+        // 완료기한에 따른 배지 유효기간 매핑
         return switch (days) {
             case 1 -> 7;
             case 3 -> 10;

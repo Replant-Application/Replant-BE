@@ -280,7 +280,7 @@ public class UserMissionService {
             }
         }
 
-        // 뱃지 발급
+        // 배지 발급
         createBadge(userMission);
 
         // 투두리스트에 포함된 미션이면 TodoListMission도 완료 처리
@@ -345,7 +345,7 @@ public class UserMissionService {
         // 보상 지급 정보 조회 (이미 completeMissionVerification에서 처리됨)
         int expReward = getExpReward(userMission);
         
-        // 뱃지 조회 (이미 completeMissionVerification에서 발급됨)
+        // 배지 조회 (이미 completeMissionVerification에서 발급됨)
         UserBadge badge = userBadgeRepository.findValidBadgeForMission(
                 userId, 
                 userMission.getMission().getId(), 
@@ -662,7 +662,7 @@ public class UserMissionService {
         log.info("기상 미션 인증 완료: userMissionId={}, userId={}, elapsedMinutes={}", 
                 userMission.getId(), userMission.getUser().getId(), elapsed.toMinutes());
 
-        // 돌발 미션은 뱃지 없음
+        // 돌발 미션은 배지 없음
         return buildVerifyResponse(userMission, verification, expReward, null);
     }
 
@@ -710,7 +710,7 @@ public class UserMissionService {
         log.info("식사 미션 인증 완료: userMissionId={}, userId={}, postId={}", 
                 userMission.getId(), userId, postId);
 
-        // 돌발 미션은 뱃지 없음
+        // 돌발 미션은 배지 없음
         return buildVerifyResponse(userMission, verification, expReward, null);
     }
 
