@@ -175,15 +175,22 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
         LocalDateTime startOfToday = today.atStartOfDay();      // 오늘 00:00:00
         LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();  // 내일 00:00:00 (오늘 23:59:59까지)
         
+        // 조건 분리: 오늘 할당된 미션이거나 PENDING 상태인 미션
+        // PENDING 상태인 미션은 인증 게시글을 올린 경우이므로 날짜와 관계없이 조회
+        com.querydsl.core.types.dsl.BooleanExpression todayAssignedCondition = 
+                userMission.assignedAt.goe(startOfToday)
+                        .and(userMission.assignedAt.lt(endOfToday));
+        com.querydsl.core.types.dsl.BooleanExpression pendingStatusCondition = 
+                userMission.status.eq(UserMissionStatus.PENDING);
+        
         return queryFactory
                 .selectFrom(userMission)
                 .join(userMission.user, user).fetchJoin()
                 .join(userMission.mission, mission).fetchJoin()
                 .where(userMission.user.id.eq(userId)
                         .and(userMission.mission.id.in(missionIds))
-                        // 오늘 할당된 미션만 조회 (투두리스트는 오늘 미션만 표시)
-                        .and(userMission.assignedAt.goe(startOfToday))
-                        .and(userMission.assignedAt.lt(endOfToday)))
+                        // 오늘 할당된 미션이거나 PENDING 상태인 미션
+                        .and(todayAssignedCondition.or(pendingStatusCondition)))
                 .distinct()
                 .orderBy(userMission.mission.id.asc(), userMission.id.desc())
                 .fetch();

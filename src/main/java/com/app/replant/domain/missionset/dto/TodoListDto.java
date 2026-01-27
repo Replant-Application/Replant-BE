@@ -176,6 +176,9 @@ public class TodoListDto {
                     for (com.app.replant.domain.usermission.entity.UserMission um : userMissions) {
                         if (um.getMission() != null && um.getMission().getId() != null) {
                             userMissionMap.putIfAbsent(um.getMission().getId(), um);
+                            // 디버깅: UserMission 상태 로그
+                            System.out.println(String.format("[TodoListDto] UserMission 조회: missionId=%d, status=%s, assignedAt=%s", 
+                                    um.getMission().getId(), um.getStatus(), um.getAssignedAt()));
                         }
                     }
                 }
@@ -185,6 +188,14 @@ public class TodoListDto {
                     if (msm.getMission() != null && msm.getMission().getId() != null) {
                         com.app.replant.domain.usermission.entity.UserMission userMission = 
                                 userMissionMap.get(msm.getMission().getId());
+                        // 디버깅: UserMission 매핑 로그
+                        if (userMission == null) {
+                            System.out.println(String.format("[TodoListDto] UserMission 없음: missionId=%d, title=%s", 
+                                    msm.getMission().getId(), msm.getMission().getTitle()));
+                        } else {
+                            System.out.println(String.format("[TodoListDto] UserMission 매핑: missionId=%d, status=%s", 
+                                    msm.getMission().getId(), userMission.getStatus()));
+                        }
                         missionInfos.add(TodoMissionInfo.from(msm, userMission));
                     } else {
                         // Mission이 null인 경우 기본값으로 처리
