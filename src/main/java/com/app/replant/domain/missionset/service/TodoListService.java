@@ -187,7 +187,7 @@ public class TodoListService {
                                         .dueDate(dueDate)
                                         .status(UserMissionStatus.ASSIGNED)
                                         .build();
-                        userMissionRepository.save(userMission);
+                        userMissionRepository.saveAndFlush(userMission); // 즉시 DB에 반영하여 조회 가능하도록
                 }
 
                 // 커스텀 미션 추가
@@ -228,7 +228,7 @@ public class TodoListService {
                                         .dueDate(dueDate)
                                         .status(UserMissionStatus.ASSIGNED)
                                         .build();
-                        userMissionRepository.save(userMission);
+                        userMissionRepository.saveAndFlush(userMission); // 즉시 DB에 반영하여 조회 가능하도록
                 }
 
                 todoListRepository.save(todoList);
