@@ -287,6 +287,7 @@ public class TodoListService {
                                                         .creatorNickname(response.getCreatorNickname())
                                                         .averageRating(averageRating != null ? averageRating : 0.0)
                                                         .addedCount((int) reviewCount) // 리뷰 수를 addedCount로 설정
+                                                        .reviewCount((int) reviewCount) // 리뷰 수 (별점 매긴 사람 수)
                                                         .build();
                                         return response;
                                 });
@@ -321,6 +322,7 @@ public class TodoListService {
                                                         .creatorNickname(response.getCreatorNickname())
                                                         .averageRating(averageRating != null ? averageRating : 0.0)
                                                         .addedCount((int) reviewCount) // 리뷰 수를 addedCount로 설정
+                                                        .reviewCount((int) reviewCount) // 리뷰 수 (별점 매긴 사람 수)
                                                         .build();
                                         return response;
                                 });

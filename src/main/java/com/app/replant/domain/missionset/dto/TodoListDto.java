@@ -90,6 +90,7 @@ public class TodoListDto {
         private String creatorNickname;
         private Double averageRating;  // 평균 별점
         private Integer addedCount;    // 리뷰 수 (담은 횟수로 사용)
+        private Integer reviewCount;   // 리뷰 수 (별점 매긴 사람 수)
 
         public static SimpleResponse from(TodoList todoList) {
             return SimpleResponse.builder()

@@ -63,7 +63,12 @@ public class UserMissionService {
                         && userMission.getMission().isOfficialMission())
                 .filter(userMission -> {
                     Optional<Post> postOpt = postRepository.findByUserMissionId(userMission.getId());
-                    return postOpt.isEmpty() || postOpt.get().isDeleted();
+                    boolean shouldFix = postOpt.isEmpty() || postOpt.get().isDeleted();
+                    if (shouldFix) {
+                        log.debug("미션 수정 대상 발견: userMissionId={}, postOpt.isEmpty()={}, isDeleted()={}", 
+                                userMission.getId(), postOpt.isEmpty(), postOpt.map(Post::isDeleted).orElse(true));
+                    }
+                    return shouldFix;
                 })
                 .collect(Collectors.toList());
         
