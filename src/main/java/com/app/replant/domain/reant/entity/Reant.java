@@ -98,6 +98,46 @@ public class Reant extends BaseEntity {
         checkLevelUp();
     }
 
+    /**
+     * 경험치 차감 (인증 게시글 삭제 시 사용)
+     * 레벨 다운 처리 포함
+     */
+    public void subtractExp(int expAmount) {
+        if (expAmount <= 0) {
+            return;
+        }
+
+        // 경험치 차감 (0 이하로 떨어지지 않도록)
+        this.exp = Math.max(0, this.exp - expAmount);
+
+        // Mood 감소 (경험치 회수 시 기분 나빠짐)
+        this.mood = Math.max(0, this.mood - 5);
+
+        // 레벨 다운 체크
+        checkLevelDown();
+    }
+
+    private void checkLevelDown() {
+        // 현재 레벨에 필요한 경험치 계산
+        int currentLevelExp = calculateCurrentLevelExp();
+        
+        // 경험치가 현재 레벨에 필요한 경험치보다 적으면 레벨 다운
+        while (this.exp < currentLevelExp && this.level > 1) {
+            this.level--;
+            currentLevelExp = calculateCurrentLevelExp();
+            updateStage();
+        }
+    }
+
+    private int calculateCurrentLevelExp() {
+        // 현재 레벨에 도달하기 위해 필요한 총 경험치
+        int totalExp = 0;
+        for (int i = 1; i < this.level; i++) {
+            totalExp += i * 100;
+        }
+        return totalExp;
+    }
+
     public void feed() {
         this.hunger = Math.max(0, this.hunger - 30);
         this.health = Math.min(100, this.health + 5);

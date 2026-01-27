@@ -228,6 +228,7 @@ public class TodoListDto {
         private LocalTime scheduledStartTime; // 시간대 배치: 시작 시간
         private LocalTime scheduledEndTime;   // 시간대 배치: 종료 시간
         private Boolean isVerified; // 인증 완료 여부 (필수 미션의 경우만 의미 있음)
+        private String userMissionStatus; // UserMission의 상태 (ASSIGNED, PENDING, COMPLETED)
 
         public static TodoMissionInfo from(TodoListMission msm) {
             Mission mission = msm.getMission();
@@ -245,6 +246,7 @@ public class TodoListDto {
                     .scheduledStartTime(msm.getScheduledStartTime())
                     .scheduledEndTime(msm.getScheduledEndTime())
                     .isVerified(false) // 기본값은 false (나중에 Service에서 설정)
+                    .userMissionStatus(null) // UserMission이 없으면 null
                     .build();
         }
         
@@ -265,17 +267,22 @@ public class TodoListDto {
                         .isCompleted(msm.getIsCompleted() != null ? msm.getIsCompleted() : false)
                         .completedAt(msm.getCompletedAt())
                         .missionSource(msm.getMissionSource())
-                        .scheduledStartTime(msm.getScheduledStartTime())
-                        .scheduledEndTime(msm.getScheduledEndTime())
-                        .isVerified(false)
-                        .build();
+                    .scheduledStartTime(msm.getScheduledStartTime())
+                    .scheduledEndTime(msm.getScheduledEndTime())
+                    .isVerified(false)
+                    .userMissionStatus(null) // Mission이 null이면 UserMission도 없음
+                    .build();
             }
             
             // 공식 미션인 경우: UserMission의 상태가 COMPLETED면 인증 완료
             // 커스텀 미션인 경우: 인증이 필요 없으므로 항상 false
             boolean isVerified = false;
-            if (mission.isOfficialMission() && userMission != null) {
-                isVerified = userMission.getStatus() == com.app.replant.domain.usermission.enums.UserMissionStatus.COMPLETED;
+            String userMissionStatus = null;
+            if (userMission != null) {
+                userMissionStatus = userMission.getStatus().name();
+                if (mission.isOfficialMission()) {
+                    isVerified = userMission.getStatus() == com.app.replant.domain.usermission.enums.UserMissionStatus.COMPLETED;
+                }
             }
             
             return TodoMissionInfo.builder()
@@ -292,6 +299,7 @@ public class TodoListDto {
                     .scheduledStartTime(msm.getScheduledStartTime())
                     .scheduledEndTime(msm.getScheduledEndTime())
                     .isVerified(isVerified)
+                    .userMissionStatus(userMissionStatus)
                     .build();
         }
     }

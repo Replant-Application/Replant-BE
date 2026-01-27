@@ -146,6 +146,20 @@ public class TodoList {
         updateTodoListStatusIfNeeded();
     }
 
+    public void decrementCompletedCount() {
+        if (this.completedCount != null && this.completedCount > 0) {
+            this.completedCount--;
+            this.updatedAt = LocalDateTime.now();
+        }
+    }
+
+    public void decrementTotalCount() {
+        if (this.totalCount != null && this.totalCount > 0) {
+            this.totalCount--;
+            this.updatedAt = LocalDateTime.now();
+        }
+    }
+
     public int getProgressRate() {
         if (this.totalCount == null || this.totalCount == 0) {
             return 0;

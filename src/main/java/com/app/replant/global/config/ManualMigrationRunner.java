@@ -175,6 +175,7 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV29Migration(conn);
             log.info("V29 마이그레이션 완료");
 
+
             // V30: todolist 테이블에 is_public 컬럼 추가
             log.info("V30 마이그레이션 실행 중: todolist 테이블 is_public 컬럼 추가...");
             executeV30Migration(conn);
@@ -209,6 +210,16 @@ public class ManualMigrationRunner implements CommandLineRunner {
             log.info("V36 마이그레이션 실행 중: meal_log 테이블 생성...");
             executeV36Migration(conn);
             log.info("V36 마이그레이션 완료");
+
+            // V37: post 테이블에 todo_list_id 컬럼 추가
+            boolean needV37 = !columnExists(stmt, "post", "todo_list_id");
+            if (needV37) {
+                log.info("V37 마이그레이션 실행 중: post.todo_list_id 컬럼 추가...");
+                executeV37Migration(conn);
+                log.info("V37 마이그레이션 완료");
+            } else {
+                log.info("V37 마이그레이션 스킵 (이미 적용됨)");
+            }
 
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
@@ -1072,6 +1083,14 @@ public class ManualMigrationRunner implements CommandLineRunner {
             } else {
                 log.info("V36 마이그레이션: meal_log 테이블이 이미 존재합니다.");
             }
+        }
+    }
+
+    private void executeV37Migration(Connection conn) throws Exception {
+        try (Statement stmt = conn.createStatement()) {
+            // V37: post 테이블에 todo_list_id 컬럼 추가 (인증 게시글 작성 시점의 투두리스트 ID 저장용)
+            executeIgnore(stmt, "ALTER TABLE `post` ADD COLUMN `todo_list_id` BIGINT NULL");
+            log.info("V37 마이그레이션: post.todo_list_id 컬럼 추가 완료");
         }
     }
 }

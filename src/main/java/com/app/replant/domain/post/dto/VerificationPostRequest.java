@@ -23,4 +23,6 @@ public class VerificationPostRequest {
     private List<String> imageUrls;
 
     private Integer completionRate; // 완료 정도 (0-100, 선택사항)
+
+    private Long todoListId; // 투두리스트 ID (선택사항, 인증 게시글 작성 시점의 투두리스트)
 }
