@@ -10,7 +10,7 @@ public enum NotificationType {
     // 돌발 미션 관련
     SPONTANEOUS_WAKE_UP,        // 기상 미션 (인증 화면으로 이동)
     SPONTANEOUS_MEAL,           // 식사 미션 (인증 화면으로 이동)
-    SPONTANEOUS_DIARY,          // 감성일기 미션 (감성일기 작성 화면으로 바로 이동)
+    SPONTANEOUS_DIARY,          // 감정일기 미션 (감정일기 작성 화면으로 바로 이동)
 
     // 커뮤니티 게시글 관련
     COMMENT,                    // 내 게시글에 댓글

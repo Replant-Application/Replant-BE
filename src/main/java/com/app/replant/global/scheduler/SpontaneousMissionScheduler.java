@@ -42,7 +42,7 @@ import java.util.Optional;
  * - 아침 식사 시간: 아침 식사 관련 미션
  * - 점심 식사 시간: 점심 식사 관련 미션
  * - 저녁 식사 시간: 저녁 식사 관련 미션
- * - 취침 시간: 감성일기 작성 미션
+ * - 취침 시간: 감정일기 작성 미션
  */
 @Component
 @RequiredArgsConstructor
@@ -160,11 +160,11 @@ public class SpontaneousMissionScheduler {
                     processUserForTimeBasedMission(user, now, targetTime, 
                             user.getSleepTime(), 
                             () -> {
-                                log.info("취침 시간 매칭! 사용자 {} 감성일기 미션 할당 (sleepTime: {})", 
+                                log.info("취침 시간 매칭! 사용자 {} 감정일기 미션 할당 (sleepTime: {})", 
                                         user.getId(), user.getSleepTime());
                                 assignEmotionalDiaryMission(user, now);
                             },
-                            "감성일기",
+                            "감정일기",
                             assignedCount, skippedCount);
                 });
                 
@@ -415,29 +415,29 @@ public class SpontaneousMissionScheduler {
     }
 
     /**
-     * 감성일기 작성 미션 할당
+     * 감정일기 작성 미션 할당
      */
     private void assignEmotionalDiaryMission(User user, LocalDateTime now) {
-        // 오늘 이미 감성일기 미션이 할당되었는지 확인
-        if (hasSpontaneousMissionToday(user, "감성일기", now.toLocalDate())) {
-            log.debug("사용자 {}는 오늘 이미 감성일기 미션이 할당됨", user.getId());
+        // 오늘 이미 감정일기 미션이 할당되었는지 확인
+        if (hasSpontaneousMissionToday(user, "감정일기", now.toLocalDate())) {
+            log.debug("사용자 {}는 오늘 이미 감정일기 미션이 할당됨", user.getId());
             return;
         }
         
-        // 감성일기 관련 미션 찾기
+        // 감정일기 관련 미션 찾기
         Optional<Mission> diaryMission = missionRepository.findAll().stream()
                 .filter(mission -> mission.getMissionType() == MissionType.OFFICIAL)
                 .filter(mission -> Boolean.TRUE.equals(mission.getIsActive()))
                 .filter(mission -> mission.getCategory() == MissionCategory.GROWTH 
                         || mission.getCategory() == MissionCategory.DAILY_LIFE)
                 .filter(mission -> mission.getTitle().contains("일기") 
-                        || mission.getTitle().contains("감성")
+                        || mission.getTitle().contains("감정")
                         || mission.getTitle().contains("글쓰기")
                         || mission.getTitle().contains("기록"))
                 .findFirst();
         
         if (diaryMission.isEmpty()) {
-            log.warn("감성일기 미션을 찾을 수 없습니다. 기본 미션을 할당합니다.");
+            log.warn("감정일기 미션을 찾을 수 없습니다. 기본 미션을 할당합니다.");
             diaryMission = missionRepository.findAll().stream()
                     .filter(mission -> mission.getMissionType() == MissionType.OFFICIAL)
                     .filter(mission -> Boolean.TRUE.equals(mission.getIsActive()))
@@ -446,18 +446,18 @@ public class SpontaneousMissionScheduler {
         }
         
         if (diaryMission.isPresent()) {
-            UserMission userMission = assignMissionToUser(user, diaryMission.get(), now, "감성일기");
+            UserMission userMission = assignMissionToUser(user, diaryMission.get(), now, "감정일기");
             if (userMission != null) {
-                log.info("감성일기 미션 할당 완료: userId={}, missionId={}, userMissionId={}", 
+                log.info("감정일기 미션 할당 완료: userId={}, missionId={}, userMissionId={}", 
                         user.getId(), diaryMission.get().getId(), userMission.getId());
                 
                 // 알림 전송 (SSE/FCM)
-                sendSpontaneousMissionNotification(user, diaryMission.get().getTitle(), "감성일기", userMission.getId());
+                sendSpontaneousMissionNotification(user, diaryMission.get().getTitle(), "감정일기", userMission.getId());
             } else {
-                log.warn("감성일기 미션 할당 실패: userMission이 null입니다. (이미 할당되었거나 중복일 수 있음)");
+                log.warn("감정일기 미션 할당 실패: userMission이 null입니다. (이미 할당되었거나 중복일 수 있음)");
             }
         } else {
-            log.warn("할당할 감성일기 미션이 없습니다.");
+            log.warn("할당할 감정일기 미션이 없습니다.");
         }
     }
 
@@ -507,7 +507,7 @@ public class SpontaneousMissionScheduler {
      * 프론트에서 알림을 받으면:
      * - 기상 미션: 인증 화면으로 이동 (인증하기 버튼)
      * - 식사 미션: 인증 화면으로 이동 (게시글 작성)
-     * - 감성일기 미션: 감성일기 작성 화면으로 바로 이동
+     * - 감정일기 미션: 감정일기 작성 화면으로 바로 이동
      */
     private void sendSpontaneousMissionNotification(User user, String missionTitle, String missionType, Long userMissionId) {
         if (userMissionId == null) {
@@ -532,10 +532,10 @@ public class SpontaneousMissionScheduler {
                 title = String.format("%s 시간입니다! 🍽️", missionType);
                 content = String.format("%s 미션이 도착했습니다. 게시글을 작성해주세요!", missionType);
                 notificationType = NotificationType.SPONTANEOUS_MEAL;  // 프론트에서 인증 화면으로 라우팅
-            } else if ("감성일기".equals(missionType)) {
-                title = "감성일기 작성 시간입니다! ✍️";
-                content = "오늘 하루를 돌아보며 감성일기를 작성해보세요.";
-                notificationType = NotificationType.SPONTANEOUS_DIARY;  // 프론트에서 감성일기 작성 화면으로 바로 이동
+            } else if ("감정일기".equals(missionType)) {
+                title = "감정일기 작성 시간입니다! ✍️";
+                content = "오늘 하루를 돌아보며 감정일기를 작성해보세요.";
+                notificationType = NotificationType.SPONTANEOUS_DIARY;  // 프론트에서 감정일기 작성 화면으로 바로 이동
             } else {
                 title = "돌발 미션이 도착했습니다! 🎯";
                 content = String.format("%s 시간입니다. '%s' 미션을 확인해보세요!", missionType, missionTitle);
@@ -635,8 +635,8 @@ public class SpontaneousMissionScheduler {
                 }
             }
             
-            // 감성일기 미션 체크
-            if ("감성일기".equals(missionType)) {
+            // 감정일기 미션 체크
+            if ("감정일기".equals(missionType)) {
                 if (missionTitle.contains("일기") || missionTitle.contains("감성")) {
                     log.debug("사용자 {}는 오늘 이미 감성일기 미션이 할당됨: missionId={}", user.getId(), um.getMission().getId());
                     return true;
