@@ -320,11 +320,12 @@ public class PostService {
         // 인증글인 경우 UserMission 상태를 되돌림
         if (post.isVerificationPost() && post.getUserMission() != null) {
             UserMission userMission = post.getUserMission();
-            // PENDING 상태였으면 ASSIGNED로 되돌림
-            if (userMission.getStatus() == UserMissionStatus.PENDING) {
+            // PENDING 또는 COMPLETED 상태였으면 ASSIGNED로 되돌림
+            if (userMission.getStatus() == UserMissionStatus.PENDING || 
+                userMission.getStatus() == UserMissionStatus.COMPLETED) {
                 userMission.updateStatus(UserMissionStatus.ASSIGNED);
-                log.info("인증글 삭제로 인해 UserMission 상태 복원: userMissionId={}, status={}", 
-                        userMission.getId(), userMission.getStatus());
+                log.info("인증글 삭제로 인해 UserMission 상태 복원: userMissionId={}, 이전 상태={}, 새 상태={}", 
+                        userMission.getId(), userMission.getStatus(), UserMissionStatus.ASSIGNED);
             }
         }
 
