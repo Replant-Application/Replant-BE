@@ -19,6 +19,12 @@ import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
+import com.app.replant.domain.reant.repository.ReantRepository;
+import com.app.replant.domain.mission.entity.Mission;
+import com.app.replant.domain.missionset.entity.TodoList;
+import com.app.replant.domain.missionset.entity.TodoListMission;
+import com.app.replant.domain.missionset.repository.TodoListRepository;
+import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
 import com.app.replant.global.filter.BadWordFilterService;
@@ -60,6 +66,9 @@ public class PostService {
     private final UserMissionRepository userMissionRepository;
     private final NotificationService notificationService;
     private final com.app.replant.domain.usermission.service.UserMissionService userMissionService;
+    private final ReantRepository reantRepository;
+    private final TodoListRepository todoListRepository;
+    private final TodoListMissionRepository todoListMissionRepository;
     private final ObjectMapper objectMapper;
     private final BadWordFilterService badWordFilterService;
 
@@ -165,8 +174,8 @@ public class PostService {
         }
 
         // VERIFICATION 타입 게시글 생성
-        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, request.getCompletionRate());
-        log.debug("인증 게시글 생성 전 - postType={}, userId={}, userMissionId={}", post.getPostType(), userId, userMission.getId());
+        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, request.getCompletionRate(), request.getTodoListId());
+        log.debug("인증 게시글 생성 전 - postType={}, userId={}, userMissionId={}, todoListId={}", post.getPostType(), userId, userMission.getId(), request.getTodoListId());
 
         // UserMission 상태를 PENDING(인증대기)으로 변경
         userMission.updateStatus(UserMissionStatus.PENDING);
@@ -317,9 +326,44 @@ public class PostService {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
-        // 인증글인 경우 UserMission 상태를 되돌림
+        // 인증글인 경우 추가 처리
         if (post.isVerificationPost() && post.getUserMission() != null) {
             UserMission userMission = post.getUserMission();
+            
+            // 인증 완료된 게시글이면 경험치 회수
+            if ("APPROVED".equals(post.getStatus())) {
+                // 경험치 회수 로직
+                int baseExpReward = getExpReward(userMission);
+                if (baseExpReward > 0) {
+                    Integer completionRateRaw = post.getCompletionRate();
+                    if (completionRateRaw == null) {
+                        completionRateRaw = 100;
+                    }
+                    // completionRate 범위 검증 (0-100)
+                    if (completionRateRaw < 0) {
+                        completionRateRaw = 0;
+                    } else if (completionRateRaw > 100) {
+                        completionRateRaw = 100;
+                    }
+                    
+                    // final 변수로 복사 (람다에서 사용하기 위해)
+                    final Integer completionRate = completionRateRaw;
+                    
+                    // 지급된 경험치 역산
+                    int actualExpReward = (int) Math.round(baseExpReward * (completionRate / 100.0));
+                    
+                    if (actualExpReward > 0) {
+                        reantRepository.findByUserId(userMission.getUser().getId())
+                                .ifPresent(reant -> {
+                                    reant.subtractExp(actualExpReward);
+                                    reantRepository.save(reant); // 명시적으로 저장하여 확실하게 반영
+                                    log.info("경험치 회수: postId={}, userMissionId={}, baseExp={}, completionRate={}%, actualExp={}", 
+                                            postId, userMission.getId(), baseExpReward, completionRate, actualExpReward);
+                                });
+                    }
+                }
+            }
+            
             // PENDING 또는 COMPLETED 상태였으면 ASSIGNED로 되돌림
             if (userMission.getStatus() == UserMissionStatus.PENDING || 
                 userMission.getStatus() == UserMissionStatus.COMPLETED) {
@@ -327,9 +371,59 @@ public class PostService {
                 log.info("인증글 삭제로 인해 UserMission 상태 복원: userMissionId={}, 이전 상태={}, 새 상태={}", 
                         userMission.getId(), userMission.getStatus(), UserMissionStatus.ASSIGNED);
             }
+            
+            // 투두리스트에서 미션 제거 (todoListId가 있는 경우)
+            if (post.getTodoListId() != null && userMission.getMission() != null) {
+                Long todoListId = post.getTodoListId();
+                Long missionId = userMission.getMission().getId();
+                
+                // missions를 fetch join하여 조회 (lazy loading 문제 방지)
+                Optional<TodoList> todoListOpt = todoListRepository.findTodoListByIdWithMissions(todoListId);
+                if (todoListOpt.isPresent()) {
+                    TodoList todoList = todoListOpt.get();
+                    
+                    // 본인 투두리스트인지 확인
+                    if (todoList.isCreator(userId)) {
+                        Optional<TodoListMission> todoListMissionOpt = 
+                                todoListMissionRepository.findByTodoListAndMission(todoList, userMission.getMission());
+                        
+                        if (todoListMissionOpt.isPresent()) {
+                            TodoListMission todoListMission = todoListMissionOpt.get();
+                            
+                            // TodoListMission 제거 (카운트 조정 없이 완전히 제거)
+                            todoList.removeMission(todoListMission);
+                            todoListMissionRepository.delete(todoListMission);
+                            
+                            log.info("인증글 삭제로 인해 투두리스트에서 미션 제거: postId={}, todoListId={}, missionId={}, userId={}", 
+                                    postId, todoListId, missionId, userId);
+                        } else {
+                            log.warn("투두리스트에서 미션을 찾을 수 없음: todoListId={}, missionId={}", todoListId, missionId);
+                        }
+                    } else {
+                        log.warn("본인의 투두리스트가 아님: todoListId={}, userId={}", todoListId, userId);
+                    }
+                } else {
+                    log.warn("투두리스트를 찾을 수 없음: todoListId={}", todoListId);
+                }
+            }
         }
 
         post.softDelete();
+    }
+
+    /**
+     * 미션 경험치 보상 계산 (UserMissionService의 getExpReward와 동일한 로직)
+     */
+    private int getExpReward(UserMission userMission) {
+        Mission mission = userMission.getMission();
+        if (mission == null) {
+            return 10;  // 기본값 (공식 미션 가정)
+        }
+        // 커스텀 미션은 항상 0 반환
+        if (mission.isCustomMission()) {
+            return 0;
+        }
+        return mission.getExpReward();
     }
 
     // ========================================
@@ -463,10 +557,12 @@ public class PostService {
             // sendLikeNotification(post.getUser(), user, post);
         }
 
+        // 좋아요 수 조회 (한 번만 조회하여 재사용)
+        long likeCount = postLikeRepository.countByPostId(postId);
+        boolean isVerified = false;
+
         // VERIFICATION 타입: 좋아요 추가/취소 후 인증 체크 (좋아요 수가 변경되었으므로 재확인)
         if (post.isVerificationPost()) {
-            // flush 후 다시 조회하여 최신 좋아요 수 확인
-            long likeCount = postLikeRepository.countByPostId(postId);
             newlyVerified = post.checkAndApproveByLikes(likeCount);
 
             if (newlyVerified) {
@@ -489,14 +585,18 @@ public class PostService {
 
                 // 알림 전송
                 sendVerificationSuccessNotification(post.getUser(), post);
+                isVerified = true; // 새로 인증되었으므로 true
+            } else {
+                // 새로 인증되지 않은 경우: 이미 APPROVED 상태인지 확인
+                // (좋아요 취소해도 이미 인증된 게시글은 상태 유지)
+                // newlyVerified가 false이면 이미 재조회하지 않았으므로 현재 상태 확인
+                isVerified = "APPROVED".equals(post.getStatus());
             }
         }
 
-        long likeCount = postLikeRepository.countByPostId(postId);
-
         result.put("isLiked", isLiked);
         result.put("likeCount", likeCount);
-        result.put("verified", newlyVerified);
+        result.put("verified", isVerified); // 현재 인증 상태 반환
 
         return result;
     }

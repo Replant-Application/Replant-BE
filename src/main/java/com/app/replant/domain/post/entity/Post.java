@@ -83,6 +83,10 @@ public class Post extends BaseEntity {
     @Column(name = "completion_rate")
     private Integer completionRate;
 
+    // 투두리스트 ID (VERIFICATION일 때만 사용, 인증 게시글 작성 시점의 투두리스트)
+    @Column(name = "todo_list_id")
+    private Long todoListId;
+
     // 댓글 관계
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Comment> comments = new ArrayList<>();
@@ -112,7 +116,7 @@ public class Post extends BaseEntity {
     /**
      * 인증 게시글 생성
      */
-    public static Post createVerificationPost(User user, UserMission userMission, String content, String imageUrls, Integer completionRate) {
+    public static Post createVerificationPost(User user, UserMission userMission, String content, String imageUrls, Integer completionRate, Long todoListId) {
         Post post = new Post();
         post.postType = PostType.VERIFICATION;
         post.user = user;
@@ -127,6 +131,7 @@ public class Post extends BaseEntity {
         post.delFlag = false;
         post.hasValidBadge = false;
         post.completionRate = completionRate;
+        post.todoListId = todoListId;
         return post;
     }
 
