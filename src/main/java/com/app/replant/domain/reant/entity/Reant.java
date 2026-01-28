@@ -138,25 +138,6 @@ public class Reant extends BaseEntity {
         return totalExp;
     }
 
-    public void feed() {
-        this.hunger = Math.max(0, this.hunger - 30);
-        this.health = Math.min(100, this.health + 5);
-        this.mood = Math.min(100, this.mood + 10);
-    }
-
-    public void rest() {
-        this.health = Math.min(100, this.health + 20);
-        this.mood = Math.min(100, this.mood + 10);
-    }
-
-    public void play() {
-        this.mood = Math.min(100, this.mood + 20);
-        this.hunger = Math.min(100, this.hunger + 5);
-    }
-
-    public void pet() {
-        this.mood = Math.min(100, this.mood + 15);
-    }
 
     public void decreaseHunger() {
         this.hunger = Math.min(100, this.hunger + 10);

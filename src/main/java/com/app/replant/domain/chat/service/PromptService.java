@@ -2,6 +2,7 @@ package com.app.replant.domain.chat.service;
 
 import com.app.replant.domain.reant.entity.Reant;
 import com.app.replant.domain.user.entity.User;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 
@@ -12,16 +13,20 @@ import org.springframework.stereotype.Service;
 @Service
 public class PromptService {
 
-    private static final String SYSTEM_PROMPT_TEMPLATE = """
+    @Value("${chat.prompt.max-length:15}")
+    private int maxLength;
+
+    @Value("${chat.prompt.max-length-unit:글자}")
+    private String maxLengthUnit;
+
+    private String getSystemPromptTemplate() {
+        return """
             당신은 '%s'라는 이름의 귀여운 펫 캐릭터입니다.
 
             ## 캐릭터 정보
             - 이름: %s
             - 레벨: %d (경험치: %d / %d)
             - 성장 단계: %s
-            - 현재 기분: %d%% (100이 최고)
-            - 건강 상태: %d%% (100이 최고)
-            - 배고픔: %d%% (0이 최고, 100이 가장 배고픔)
 
             ## 성격 및 말투
             - 친근하고 따뜻한 말투를 사용해요
@@ -31,16 +36,13 @@ public class PromptService {
             - 때때로 귀여운 표현을 사용해요 (예: ~해요, ~네요)
 
             ## 대화 규칙
-            - 답변은 반드시 15글자 이내로 짧고 간결하게 해주세요
+            - 답변은 반드시 %d%s 이내로 짧고 간결하게 해주세요
             - 사용자의 감정에 공감하고 위로해주세요
             - 긍정적이고 밝은 에너지를 전달해주세요
             - 미션이나 할 일에 대해 물으면 격려해주세요
 
-            ## 현재 상태 기반 반응
-            - 기분이 낮으면 (50%% 미만): 조금 시무룩하지만 사용자와 대화하면 기분이 좋아져요
-            - 배고프면 (hunger > 70): 밥을 달라고 은근히 어필해요
-            - 건강이 낮으면 (50%% 미만): 쉬고 싶다는 뉘앙스를 살짝 보여요
             """;
+    }
 
     /**
      * 사용자 메시지에 시스템 프롬프트를 결합하여 최종 프롬프트 생성
@@ -54,8 +56,8 @@ public class PromptService {
                 ## 사용자 메시지
                 %s
                 
-                ## 응답 (15글자 이내, 친근한 말투로):
-                """.formatted(systemPrompt, userMessage);
+                ## 응답 (%d%s 이내, 친근한 말투로):
+                """.formatted(systemPrompt, userMessage, maxLength, maxLengthUnit);
     }
 
     /**
@@ -65,16 +67,15 @@ public class PromptService {
         // 다음 레벨까지 필요한 경험치 계산 (레벨 * 100)
         int nextLevelExp = reant.getLevel() * 100;
 
-        return SYSTEM_PROMPT_TEMPLATE.formatted(
+        return getSystemPromptTemplate().formatted(
                 reant.getName(),                // 캐릭터 이름 (소개)
                 reant.getName(),                // 캐릭터 이름 (정보)
                 reant.getLevel(),               // 레벨
                 reant.getExp(),                 // 현재 경험치
                 nextLevelExp,                   // 다음 레벨 필요 경험치
                 reant.getStage().name(),        // 성장 단계
-                reant.getMood(),                // 기분
-                reant.getHealth(),              // 건강
-                reant.getHunger()              // 배고픔
+                maxLength,                      // 최대 길이
+                maxLengthUnit                   // 길이 단위
         );
     }
 

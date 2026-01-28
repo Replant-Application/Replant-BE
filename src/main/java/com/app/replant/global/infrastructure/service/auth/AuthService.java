@@ -2,7 +2,6 @@ package com.app.replant.global.infrastructure.service.auth;
 
 
 
-import com.app.replant.domain.reant.dto.InteractionResponse;
 import com.app.replant.domain.reant.dto.ReantResponse;
 import com.app.replant.domain.reant.dto.ReantStatusResponse;
 import com.app.replant.domain.reant.dto.ReantUpdateRequest;

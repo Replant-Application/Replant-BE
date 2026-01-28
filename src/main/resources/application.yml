@@ -152,6 +152,9 @@ chat:
     fallback: qwen
     timeout: ${env.LLM_TIMEOUT:30000}
     max-retries: ${env.LLM_MAX_RETRIES:2}
+  prompt:
+    max-length: ${env.CHAT_PROMPT_MAX_LENGTH:15}
+    max-length-unit: ${env.CHAT_PROMPT_MAX_LENGTH_UNIT:글자}
 
 # Swagger/OpenAPI 설정
 springdoc:
