@@ -44,11 +44,12 @@ public class TodoListController {
                 return ApiResponse.success(response);
         }
 
-        @Operation(summary = "선택 가능한 커스텀 미션 조회", description = "투두리스트에 추가할 수 있는 커스텀 미션 목록을 조회합니다. (비챌린지 미션만)")
+        @Operation(summary = "선택 가능한 커스텀 미션 조회", description = "투두리스트에 추가할 수 있는 커스텀 미션 목록을 조회합니다. (비챌린지 미션만). onlyMine=true면 내가 만든 미션만 반환.")
         @GetMapping("/selectable-missions")
         public ApiResponse<List<TodoListDto.MissionSimpleResponse>> getSelectableMissions(
-                        @AuthenticationPrincipal Long userId) {
-                List<TodoListDto.MissionSimpleResponse> response = todoListService.getSelectableMissions(userId);
+                        @AuthenticationPrincipal Long userId,
+                        @org.springframework.web.bind.annotation.RequestParam(required = false, defaultValue = "false") Boolean onlyMine) {
+                List<TodoListDto.MissionSimpleResponse> response = todoListService.getSelectableMissions(userId, onlyMine);
                 return ApiResponse.success(response);
         }
 

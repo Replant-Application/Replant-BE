@@ -79,11 +79,17 @@ public class TodoListService {
 
         /**
          * 커스텀 미션 도감 조회 (투두리스트 선택용)
-         * 본인 것 + 다른 사람의 공개 커스텀 미션
+         * onlyMine=true: 내가 만든 미션만 반환
+         * onlyMine=false: 본인 것 + 다른 사람의 공개 커스텀 미션
          */
-        public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId) {
+        public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId, Boolean onlyMine) {
                 // 본인이 만든 커스텀 미션
                 List<Mission> myMissions = missionRepository.findNonChallengeCustomMissionsByCreator(userId);
+                if (Boolean.TRUE.equals(onlyMine)) {
+                        return myMissions.stream()
+                                        .map(TodoListDto.MissionSimpleResponse::from)
+                                        .collect(Collectors.toList());
+                }
                 // 다른 사람들의 공개 커스텀 미션
                 List<Mission> publicMissions = missionRepository.findAllPublicNonChallengeCustomMissions();
 
