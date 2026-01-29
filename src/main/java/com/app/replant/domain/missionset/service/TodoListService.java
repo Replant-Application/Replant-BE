@@ -82,11 +82,11 @@ public class TodoListService {
          * onlyMine=true: 내가 만든 미션만 반환
          * onlyMine=false: 본인 것 + 다른 사람의 공개 커스텀 미션
          */
-        public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId, Boolean onlyMine) {
+        public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId, Boolean onlyMine, String searchQuery) {
                 // 본인이 만든 커스텀 미션
                 List<Mission> myMissions = missionRepository.findNonChallengeCustomMissionsByCreator(userId);
                 if (Boolean.TRUE.equals(onlyMine)) {
-                        return myMissions.stream()
+                        return filterMissionsBySearchQuery(myMissions, searchQuery).stream()
                                         .map(TodoListDto.MissionSimpleResponse::from)
                                         .collect(Collectors.toList());
                 }
@@ -103,8 +103,25 @@ public class TodoListService {
                                 .filter(m -> !myMissionIds.contains(m.getId()))
                                 .forEach(allMissions::add);
 
-                return allMissions.stream()
+                return filterMissionsBySearchQuery(allMissions, searchQuery).stream()
                                 .map(TodoListDto.MissionSimpleResponse::from)
+                                .collect(Collectors.toList());
+        }
+
+        /**
+         * 검색어로 미션 필터링
+         */
+        private List<Mission> filterMissionsBySearchQuery(List<Mission> missions, String searchQuery) {
+                if (searchQuery == null || searchQuery.trim().isEmpty()) {
+                        return missions;
+                }
+                String query = searchQuery.toLowerCase().trim();
+                return missions.stream()
+                                .filter(mission -> 
+                                        (mission.getTitle() != null && mission.getTitle().toLowerCase().contains(query)) ||
+                                        (mission.getDescription() != null && mission.getDescription().toLowerCase().contains(query)) ||
+                                        (mission.getCategory() != null && mission.getCategory().name().toLowerCase().contains(query))
+                                )
                                 .collect(Collectors.toList());
         }
 
