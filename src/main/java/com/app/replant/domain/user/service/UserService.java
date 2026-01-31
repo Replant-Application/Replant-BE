@@ -72,7 +72,7 @@ public class UserService {
                 request.getPreferredPlaceType(),
                 request.getPreferredMissionCategories()
         );
-        return user;
+        return userRepository.save(user);
     }
 
     /**
