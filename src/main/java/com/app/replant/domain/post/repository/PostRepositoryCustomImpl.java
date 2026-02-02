@@ -196,6 +196,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         Post result = queryFactory
                 .selectFrom(post)
                 .join(post.user, user).fetchJoin()
+                .leftJoin(user.reant, reant).fetchJoin()
                 .leftJoin(post.userMission, userMission).fetchJoin()
                 .leftJoin(userMission.mission, mission).fetchJoin()
                 .where(post.id.eq(postId).and(isNotDeleted()))
