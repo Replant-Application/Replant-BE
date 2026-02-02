@@ -17,6 +17,7 @@ import java.util.Optional;
 
 import static com.app.replant.domain.post.entity.QPost.post;
 import static com.app.replant.domain.user.entity.QUser.user;
+import static com.app.replant.domain.reant.entity.QReant.reant;
 import static com.app.replant.domain.usermission.entity.QUserMission.userMission;
 import static com.app.replant.domain.mission.entity.QMission.mission;
 
@@ -87,6 +88,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         JPAQuery<Post> query = queryFactory
                 .selectFrom(post)
                 .join(post.user, user).fetchJoin()
+                .leftJoin(user.reant, reant).fetchJoin()
                 .leftJoin(post.userMission, userMission).fetchJoin()
                 .leftJoin(userMission.mission, mission).fetchJoin()
                 .where(builder)

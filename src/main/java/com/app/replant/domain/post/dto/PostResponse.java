@@ -23,6 +23,8 @@ public class PostResponse {
     private Long userId;
     private String userNickname;
     private String userProfileImg;
+    /** 작성자 리앤트 레벨 (커뮤니티에서 캐릭터 이미지 표시용, null이면 앱에서 1로 처리) */
+    private Integer userReantLevel;
 
     // 미션 정보 (인증글일 경우)
     private MissionTag missionTag;
@@ -75,10 +77,15 @@ public class PostResponse {
         Long userId = null;
         String userNickname = null;
         String userProfileImg = null;
+        Integer userReantLevel = null;
         if (post.getUser() != null) {
-            userId = post.getUser().getId();
-            userNickname = post.getUser().getNickname();
-            userProfileImg = post.getUser().getProfileImg();
+            var u = post.getUser();
+            userId = u.getId();
+            userNickname = u.getNickname();
+            userProfileImg = u.getProfileImg();
+            if (u.getReant() != null) {
+                userReantLevel = u.getReant().getLevel();
+            }
         }
 
         // 일반 게시글과 인증글 모두 title 컬럼 사용
@@ -115,6 +122,7 @@ public class PostResponse {
                 .userId(userId)
                 .userNickname(userNickname)
                 .userProfileImg(userProfileImg)
+                .userReantLevel(userReantLevel)
                 .title(title)
                 .content(post.getContent())
                 .imageUrls(parseImageUrls(post.getImageUrls()))
