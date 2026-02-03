@@ -5,7 +5,9 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Getter
@@ -83,6 +85,38 @@ public class CommentResponse {
                 .parentId(comment.getParentId())
                 .replies(replyResponses)
                 .replyCount(comment.getReplies() != null ? comment.getReplies().size() : 0)
+                .isAuthor(isAuthor)
+                .createdAt(comment.getCreatedAt())
+                .updatedAt(comment.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * 평탄 댓글 목록 + 부모별 자식 맵으로 답글의 답글까지 재귀 변환
+     */
+    public static CommentResponse fromWithRepliesRecursive(
+            Comment comment,
+            Map<Long, List<Comment>> repliesByParentId,
+            Long currentUserId) {
+        List<Comment> childList = repliesByParentId.getOrDefault(comment.getId(), Collections.emptyList());
+        List<CommentResponse> replyResponses = childList.stream()
+                .map(reply -> fromWithRepliesRecursive(reply, repliesByParentId, currentUserId))
+                .collect(Collectors.toList());
+
+        Long userId = comment.getUser() != null ? comment.getUser().getId() : null;
+        String userNickname = comment.getUser() != null ? comment.getUser().getNickname() : "알 수 없음";
+        String userProfileImg = comment.getUser() != null ? comment.getUser().getProfileImg() : null;
+        Boolean isAuthor = currentUserId != null && userId != null && userId.equals(currentUserId);
+
+        return CommentResponse.builder()
+                .id(comment.getId())
+                .userId(userId)
+                .userNickname(userNickname)
+                .userProfileImg(userProfileImg)
+                .content(comment.getContent())
+                .parentId(comment.getParentId())
+                .replies(replyResponses.isEmpty() ? null : replyResponses)
+                .replyCount(replyResponses.size())
                 .isAuthor(isAuthor)
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt())

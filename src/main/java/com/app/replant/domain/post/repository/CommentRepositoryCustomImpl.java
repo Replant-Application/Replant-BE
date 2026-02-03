@@ -50,6 +50,16 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
     }
 
     @Override
+    public List<Comment> findAllByPostIdWithUser(Long postId) {
+        return queryFactory
+                .selectFrom(comment)
+                .leftJoin(comment.user, user).fetchJoin()
+                .where(comment.post.id.eq(postId))
+                .orderBy(comment.createdAt.asc())
+                .fetch();
+    }
+
+    @Override
     public Optional<Comment> findByIdAndUserId(Long commentId, Long userId) {
         Comment result = queryFactory
                 .selectFrom(comment)

@@ -18,6 +18,9 @@ public interface CommentRepositoryCustom {
 
     List<Comment> findParentCommentsByPostIdWithUser(Long postId);
 
+    /** 게시글의 댓글 전체 조회 (답글의 답글 포함, user fetch join) */
+    List<Comment> findAllByPostIdWithUser(Long postId);
+
     Optional<Comment> findByIdAndUserId(Long commentId, Long userId);
 
     long countByPostId(Long postId);
