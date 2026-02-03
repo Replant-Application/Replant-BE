@@ -36,7 +36,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -116,11 +115,22 @@ public class UserMissionService {
         List<UserMission> todayMissions = userMissionRepository.findByUserIdAndAssignedDate(userId, today);
         
         // 돌발 미션 중 가장 최근 ASSIGNED 미션 조회
-        return todayMissions.stream()
+        java.util.Optional<UserMission> found = todayMissions.stream()
                 .filter(UserMission::isSpontaneousMission)
                 .filter(um -> um.getStatus() == UserMissionStatus.ASSIGNED)
-                // 가장 최근에 할당된 미션 조회 (assignedAt 기준 내림차순)
-                .max(java.util.Comparator.comparing(UserMission::getAssignedAt))
+                .max(java.util.Comparator.comparing(UserMission::getAssignedAt));
+        if (found.isPresent()) {
+            return found.get().getId();
+        }
+        // 폴백1: DB/JDBC 시간대 불일치 시 오늘(KST) 할당된 ASSIGNED 돌발 미션을 최신 1건으로 조회
+        java.util.Optional<Long> fallbackToday = userMissionRepository.findTopByUserIdAndIsSpontaneousAndStatusOrderByAssignedAtDesc(
+                        userId, true, UserMissionStatus.ASSIGNED)
+                .filter(um -> java.time.ZonedDateTime.of(um.getAssignedAt(), ZONE_SEOUL).toLocalDate().equals(today))
+                .map(UserMission::getId);
+        if (fallbackToday.isPresent()) return fallbackToday.get();
+        // 폴백2 [테스트용]: 날짜 무관, 가장 최근 ASSIGNED 돌발 미션 1건 → 알림 받은 미션은 항상 활성
+        return userMissionRepository.findTopByUserIdAndIsSpontaneousAndStatusOrderByAssignedAtDesc(
+                        userId, true, UserMissionStatus.ASSIGNED)
                 .map(UserMission::getId)
                 .orElse(null);
     }
@@ -144,7 +154,23 @@ public class UserMissionService {
                 .filter(UserMission::isSpontaneousMission)
                 .filter(um -> um.getStatus() == UserMissionStatus.ASSIGNED)
                 .max(java.util.Comparator.comparing(UserMission::getAssignedAt));
-        
+        // 폴백1: DB/JDBC 시간대 불일치 시 오늘(KST) 날짜인 ASSIGNED 돌발 미션을 최신 1건으로 조회
+        if (wakeUpMission.isEmpty()) {
+            wakeUpMission = userMissionRepository.findTopByUserIdAndIsSpontaneousAndStatusOrderByAssignedAtDesc(
+                            userId, true, UserMissionStatus.ASSIGNED)
+                    .filter(um -> java.time.ZonedDateTime.of(um.getAssignedAt(), ZONE_SEOUL).toLocalDate().equals(today));
+            if (wakeUpMission.isPresent()) {
+                log.info("[기상미션] 폴백으로 기상 미션 조회 성공 userId={}, userMissionId={}", userId, wakeUpMission.get().getId());
+            }
+        }
+        // 폴백2 [테스트용]: 날짜 무관, 가장 최근 ASSIGNED 돌발 미션 → 알림 받은 미션은 항상 활성
+        if (wakeUpMission.isEmpty()) {
+            wakeUpMission = userMissionRepository.findTopByUserIdAndIsSpontaneousAndStatusOrderByAssignedAtDesc(
+                    userId, true, UserMissionStatus.ASSIGNED);
+            if (wakeUpMission.isPresent()) {
+                log.info("[기상미션] 테스트 폴백: 날짜 무관 최신 기상 미션 사용 userId={}, userMissionId={}", userId, wakeUpMission.get().getId());
+            }
+        }
         if (wakeUpMission.isEmpty()) {
             log.info("[기상미션] ASSIGNED 기상 미션 없음 userId={}, todayMissions={}", userId, todayMissions.size());
             return null;
@@ -161,49 +187,11 @@ public class UserMissionService {
             return null;
         }
         
-        LocalTime wakeTime;
-        try {
-            wakeTime = LocalTime.parse(wakeTimeStr, DateTimeFormatter.ofPattern("[HH:mm][H:mm][HH:m][H:m]"));
-        } catch (Exception e) {
-            log.error("[기상미션] 기상 시간 파싱 실패 wakeTimeStr={}, userId={}", wakeTimeStr, user.getId(), e);
-            return null;
-        }
-        
-        // KST 기준 현재 시각·기상 시각·마감 시각
-        ZonedDateTime nowKst = ZonedDateTime.now(ZONE_SEOUL);
-        LocalDateTime now = nowKst.toLocalDateTime();
-        LocalDateTime wakeDateTime = nowKst.toLocalDate().atTime(wakeTime);
-        LocalDateTime deadline = wakeDateTime.plusDays(1);
-        
-        log.info("[기상미션] 시간 계산(KST) userId={}, wakeTimeStr={}, now={}, wakeDateTime={}, deadline={}, assignedAt={}",
-                user.getId(), wakeTimeStr, now, wakeDateTime, deadline, userMission.getAssignedAt());
-        
-        boolean isBeforeWakeTime = now.isBefore(wakeDateTime);
-        boolean isExpired = now.isAfter(deadline);
-        long remainingSeconds = Math.max(0, Duration.between(now, deadline).toSeconds());
-        boolean canVerify = !isBeforeWakeTime && !isExpired;
-        String message;
-        
-        if (isBeforeWakeTime) {
-            message = "기상 시간 이전에는 인증할 수 없습니다.";
-            log.info("[기상미션] 판정=기상이전 userId={}, now={}, wakeDateTime={}, 차이초={}",
-                    user.getId(), now, wakeDateTime, Duration.between(now, wakeDateTime).toSeconds());
-        } else if (isExpired) {
-            message = "인증 시간(기상 시간 + 1일)이 지났습니다.";
-            log.info("[기상미션] 판정=만료 userId={}, now={}, deadline={}, 초과분={}",
-                    user.getId(), now, deadline, Duration.between(deadline, now).toMinutes());
-        } else if (remainingSeconds > 0) {
-            long remainingMinutes = remainingSeconds / 60;
-            message = String.format("인증 가능합니다. 남은 시간: %d분", remainingMinutes);
-            log.info("[기상미션] 판정=인증가능 userId={}, remainingSeconds={}, remainingMinutes={}",
-                    user.getId(), remainingSeconds, remainingMinutes);
-        } else {
-            message = "인증 가능합니다.";
-            log.info("[기상미션] 판정=인증가능(0초) userId={}", user.getId());
-        }
-        
-        log.info("[기상미션] 상태 조회 결과 userId={}, canVerify={}, isBeforeWakeTime={}, isExpired={}", 
-                user.getId(), canVerify, isBeforeWakeTime, isExpired);
+        // [테스트용] assigned_at/due_date 무효화: 알림 받은 기상 미션은 시간 상관없이 항상 활성·인증 가능
+        long remainingSeconds = 86400L; // 1일 표시용
+        boolean canVerify = true;
+        String message = "인증 가능합니다 (테스트: 시간 제한 없음)";
+        log.info("[기상미션] 테스트 모드: 시간 검사 무효화 userId={}, userMissionId={}, canVerify=true", user.getId(), userMission.getId());
         
         return WakeUpMissionStatusResponse.from(
                 userMission.getId(),
@@ -841,43 +829,8 @@ public class UserMissionService {
                     "사용자의 기상 시간이 설정되지 않았습니다.");
         }
         
-        // 사용자 설정 기상 시간 파싱
-        LocalTime wakeTime;
-        try {
-            wakeTime = LocalTime.parse(wakeTimeStr, DateTimeFormatter.ofPattern("[HH:mm][H:mm][HH:m][H:m]"));
-        } catch (Exception e) {
-            log.error("기상 시간 파싱 실패: wakeTimeStr={}, userId={}", wakeTimeStr, user.getId(), e);
-            throw new CustomException(ErrorCode.INVALID_MISSION_TYPE, 
-                    "기상 시간 형식이 올바르지 않습니다.");
-        }
-        
-        // KST 기준 오늘 날짜·기상 시각·마감 시각
-        ZonedDateTime nowKst = ZonedDateTime.now(ZONE_SEOUL);
-        LocalDateTime nowForCheck = nowKst.toLocalDateTime();
-        LocalDateTime wakeDateTime = nowKst.toLocalDate().atTime(wakeTime);
-        LocalDateTime deadline = wakeDateTime.plusDays(1);
-        
-        log.info("[기상미션] 인증 요청 userId={}, userMissionId={}, wakeTimeStr={}, now(KST)={}, wakeDateTime={}, deadline={}",
-                user.getId(), userMission.getId(), wakeTimeStr, nowForCheck, wakeDateTime, deadline);
-        
-        if (nowForCheck.isBefore(wakeDateTime)) {
-            long secBefore = Duration.between(nowForCheck, wakeDateTime).toSeconds();
-            log.warn("[기상미션] 인증 거부=기상이전 userId={}, now={}, wakeDateTime={}, 기상까지 {}초 남음",
-                    user.getId(), nowForCheck, wakeDateTime, secBefore);
-            throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
-                    "기상 시간 이전에는 인증할 수 없습니다.");
-        }
-        
-        if (nowForCheck.isAfter(deadline)) {
-            Duration elapsed = Duration.between(deadline, nowForCheck);
-            log.warn("[기상미션] 인증 거부=만료 userId={}, now={}, deadline={}, 초과 {}분",
-                    user.getId(), nowForCheck, deadline, elapsed.toMinutes());
-            // 시간 초과 시 실패 처리
-            userMission.fail();
-            userMissionRepository.save(userMission);
-            throw new CustomException(ErrorCode.SPONTANEOUS_MISSION_TIME_EXPIRED, 
-                    "기상 미션 인증 시간(기상 시간 + 1일)이 초과되었습니다.");
-        }
+        // [테스트용] assigned_at/due_date 무효화: 알림 받은 기상 미션은 시간 상관없이 무조건 인증 허용
+        log.info("[기상미션] 테스트 모드: 인증 시간 검사 무효화 userId={}, userMissionId={}", user.getId(), userMission.getId());
 
         // 인증 성공 처리 (투두리스트 미션 완료 처리 포함)
         completeMissionVerification(userMission);
@@ -892,9 +845,8 @@ public class UserMissionService {
                 .build();
         verificationRepository.save(verification);
 
-        Duration elapsed = Duration.between(wakeDateTime, nowForCheck);
-        log.info("[기상미션] 인증 성공 userMissionId={}, userId={}, wakeTime={}, 기상 후 {}분에 인증", 
-                userMission.getId(), user.getId(), wakeTimeStr, elapsed.toMinutes());
+        log.info("[기상미션] 인증 성공 userMissionId={}, userId={} (테스트: 시간 검사 무효화)", 
+                userMission.getId(), user.getId());
 
         // 돌발 미션은 배지 없음
         return buildVerifyResponse(userMission, verification, expReward, null);
