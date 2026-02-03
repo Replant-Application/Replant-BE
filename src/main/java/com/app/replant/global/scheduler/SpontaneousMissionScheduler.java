@@ -123,14 +123,15 @@ public class SpontaneousMissionScheduler {
                 String targetTimeHH = targetTime; // "07:00" 형식
                 String targetTimeH = currentTime.format(DateTimeFormatter.ofPattern("H:mm")); // "7:00" 형식
                 
-                log.info("조회 시간 형식: HH:mm={}, H:mm={}", targetTimeHH, targetTimeH);
+                log.info("[기상미션] 스케줄러 분 실행 KST now={}, targetTime(HH:mm)={}, targetTime(H:mm)={}", 
+                    now, targetTimeHH, targetTimeH);
                 
-                // 1. 기상 시간에 해당하는 사용자 조회 (두 가지 형식 모두)
                 List<User> wakeUpUsers = new java.util.ArrayList<>(userRepository.findUsersByWakeTime(targetTimeHH));
                 if (!targetTimeHH.equals(targetTimeH)) {
                     wakeUpUsers.addAll(userRepository.findUsersByWakeTime(targetTimeH));
                 }
-                log.info("기상 시간({}, {})에 해당하는 사용자 수: {}", targetTimeHH, targetTimeH, wakeUpUsers.size());
+                log.info("[기상미션] 기상 시간 매칭 사용자 수={}, userIds={}", 
+                        wakeUpUsers.size(), wakeUpUsers.stream().map(User::getId).toList());
                 
                 // 각 사용자별 작업을 병렬로 처리 (TaskScheduler 스레드 풀 활용)
                 wakeUpUsers.parallelStream().forEach(user -> {
@@ -204,26 +205,23 @@ public class SpontaneousMissionScheduler {
             AtomicInteger assignedCount,
             AtomicInteger skippedCount) {
         try {
-            log.info("[DEBUG] 사용자 {} {} 미션 처리 시작 - userTime: {}, targetTime: {}", 
+            log.info("[기상미션] 사용자 {} {} 처리 userTime={}, targetTime={}", 
                     user.getId(), missionType, userTime, targetTime);
             
-            // 설정한 날짜가 오늘이면 미션을 할당하지 않음 (악용 방지 - 다음날부터만 적용)
             if (shouldSkipUserForToday(user, now)) {
-                log.info("[DEBUG] 사용자 {} - shouldSkipUserForToday 조건에 걸림", user.getId());
+                log.info("[기상미션] 사용자 {} 스킵(오늘 설정 완료)", user.getId());
                 skippedCount.incrementAndGet();
                 return;
             }
             
             String roundedTime = roundTimeTo5Minutes(userTime);
-            log.info("[DEBUG] 사용자 {} - roundedTime: {}, targetTime: {}, 매칭: {}", 
-                    user.getId(), roundedTime, targetTime, targetTime.equals(roundedTime));
+            boolean matched = roundedTime != null && targetTime.equals(roundedTime);
+            log.info("[기상미션] 사용자 {} roundedTime={}, targetTime={}, 매칭={}", 
+                    user.getId(), roundedTime, targetTime, matched);
             
-            if (roundedTime != null && targetTime.equals(roundedTime)) {
+            if (matched) {
                 missionAssigner.run();
                 assignedCount.incrementAndGet();
-            } else {
-                log.info("[DEBUG] 사용자 {} - 시간 매칭 실패 (roundedTime={}, targetTime={})", 
-                        user.getId(), roundedTime, targetTime);
             }
         } catch (Exception e) {
             log.error("사용자 {} {} 미션 할당 실패: {}", user.getId(), missionType, e.getMessage(), e);
@@ -318,37 +316,34 @@ public class SpontaneousMissionScheduler {
      * 기상 미션 할당
      */
     private void assignWakeUpMission(User user, LocalDateTime now) {
+        log.info("[기상미션] 할당 시도 userId={}, userWakeTime={}, 스케줄러now(KST)={}", 
+                user.getId(), user.getWakeTime(), now);
+        
         // [테스트용 비활성화] 오늘 이미 기상 미션이 할당되었는지 확인 - 테스트 후 복구
         // if (hasSpontaneousMissionToday(user, "기상", now.toLocalDate())) {
         //     log.debug("사용자 {}는 오늘 이미 기상 미션이 할당됨", user.getId());
         //     return;
         // }
         
-        // spontaneous_mission 테이블에서 기상 미션 정보 조회
         Optional<SpontaneousMission> spontaneousMissionOpt = spontaneousMissionRepository
                 .findByMissionType(SpontaneousMissionType.WAKE_UP);
         
         if (spontaneousMissionOpt.isEmpty()) {
-            log.warn("spontaneous_mission 테이블에서 기상 미션을 찾을 수 없습니다. userId={}", user.getId());
+            log.warn("[기상미션] spontaneous_mission 테이블에 WAKE_UP 없음 userId={}", user.getId());
             return;
         }
         
         SpontaneousMission spontaneousMission = spontaneousMissionOpt.get();
         String spontaneousTitle = spontaneousMission.getTitle();
+        log.info("[기상미션] spontaneous_mission 조회됨 id={}, title={}", spontaneousMission.getId(), spontaneousTitle);
         
-        log.debug("spontaneous_mission에서 조회한 기상 미션: title={}, description={}, missionType={}", 
-                spontaneousTitle, spontaneousMission.getDescription(), spontaneousMission.getMissionType());
-        
-        // 돌발 미션은 mission 테이블에 없으므로, spontaneous_mission 정보만으로 UserMission 생성
         UserMission userMission = assignSpontaneousMissionToUser(user, spontaneousMission, now, "기상");
         if (userMission != null) {
-            log.info("기상 미션 할당 완료: userId={}, userMissionId={}, spontaneousMissionId={}, title={}", 
-                    user.getId(), userMission.getId(), spontaneousMission.getId(), spontaneousTitle);
-            
-            // 알림 전송 (SSE/FCM)
+            log.info("[기상미션] 할당 완료 userId={}, userMissionId={}, assignedAt={}, 알림 전송 예정", 
+                    user.getId(), userMission.getId(), userMission.getAssignedAt());
             sendSpontaneousMissionNotification(user, spontaneousTitle, "기상", userMission.getId());
         } else {
-            log.warn("기상 미션 할당 실패: userMission이 null입니다. (이미 할당되었거나 중복일 수 있음)");
+            log.warn("[기상미션] 할당 실패 userMission=null userId={}", user.getId());
         }
     }
 
