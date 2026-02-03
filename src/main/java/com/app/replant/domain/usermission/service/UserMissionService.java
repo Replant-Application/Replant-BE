@@ -187,11 +187,15 @@ public class UserMissionService {
             return null;
         }
         
-        // [테스트용] assigned_at/due_date 무효화: 알림 받은 기상 미션은 시간 상관없이 항상 활성·인증 가능
-        long remainingSeconds = 86400L; // 1일 표시용
-        boolean canVerify = true;
-        String message = "인증 가능합니다 (테스트: 시간 제한 없음)";
-        log.info("[기상미션] 테스트 모드: 시간 검사 무효화 userId={}, userMissionId={}, canVerify=true", user.getId(), userMission.getId());
+        // 알림(할당) 시점 기준 12시간 이내에만 인증 가능
+        final long WAKE_UP_VERIFY_WINDOW_SECONDS = 12L * 3600;
+        java.time.ZonedDateTime nowZ = java.time.ZonedDateTime.now(ZONE_SEOUL);
+        java.time.ZonedDateTime assignedZ = userMission.getAssignedAt().atZone(ZONE_SEOUL);
+        long elapsedSeconds = java.time.temporal.ChronoUnit.SECONDS.between(assignedZ, nowZ);
+        long remainingSeconds = Math.max(0, WAKE_UP_VERIFY_WINDOW_SECONDS - elapsedSeconds);
+        boolean canVerify = remainingSeconds > 0;
+        String message = canVerify ? "12시간 이내에 인증해주세요." : "12시간이 지나 만료되었습니다.";
+        log.info("[기상미션] 12시간 윈도우 userId={}, userMissionId={}, remainingSeconds={}, canVerify={}", user.getId(), userMission.getId(), remainingSeconds, canVerify);
         
         return WakeUpMissionStatusResponse.from(
                 userMission.getId(),
@@ -817,8 +821,8 @@ public class UserMissionService {
     }
 
     /**
-     * 기상 미션 인증 (시간 제한: 사용자 설정 wake_time + 1일)
-     * now, wakeDateTime, deadline은 Asia/Seoul(KST) 기준으로 계산 (서버 UTC 시 만료 판정 오류 방지)
+     * 기상 미션 인증 (알림 후 12시간 이내에만 가능)
+     * KST 기준으로 assigned_at + 12시간 초과 시 만료 처리
      */
     private VerifyMissionResponse verifyWakeUpMission(UserMission userMission, LocalDateTime now) {
         User user = userMission.getUser();
@@ -829,26 +833,28 @@ public class UserMissionService {
                     "사용자의 기상 시간이 설정되지 않았습니다.");
         }
         
-        // [테스트용] assigned_at/due_date 무효화: 알림 받은 기상 미션은 시간 상관없이 무조건 인증 허용
-        log.info("[기상미션] 테스트 모드: 인증 시간 검사 무효화 userId={}, userMissionId={}", user.getId(), userMission.getId());
+        // 알림(할당) 후 12시간 초과 시 인증 불가
+        LocalDateTime nowKst = java.time.ZonedDateTime.now(ZONE_SEOUL).toLocalDateTime();
+        LocalDateTime deadline = userMission.getAssignedAt().plusHours(12);
+        if (nowKst.isAfter(deadline)) {
+            log.warn("[기상미션] 만료됨 userId={}, userMissionId={}, assignedAt={}, deadline={}, now={}", 
+                    user.getId(), userMission.getId(), userMission.getAssignedAt(), deadline, nowKst);
+            throw new CustomException(ErrorCode.MISSION_EXPIRED, "알림 후 12시간이 지나 인증할 수 없습니다.");
+        }
 
         // 인증 성공 처리 (투두리스트 미션 완료 처리 포함)
         completeMissionVerification(userMission);
 
-        // 경험치 지급 정보 (이미 completeMissionVerification에서 처리됨)
         int expReward = 10;
 
-        // 인증 기록 생성
         MissionVerification verification = MissionVerification.builder()
                 .userMission(userMission)
                 .verifiedAt(now)
                 .build();
         verificationRepository.save(verification);
 
-        log.info("[기상미션] 인증 성공 userMissionId={}, userId={} (테스트: 시간 검사 무효화)", 
-                userMission.getId(), user.getId());
+        log.info("[기상미션] 인증 성공 userMissionId={}, userId={}", userMission.getId(), user.getId());
 
-        // 돌발 미션은 배지 없음
         return buildVerifyResponse(userMission, verification, expReward, null);
     }
 
