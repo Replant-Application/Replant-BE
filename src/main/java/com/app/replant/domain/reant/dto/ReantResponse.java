@@ -26,7 +26,7 @@ public class ReantResponse {
                 .exp(reant.getExp())
                 .stage(reant.getStage())
                 .appearance(reant.getAppearanceAsMap())
-                .nextLevelExp(reant.getLevel() * 100)
+                .nextLevelExp(reant.getNextLevelExp())
                 .build();
     }
 }

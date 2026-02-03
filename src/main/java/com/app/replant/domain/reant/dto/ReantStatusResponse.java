@@ -31,7 +31,7 @@ public class ReantStatusResponse {
                 .health(reant.getHealth())
                 .hunger(reant.getHunger())
                 .maxLevel(reant.getMaxLevel())
-                .nextLevelExp(reant.getLevel() * 100) // 다음 레벨 필요 경험치
+                .nextLevelExp(reant.getNextLevelExp())
                 .appearance(reant.getAppearance())
                 .build();
     }

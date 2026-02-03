@@ -64,8 +64,8 @@ public class PromptService {
      * 시스템 프롬프트 생성
      */
     private String buildSystemPrompt(Reant reant) {
-        // 다음 레벨까지 필요한 경험치 계산 (레벨 * 100)
-        int nextLevelExp = reant.getLevel() * 100;
+        // 다음 레벨까지 필요한 경험치 (레벨별 테이블: L1→10, L2→50, L3→100, L4→200, L5→500, L6+→500)
+        int nextLevelExp = reant.getNextLevelExp();
 
         return getSystemPromptTemplate().formatted(
                 reant.getName(),                // 캐릭터 이름 (소개)

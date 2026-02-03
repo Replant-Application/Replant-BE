@@ -130,12 +130,32 @@ public class Reant extends BaseEntity {
     }
 
     private int calculateCurrentLevelExp() {
-        // 현재 레벨에 도달하기 위해 필요한 총 경험치
+        // 현재 레벨에 도달하기 위해 필요한 총 경험치 (레벨별 필요 경험치 합)
         int totalExp = 0;
         for (int i = 1; i < this.level; i++) {
-            totalExp += i * 100;
+            totalExp += getExpForNextLevel(i);
         }
         return totalExp;
+    }
+
+    /**
+     * 해당 레벨에서 다음 레벨로 올라가는데 필요한 경험치
+     * L1→2: 10, L2→3: 50, L3→4: 100, L4→5: 200, L5→6: 500, L6+: 500
+     */
+    public static int getExpForNextLevel(int level) {
+        return switch (level) {
+            case 1 -> 10;
+            case 2 -> 50;
+            case 3 -> 100;
+            case 4 -> 200;
+            case 5 -> 500;
+            default -> 500;
+        };
+    }
+
+    /** DTO/외부용: 현재 레벨에서 다음 레벨까지 필요한 경험치 */
+    public int getNextLevelExp() {
+        return getExpForNextLevel(this.level);
     }
 
 
@@ -172,6 +192,6 @@ public class Reant extends BaseEntity {
     }
 
     private int calculateNextLevelExp() {
-        return this.level * 100;
+        return getExpForNextLevel(this.level);
     }
 }
