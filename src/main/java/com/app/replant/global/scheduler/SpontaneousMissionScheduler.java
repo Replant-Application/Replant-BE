@@ -363,9 +363,10 @@ public class SpontaneousMissionScheduler {
 
     /**
      * [폴백] spontaneous_mission에 WAKE_UP 없을 때 기상 미션만 할당 (mission=null)
+     * 테스트용: due_date는 DB NOT NULL 대응용만 사용, 만료 판정에 미사용
      */
     private UserMission assignWakeUpMissionFallback(User user, LocalDateTime now) {
-        LocalDateTime dueDate = now.toLocalDate().atTime(23, 59, 59);
+        LocalDateTime dueDate = now.plusDays(1); // 테스트용, 미사용
         UserMission userMission = UserMission.builder()
                 .user(user)
                 .mission(null)
@@ -489,8 +490,10 @@ public class SpontaneousMissionScheduler {
         // 중복 체크는 호출하는 쪽(assignWakeUpMission 등)에서 이미 수행하므로 여기서는 생략
         // assignWakeUpMission에서 hasSpontaneousMissionToday를 호출하여 타입별로 구분해서 체크함
         
-        // 미션 기간 설정 (돌발 미션은 당일 종료로 설정)
-        LocalDateTime dueDate = now.toLocalDate().atTime(23, 59, 59);
+        // 기상 미션: 테스트용이라 due_date 미사용 (DB NOT NULL 대응만). 그 외 돌발 미션은 당일 23:59
+        LocalDateTime dueDate = "기상".equals(missionType)
+                ? now.plusDays(1)
+                : now.toLocalDate().atTime(23, 59, 59);
         
         // 돌발 미션은 mission을 null로 설정 (spontaneous_mission 테이블에만 존재)
         UserMission userMission = UserMission.builder()
