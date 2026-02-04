@@ -60,6 +60,14 @@ public class NotificationService {
         notificationRepository.delete(notification);
     }
 
+    /**
+     * 해당 사용자의 전체 알림 삭제 (Hard Delete)
+     */
+    @Transactional
+    public int deleteAllNotifications(Long userId) {
+        return notificationRepository.deleteAllByUserId(userId);
+    }
+
     private Notification findNotificationByIdAndUserId(Long notificationId, Long userId) {
         return notificationRepository.findByIdAndUserId(notificationId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.NOTIFICATION_NOT_FOUND));

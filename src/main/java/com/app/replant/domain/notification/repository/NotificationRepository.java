@@ -29,7 +29,11 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
 
     @Query("SELECT n FROM Notification n WHERE n.user.id = :userId " +
            "AND n.referenceType = :referenceType AND n.referenceId = :referenceId")
-    List<Notification> findByUserIdAndReference(@Param("userId") Long userId, 
-                                                 @Param("referenceType") String referenceType, 
+    List<Notification> findByUserIdAndReference(@Param("userId") Long userId,
+                                                 @Param("referenceType") String referenceType,
                                                  @Param("referenceId") Long referenceId);
+
+    @Modifying
+    @Query("DELETE FROM Notification n WHERE n.user.id = :userId")
+    int deleteAllByUserId(@Param("userId") Long userId);
 }

@@ -80,7 +80,7 @@ public class NotificationController {
         return ApiResponse.success(result);
     }
 
-    @Operation(summary = "알림 삭제 (Soft Delete)")
+    @Operation(summary = "알림 삭제")
     @DeleteMapping("/{notificationId}")
     public ApiResponse<Map<String, String>> deleteNotification(
             @PathVariable Long notificationId,
@@ -90,6 +90,20 @@ public class NotificationController {
 
         Map<String, String> result = new HashMap<>();
         result.put("message", "알림이 삭제되었습니다.");
+
+        return ApiResponse.success(result);
+    }
+
+    @Operation(summary = "전체 알림 삭제 (해당 사용자의 모든 알림)")
+    @DeleteMapping("/all")
+    public ApiResponse<Map<String, Object>> deleteAllNotifications(
+            @AuthenticationPrincipal Long userId) {
+        if (userId == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
+        int deletedCount = notificationService.deleteAllNotifications(userId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("deletedCount", deletedCount);
+        result.put("message", deletedCount + "개의 알림이 삭제되었습니다.");
 
         return ApiResponse.success(result);
     }
