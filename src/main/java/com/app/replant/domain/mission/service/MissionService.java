@@ -327,7 +327,19 @@ public class MissionService {
         return MissionReviewResponse.from(saved);
     }
 
-
+    @Transactional
+    public void deleteReview(Long missionId, Long reviewId, Long userId) {
+        findMissionById(missionId);
+        MissionReview review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
+        if (!review.getMission().getId().equals(missionId)) {
+            throw new CustomException(ErrorCode.REVIEW_NOT_FOUND);
+        }
+        if (!review.getUser().getId().equals(userId)) {
+            throw new CustomException(ErrorCode.NOT_REVIEW_AUTHOR);
+        }
+        reviewRepository.delete(review);
+    }
 
     // ============ 관리자 미션 관리 ============
 

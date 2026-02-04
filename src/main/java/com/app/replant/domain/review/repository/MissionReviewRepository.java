@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface MissionReviewRepository extends JpaRepository<MissionReview, Long> {
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"user", "user.reant"})
     @Query("SELECT mr FROM MissionReview mr WHERE mr.mission.id = :missionId")
     Page<MissionReview> findByMissionId(@Param("missionId") Long missionId, Pageable pageable);
 

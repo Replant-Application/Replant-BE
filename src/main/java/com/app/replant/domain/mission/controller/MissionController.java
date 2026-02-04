@@ -115,6 +115,16 @@ public class MissionController {
         return ApiResponse.success(review);
     }
 
+    @Operation(summary = "미션 리뷰 삭제", description = "본인이 작성한 후기만 삭제 가능")
+    @DeleteMapping("/{missionId:\\d+}/reviews/{reviewId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteReview(
+            @PathVariable Long missionId,
+            @PathVariable Long reviewId,
+            @AuthenticationPrincipal Long userId) {
+        missionService.deleteReview(missionId, reviewId, userId);
+    }
+
     // ============ 커스텀 미션 CRUD API ============
 
     @Operation(summary = "커스텀 미션 목록 조회", description = "공개된 커스텀 미션 목록을 조회합니다.")

@@ -138,6 +138,8 @@ public enum ErrorCode {
 
     // Review (미션 리뷰용)
     REVIEW_ALREADY_EXISTS(HttpStatus.CONFLICT, "RV001", "이미 리뷰를 작성했습니다"),
+    REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "RV002", "후기를 찾을 수 없습니다"),
+    NOT_REVIEW_AUTHOR(HttpStatus.FORBIDDEN, "RV003", "본인이 작성한 후기만 삭제할 수 있습니다"),
 
     // QnA
     QNA_NOT_FOUND(HttpStatus.NOT_FOUND, "Q001", "QnA를 찾을 수 없습니다"),
