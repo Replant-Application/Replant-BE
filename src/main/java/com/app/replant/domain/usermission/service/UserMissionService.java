@@ -406,8 +406,10 @@ public class UserMissionService {
             }
         }
 
-        // 배지 발급
-        createBadge(userMission);
+        // 배지 발급 (기상/돌발 미션은 배지 발급하지 않음)
+        if (!userMission.isSpontaneousMission()) {
+            createBadge(userMission);
+        }
 
         // 투두리스트에 포함된 미션이면 TodoListMission도 완료 처리
         if (userMission.getMission() != null) {

@@ -17,15 +17,15 @@ public interface UserBadgeRepository extends JpaRepository<UserBadge, Long> {
            "LEFT JOIN FETCH ub.mission " +
            "LEFT JOIN FETCH ub.userMission um " +
            "LEFT JOIN FETCH um.mission " +
-           "WHERE ub.user.id = :userId AND ub.expiresAt > :now")
+           "WHERE ub.user.id = :userId AND ub.expiresAt > :now AND (um.isSpontaneous = false)")
     List<UserBadge> findValidBadgesByUserId(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
     @Query(value = "SELECT ub FROM UserBadge ub " +
            "LEFT JOIN FETCH ub.mission " +
            "LEFT JOIN FETCH ub.userMission um " +
            "LEFT JOIN FETCH um.mission " +
-           "WHERE ub.user.id = :userId",
-           countQuery = "SELECT COUNT(ub) FROM UserBadge ub WHERE ub.user.id = :userId")
+           "WHERE ub.user.id = :userId AND (um.isSpontaneous = false)",
+           countQuery = "SELECT COUNT(ub) FROM UserBadge ub WHERE ub.user.id = :userId AND (ub.userMission.isSpontaneous = false)")
     Page<UserBadge> findByUserId(@Param("userId") Long userId, Pageable pageable);
 
     @Query("SELECT CASE WHEN COUNT(ub) > 0 THEN true ELSE false END " +
