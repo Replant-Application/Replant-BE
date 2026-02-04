@@ -4,6 +4,8 @@ import com.app.replant.global.common.ApiResponse;
 import com.app.replant.domain.notification.dto.FcmTokenRequest;
 import com.app.replant.domain.notification.dto.NotificationResponse;
 import com.app.replant.domain.notification.service.NotificationService;
+import com.app.replant.global.exception.CustomException;
+import com.app.replant.global.exception.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -32,6 +34,9 @@ public class NotificationController {
             @AuthenticationPrincipal Long userId,
             @RequestParam(required = false) Boolean isRead,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        if (userId == null) {
+            throw new CustomException(ErrorCode.UNAUTHORIZED);
+        }
         Page<NotificationResponse> notifications = notificationService.getNotifications(userId, isRead, pageable);
         long unreadCount = notificationService.getUnreadCount(userId);
 
@@ -50,6 +55,7 @@ public class NotificationController {
     public ApiResponse<Map<String, Object>> markNotificationAsRead(
             @PathVariable Long notificationId,
             @AuthenticationPrincipal Long userId) {
+        if (userId == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         notificationService.markNotificationAsRead(notificationId, userId);
 
         Map<String, Object> result = new HashMap<>();
@@ -64,6 +70,7 @@ public class NotificationController {
     @PutMapping("/read-all")
     public ApiResponse<Map<String, Object>> markAllNotificationsAsRead(
             @AuthenticationPrincipal Long userId) {
+        if (userId == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         int readCount = notificationService.markAllNotificationsAsRead(userId);
 
         Map<String, Object> result = new HashMap<>();
@@ -78,6 +85,7 @@ public class NotificationController {
     public ApiResponse<Map<String, String>> deleteNotification(
             @PathVariable Long notificationId,
             @AuthenticationPrincipal Long userId) {
+        if (userId == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         notificationService.deleteNotification(notificationId, userId);
 
         Map<String, String> result = new HashMap<>();
@@ -91,6 +99,7 @@ public class NotificationController {
     public ApiResponse<Map<String, String>> registerFcmToken(
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody FcmTokenRequest request) {
+        if (userId == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
         notificationService.registerFcmToken(userId, request.getFcmToken());
 
         Map<String, String> result = new HashMap<>();
