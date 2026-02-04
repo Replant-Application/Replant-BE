@@ -1,6 +1,7 @@
 package com.app.replant.domain.notification.dto;
 
 import com.app.replant.domain.notification.entity.Notification;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -18,6 +19,8 @@ public class NotificationResponse {
     private Long referenceId;
     private Long userMissionId; // USER_MISSION 타입일 때 referenceId와 동일한 값 (프론트엔드 호환성)
     private Boolean isRead;
+    /** 서버(Asia/Seoul) 기준으로 +09:00 포함 직렬화해 클라이언트에서 9시간 차이 나지 않도록 함 */
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX", timezone = "Asia/Seoul")
     private LocalDateTime createdAt;
 
     public static NotificationResponse from(Notification notification) {
