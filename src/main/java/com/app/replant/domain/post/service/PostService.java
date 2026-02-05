@@ -7,6 +7,7 @@ import com.app.replant.domain.post.dto.CommentResponse;
 import com.app.replant.domain.post.dto.PostRequest;
 import com.app.replant.domain.post.dto.PostResponse;
 import com.app.replant.domain.post.dto.VerificationPostRequest;
+import com.app.replant.domain.post.dto.VerificationPostUpdateRequest;
 import com.app.replant.domain.post.enums.PostType;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.post.entity.Comment;
@@ -75,7 +76,7 @@ public class PostService {
         // N+1 문제 방지를 위해 reant를 함께 로드
         User currentUser = currentUserId != null ? userRepository.findByIdWithReant(currentUserId).orElse(null) : null;
 
-        return postRepository.findWithFilters(missionId, badgeFilter, pageable)
+        return postRepository.findWithFilters(missionId, badgeFilter, pageable, currentUserId)
                 .map(post -> {
                     long commentCount = commentRepository.countByPostId(post.getId());
                     long likeCount = postLikeRepository.countByPostId(post.getId());
@@ -159,7 +160,7 @@ public class PostService {
         }
 
         // VERIFICATION 타입 게시글 생성
-        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, request.getCompletionRate());
+        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, request.getCompletionRate(), null);
         log.debug("인증 게시글 생성 전 - postType={}, userId={}, userMissionId={}", post.getPostType(), userId, userMission.getId());
 
         // UserMission 상태를 PENDING(인증대기)으로 변경
@@ -242,7 +243,7 @@ public class PostService {
      * 인증 게시글 수정
      */
     @Transactional
-    public PostResponse updateVerificationPost(Long postId, Long userId, VerificationPostRequest request) {
+    public PostResponse updateVerificationPost(Long postId, Long userId, VerificationPostUpdateRequest request) {
         Post post = postRepository.findVerificationPostById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 

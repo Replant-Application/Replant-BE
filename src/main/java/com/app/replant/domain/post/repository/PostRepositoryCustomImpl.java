@@ -72,20 +72,29 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     public Page<Post> findWithFilters(
             Long missionId,
             boolean badgeOnly,
-            Pageable pageable) {
+            Pageable pageable,
+            Long currentUserId) {
         
         BooleanBuilder builder = new BooleanBuilder();
         builder.and(isGeneralOrVerification());
         builder.and(isNotDeleted());
 
-        // 파라미터는 현재 무시 (하위 호환성)
-        // 필요시 아래 주석 해제하여 사용
-        // if (missionId != null) {
-        //     builder.and(post.userMission.mission.id.eq(missionId));
-        // }
-        // if (badgeOnly) {
-        //     builder.and(post.hasValidBadge.isTrue());
-        // }
+        // missionId 필터
+        if (missionId != null) {
+            builder.and(post.userMission.mission.id.eq(missionId));
+        }
+        
+        // badgeOnly 필터
+        if (badgeOnly) {
+            builder.and(post.hasValidBadge.isTrue());
+        }
+        
+        // currentUserId가 있으면 공개글 + 내 비공개글, 없으면 공개글만
+        if (currentUserId != null) {
+            builder.and(post.isPublic.isTrue().or(post.user.id.eq(currentUserId)));
+        } else {
+            builder.and(post.isPublic.isTrue());
+        }
 
         JPAQuery<Post> query = queryFactory
                 .selectFrom(post)
@@ -188,6 +197,24 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         .and(isVerificationType())
                         .and(isNotDeleted()))
                 .fetchOne();
+
+        return Optional.ofNullable(result);
+    }
+
+    @Override
+    public Optional<Post> findVerificationPostByUserIdAndMissionId(Long userId, Long missionId) {
+        Post result = queryFactory
+                .selectFrom(post)
+                .join(post.user, user).fetchJoin()
+                .leftJoin(user.reant, reant).fetchJoin()
+                .leftJoin(post.userMission, userMission).fetchJoin()
+                .leftJoin(userMission.mission, mission).fetchJoin()
+                .where(post.user.id.eq(userId)
+                        .and(post.userMission.mission.id.eq(missionId))
+                        .and(isVerificationType())
+                        .and(isNotDeleted()))
+                .orderBy(post.createdAt.desc())
+                .fetchFirst();
 
         return Optional.ofNullable(result);
     }

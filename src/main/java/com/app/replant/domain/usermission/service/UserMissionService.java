@@ -288,6 +288,57 @@ public class UserMissionService {
     }
 
     /**
+     * 시간 인증 미션 완료 (간편 버전)
+     * 돌발 미션(기상/식사)과 일반 투두리스트 TIME 인증 모두 지원
+     */
+    @Transactional
+    public VerifyMissionResponse verifyByTime(Long userMissionId, Long userId) {
+        UserMission userMission = userMissionRepository.findByIdAndUserId(userMissionId, userId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_MISSION_NOT_FOUND));
+
+        if (userMission.getStatus() != UserMissionStatus.ASSIGNED) {
+            throw new CustomException(ErrorCode.MISSION_ALREADY_VERIFIED);
+        }
+
+        VerificationType requiredType = getVerificationType(userMission);
+        if (requiredType != VerificationType.TIME) {
+            throw new CustomException(ErrorCode.INVALID_VERIFICATION_TYPE, 
+                    "이 미션은 시간 인증이 필요하지 않습니다. 요구 타입: " + requiredType);
+        }
+
+        // 시간 인증은 시작 시간과 종료 시간이 필요하지만, 간편 버전에서는 현재 시간을 기준으로 처리
+        // 실제로는 클라이언트에서 시작/종료 시간을 전달해야 하지만, 임시로 현재 시간 사용
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startedAt = now.minusMinutes(1); // 임시: 1분 전부터 시작한 것으로 가정
+        LocalDateTime endedAt = now;
+
+        VerifyMissionRequest request = new VerifyMissionRequest();
+        request.setType(VerificationType.TIME);
+        request.setStartedAt(startedAt);
+        request.setEndedAt(endedAt);
+
+        MissionVerification verification = verifyTime(userMission, request);
+
+        // 미션 완료 처리 (투두리스트 미션 완료 처리 포함)
+        completeMissionVerification(userMission);
+
+        // 보상 지급 정보 조회
+        int expReward = getExpReward(userMission);
+        
+        // 뱃지 조회
+        UserBadge badge = null;
+        if (userMission.getMission() != null) {
+            badge = userBadgeRepository.findValidBadgeForMission(
+                    userId, 
+                    userMission.getMission().getId(), 
+                    LocalDateTime.now()
+            ).orElse(null);
+        }
+
+        return buildVerifyResponse(userMission, verification, expReward, badge);
+    }
+
+    /**
      * 미션 수행 이력 조회
      */
     public Page<UserMissionResponse> getMissionHistory(Long userId, Pageable pageable) {

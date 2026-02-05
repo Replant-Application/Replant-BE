@@ -78,25 +78,83 @@ public class TodoListService {
          * 커스텀 미션 도감 조회 (투두리스트 선택용)
          * 본인 것 + 다른 사람의 공개 커스텀 미션
          */
-        public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId) {
-                // 본인이 만든 커스텀 미션
-                List<Mission> myMissions = missionRepository.findNonChallengeCustomMissionsByCreator(userId);
-                // 다른 사람들의 공개 커스텀 미션
-                List<Mission> publicMissions = missionRepository.findAllPublicNonChallengeCustomMissions();
+        public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId, Boolean onlyMine, String searchQuery) {
+                List<Mission> missions;
+                
+                if (Boolean.TRUE.equals(onlyMine)) {
+                        // 본인 것만 조회
+                        missions = missionRepository.findNonChallengeCustomMissionsByCreator(userId);
+                } else {
+                        // 본인이 만든 커스텀 미션
+                        List<Mission> myMissions = missionRepository.findNonChallengeCustomMissionsByCreator(userId);
+                        // 다른 사람들의 공개 커스텀 미션
+                        List<Mission> publicMissions = missionRepository.findAllPublicNonChallengeCustomMissions();
 
-                // 중복 제거 (본인 것이 공개일 경우)
-                java.util.Set<Long> myMissionIds = myMissions.stream()
-                                .map(Mission::getId)
-                                .collect(java.util.stream.Collectors.toSet());
+                        // 중복 제거 (본인 것이 공개일 경우)
+                        java.util.Set<Long> myMissionIds = myMissions.stream()
+                                        .map(Mission::getId)
+                                        .collect(java.util.stream.Collectors.toSet());
 
-                List<Mission> allMissions = new java.util.ArrayList<>(myMissions);
-                publicMissions.stream()
-                                .filter(m -> !myMissionIds.contains(m.getId()))
-                                .forEach(allMissions::add);
+                        missions = new java.util.ArrayList<>(myMissions);
+                        publicMissions.stream()
+                                        .filter(m -> !myMissionIds.contains(m.getId()))
+                                        .forEach(missions::add);
+                }
+                
+                // 검색어 필터링
+                if (searchQuery != null && !searchQuery.trim().isEmpty()) {
+                        String query = searchQuery.trim().toLowerCase();
+                        missions = missions.stream()
+                                        .filter(m -> m.getTitle().toLowerCase().contains(query) || 
+                                                   (m.getDescription() != null && m.getDescription().toLowerCase().contains(query)))
+                                        .collect(Collectors.toList());
+                }
 
-                return allMissions.stream()
+                return missions.stream()
                                 .map(TodoListDto.MissionSimpleResponse::from)
                                 .collect(Collectors.toList());
+        }
+        
+        /**
+         * 공개 투두리스트 목록 조회 (삭제된 기능 - 임시로 빈 페이지 반환)
+         */
+        public Page<TodoListDto.SimpleResponse> getPublicTodoLists(Pageable pageable, String sortBy) {
+                // TODO: 공개 기능이 삭제되어 임시로 빈 페이지 반환
+                return Page.empty(pageable);
+        }
+        
+        /**
+         * 공개 투두리스트 검색 (삭제된 기능 - 임시로 빈 페이지 반환)
+         */
+        public Page<TodoListDto.SimpleResponse> searchPublicTodoLists(String keyword, Pageable pageable, String sortBy) {
+                // TODO: 공개 기능이 삭제되어 임시로 빈 페이지 반환
+                return Page.empty(pageable);
+        }
+        
+        /**
+         * 공개 투두리스트 상세 조회 (삭제된 기능 - 임시로 예외 발생)
+         */
+        public TodoListDto.DetailResponse getPublicTodoListDetail(Long todoListId, Long userId) {
+                // TODO: 공개 기능이 삭제되어 임시로 일반 상세 조회로 대체
+                return getTodoListDetail(todoListId, userId);
+        }
+        
+        /**
+         * 투두리스트 좋아요 (삭제된 기능 - 임시로 무시)
+         */
+        @Transactional
+        public void likeTodoList(Long todoListId, Long userId) {
+                // TODO: 좋아요 기능이 삭제되어 임시로 무시
+                log.warn("좋아요 기능이 삭제되었습니다. todoListId={}, userId={}", todoListId, userId);
+        }
+        
+        /**
+         * 투두리스트 좋아요 취소 (삭제된 기능 - 임시로 무시)
+         */
+        @Transactional
+        public void unlikeTodoList(Long todoListId, Long userId) {
+                // TODO: 좋아요 기능이 삭제되어 임시로 무시
+                log.warn("좋아요 취소 기능이 삭제되었습니다. todoListId={}, userId={}", todoListId, userId);
         }
 
         /**

@@ -98,6 +98,13 @@ public class UserMission {
         }
         return this.mission != null && this.mission.isOfficialMission();
     }
+    
+    /**
+     * 돌발 미션 여부 확인 (mission이 null이고 missionType이 SPONTANEOUS인 경우)
+     */
+    public boolean isSpontaneousMission() {
+        return this.mission == null && this.missionType == MissionType.SPONTANEOUS;
+    }
 
     /**
      * 커스텀 미션 여부 확인
