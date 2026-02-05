@@ -100,20 +100,10 @@ spring:
   # Spring AI - LLM 설정
   # 주의: spring-dotenv의 ${env.}가 여기서 작동하지 않으므로 시스템 환경변수 사용
   # ===========================================
-  ai:
-    # Google Gemini (Primary) - API Key만 사용 (Gemini Developer API)
-    # 주의: Spring AI가 project-id를 필수로 체크하지만, location을 설정하지 않으면 API Key 모드로 동작
-    # location을 설정하면 Vertex AI 모드로 전환되어 credentials가 필요함
-    google:
-      genai:
-        api-key: ${GEMINI_API_KEY:${env.GEMINI_API_KEY}}
-        project-id: ${GEMINI_PROJECT_ID:${env.GEMINI_PROJECT_ID:replant-application}}
-        # location은 Vertex AI 사용 시에만 필요 (설정하지 않으면 API Key 모드)
-        # location: ${GEMINI_LOCATION:${env.GEMINI_LOCATION}}
-        chat:
-          options:
-            model: ${GEMINI_MODEL:${env.GEMINI_MODEL:gemini-3-flash-preview}}
-            temperature: ${env.GEMINI_TEMPERATURE:0.7}
+  # Spring AI 자동 설정 비활성화 (GoogleGenAiConfig에서 수동 Bean 생성)
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration
     
     # OpenAI 호환 API - Qwen/vLLM (Fallback)
     # 주의: Spring AI가 자동으로 /v1을 추가하므로 base-url에 /v1 제외
