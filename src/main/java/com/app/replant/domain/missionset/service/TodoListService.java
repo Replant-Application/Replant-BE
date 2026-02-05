@@ -1,4 +1,3 @@
-git commit -m "[refactor] #13 - 충돌 해결: TodoListController 이동 유지"
 package com.app.replant.domain.missionset.service;
 
 import com.app.replant.domain.mission.entity.Mission;
