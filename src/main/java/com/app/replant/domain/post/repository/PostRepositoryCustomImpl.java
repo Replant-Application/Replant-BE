@@ -113,8 +113,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
             Long missionId,
             boolean badgeOnly,
             Pageable pageable) {
-        // findWithFilters와 동일한 구현
-        return findWithFilters(missionId, badgeOnly, pageable);
+        // findWithFilters와 동일한 구현 (currentUserId는 null로 전달하여 공개글만 조회)
+        return findWithFilters(missionId, badgeOnly, pageable, null);
     }
 
     // ========================================

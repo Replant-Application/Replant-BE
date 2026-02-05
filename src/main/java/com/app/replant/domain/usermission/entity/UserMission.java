@@ -100,10 +100,11 @@ public class UserMission {
     }
     
     /**
-     * 돌발 미션 여부 확인 (mission이 null이고 missionType이 SPONTANEOUS인 경우)
+     * 돌발 미션 여부 확인 (mission이 null인 경우)
+     * 돌발 미션은 별도의 SpontaneousMission 엔티티로 관리되므로 mission이 null입니다.
      */
     public boolean isSpontaneousMission() {
-        return this.mission == null && this.missionType == MissionType.SPONTANEOUS;
+        return this.mission == null;
     }
 
     /**
