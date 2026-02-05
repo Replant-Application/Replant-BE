@@ -6,6 +6,7 @@
     # libexpat 취약점(CVE-2026-24515) 해결을 위해 모든 패키지 업그레이드
     RUN apk update && \
         apk upgrade --available && \
+        apk upgrade libexpat expat || true && \
         apk add --no-cache tzdata && \
         cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
         echo "Asia/Seoul" > /etc/timezone && \
