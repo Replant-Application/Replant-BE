@@ -12,10 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * 환경 설정은 .env 파일에서 자동으로 로드됩니다.
  * spring-dotenv 라이브러리를 사용하여 ${env.변수명} 형식으로 접근 가능합니다.
  */
-@SpringBootApplication(exclude = { 
-    DataSourceAutoConfiguration.class,
-    org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration.class
-})
+@SpringBootApplication(exclude = { DataSourceAutoConfiguration.class })
 @EnableScheduling
 @EnableCaching
 public class ReplantApplication {
