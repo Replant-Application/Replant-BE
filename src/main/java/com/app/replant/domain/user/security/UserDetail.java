@@ -3,6 +3,7 @@ package com.app.replant.domain.user.security;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.enums.UserRole;
 import com.app.replant.domain.user.enums.UserStatus;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,6 +19,7 @@ import java.util.Collections;
 @Getter
 public class UserDetail implements UserDetails {
 
+    @JsonIgnore  // Jackson 직렬화 시 User 엔티티 접근 방지 (N+1 문제 방지)
     private final User user;
 
     public UserDetail(User user) {

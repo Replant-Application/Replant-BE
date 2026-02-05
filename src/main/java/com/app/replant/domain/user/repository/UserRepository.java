@@ -25,6 +25,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.reant WHERE u.email = :email AND (u.delFlag = false OR u.delFlag IS NULL)")
     Optional<User> findByEmailWithReant(String email);
 
+    /**
+     * ID로 사용자 조회 (Reant 포함) - N+1 문제 방지
+     * Soft Delete된 사용자 제외
+     */
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.reant WHERE u.id = :userId AND (u.delFlag = false OR u.delFlag IS NULL)")
+    Optional<User> findByIdWithReant(Long userId);
+
     boolean existsByEmail(String email);
 
     Optional<User> findByNicknameAndPhone(String nickname, String phone);
@@ -110,14 +117,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /**
      * Soft Delete된 사용자 조회 (계정 복구용)
      * 이메일로 조회하되, delFlag가 true인 사용자도 포함
+     * N+1 문제 방지를 위해 reant를 함께 로드
      */
-    @Query("SELECT u FROM User u WHERE u.email = :email")
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.reant WHERE u.email = :email")
     Optional<User> findByEmailIncludingDeleted(String email);
 
     /**
      * Soft Delete된 사용자 조회 (계정 복구용)
      * ID로 조회하되, delFlag가 true인 사용자도 포함
+     * N+1 문제 방지를 위해 reant를 함께 로드
      */
-    @Query("SELECT u FROM User u WHERE u.id = :userId")
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.reant WHERE u.id = :userId")
     Optional<User> findByIdIncludingDeleted(Long userId);
 }

@@ -690,7 +690,8 @@ public class MissionService {
     }
 
     private User findUserById(Long userId) {
-        return userRepository.findById(userId)
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        return userRepository.findByIdWithReant(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 
@@ -698,7 +699,8 @@ public class MissionService {
      * [DEBUG] 특정 이메일 사용자의 공식 미션 수행/완료 상태 확인
      */
     public Map<String, Object> getUserMissionStatusForDebug(String email) {
-        User user = userRepository.findByEmail(email)
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        User user = userRepository.findByEmailWithReant(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         
         Long userId = user.getId();

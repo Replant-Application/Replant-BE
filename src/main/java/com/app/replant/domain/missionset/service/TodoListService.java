@@ -1,20 +1,19 @@
+git commit -m "[refactor] #13 - 충돌 해결: TodoListController 이동 유지"
 package com.app.replant.domain.missionset.service;
 
 import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.mission.enums.MissionCategory;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.missionset.dto.TodoListDto;
 import com.app.replant.domain.missionset.entity.TodoList;
-import com.app.replant.domain.missionset.entity.TodoListLike;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.enums.MissionSource;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
-import com.app.replant.domain.missionset.repository.TodoListLikeRepository;
+import com.app.replant.domain.missionset.entity.TodoListReview;
 import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
+import com.app.replant.domain.missionset.repository.TodoListReviewRepository;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
-import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
@@ -29,12 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,46 +39,21 @@ public class TodoListService {
 
         private final TodoListRepository todoListRepository;
         private final TodoListMissionRepository todoListMissionRepository;
-        private final TodoListLikeRepository likeRepository;
+        private final TodoListReviewRepository reviewRepository;
         private final MissionRepository missionRepository;
         private final UserRepository userRepository;
         private final UserMissionRepository userMissionRepository;
         private final UserBadgeRepository userBadgeRepository;
-        private final PostRepository postRepository;
 
         private static final int RANDOM_OFFICIAL_COUNT = 3; // 필수 공식 미션 개수
 
         /**
          * 투두리스트 초기화 - 랜덤 공식 미션 3개 조회
-         * 사용자가 선호 카테고리를 선택한 경우 해당 카테고리 미션만 조회
          */
         public TodoListDto.InitResponse initTodoList(Long userId) {
-                User user = userRepository.findById(userId)
-                                .orElse(null);
-                List<MissionCategory> preferredCategories = user != null ? user.getPreferredMissionCategories() : null;
-                boolean useCategories = preferredCategories != null && !preferredCategories.isEmpty();
-
-                List<Mission> randomMissions;
-                if (useCategories) {
-                        randomMissions = missionRepository
-                                        .findRandomOfficialNonChallengeMissionsByCategories(RANDOM_OFFICIAL_COUNT, preferredCategories);
-                        // 해당 카테고리 미션이 3개 미만이면 전체 공식 미션으로 보완
-                        if (randomMissions.size() < RANDOM_OFFICIAL_COUNT) {
-                                List<Mission> fallback = missionRepository
-                                                .findRandomOfficialNonChallengeMissions(RANDOM_OFFICIAL_COUNT);
-                                Set<Long> haveIds = randomMissions.stream().map(Mission::getId).collect(Collectors.toSet());
-                                for (Mission m : fallback) {
-                                        if (haveIds.size() >= RANDOM_OFFICIAL_COUNT) break;
-                                        if (!haveIds.contains(m.getId())) {
-                                                randomMissions.add(m);
-                                                haveIds.add(m.getId());
-                                        }
-                                }
-                        }
-                } else {
-                        randomMissions = missionRepository
-                                        .findRandomOfficialNonChallengeMissions(RANDOM_OFFICIAL_COUNT);
-                }
+                // 랜덤 공식 미션 3개 조회
+                List<Mission> randomMissions = missionRepository
+                                .findRandomOfficialNonChallengeMissions(RANDOM_OFFICIAL_COUNT);
 
                 if (randomMissions.size() < RANDOM_OFFICIAL_COUNT) {
                         log.warn("공식 미션이 {}개 미만입니다. 현재: {}개", RANDOM_OFFICIAL_COUNT, randomMissions.size());
@@ -92,7 +61,6 @@ public class TodoListService {
 
                 return TodoListDto.InitResponse.builder()
                                 .randomMissions(randomMissions.stream()
-                                                .limit(RANDOM_OFFICIAL_COUNT)
                                                 .map(TodoListDto.MissionSimpleResponse::from)
                                                 .collect(Collectors.toList()))
                                 .build();
@@ -100,37 +68,23 @@ public class TodoListService {
 
         /**
          * 랜덤 미션 리롤 - 기존 미션을 제외하고 새로운 랜덤 미션 1개 조회
-         * 사용자 선호 카테고리가 있으면 해당 카테고리 미션만 대상 (없으면 전체에서 fallback)
          */
         public TodoListDto.MissionSimpleResponse rerollRandomMission(Long userId, List<Long> excludeMissionIds) {
-                User user = userRepository.findById(userId).orElse(null);
-                List<MissionCategory> preferredCategories = user != null ? user.getPreferredMissionCategories() : null;
-                boolean useCategories = preferredCategories != null && !preferredCategories.isEmpty();
-
-                Optional<Mission> opt = useCategories
-                                ? missionRepository.findRandomOfficialNonChallengeMissionExcludingByCategories(excludeMissionIds, preferredCategories)
-                                : missionRepository.findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds);
-                Mission newMission = opt.orElseGet(() ->
-                                missionRepository.findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds)
-                                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND,
-                                                                "교체할 수 있는 공식 미션이 없습니다.")));
-
+                Mission newMission = missionRepository
+                                .findRandomOfficialNonChallengeMissionExcluding(excludeMissionIds)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_NOT_FOUND, 
+                                                "교체할 수 있는 공식 미션이 없습니다."));
+                
                 return TodoListDto.MissionSimpleResponse.from(newMission);
         }
 
         /**
          * 커스텀 미션 도감 조회 (투두리스트 선택용)
-         * onlyMine=true: 내가 만든 미션만 반환
-         * onlyMine=false: 본인 것 + 다른 사람의 공개 커스텀 미션
+         * 본인 것 + 다른 사람의 공개 커스텀 미션
          */
-        public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId, Boolean onlyMine, String searchQuery) {
+        public List<TodoListDto.MissionSimpleResponse> getSelectableMissions(Long userId) {
                 // 본인이 만든 커스텀 미션
                 List<Mission> myMissions = missionRepository.findNonChallengeCustomMissionsByCreator(userId);
-                if (Boolean.TRUE.equals(onlyMine)) {
-                        return filterMissionsBySearchQuery(myMissions, searchQuery).stream()
-                                        .map(TodoListDto.MissionSimpleResponse::from)
-                                        .collect(Collectors.toList());
-                }
                 // 다른 사람들의 공개 커스텀 미션
                 List<Mission> publicMissions = missionRepository.findAllPublicNonChallengeCustomMissions();
 
@@ -144,25 +98,8 @@ public class TodoListService {
                                 .filter(m -> !myMissionIds.contains(m.getId()))
                                 .forEach(allMissions::add);
 
-                return filterMissionsBySearchQuery(allMissions, searchQuery).stream()
+                return allMissions.stream()
                                 .map(TodoListDto.MissionSimpleResponse::from)
-                                .collect(Collectors.toList());
-        }
-
-        /**
-         * 검색어로 미션 필터링
-         */
-        private List<Mission> filterMissionsBySearchQuery(List<Mission> missions, String searchQuery) {
-                if (searchQuery == null || searchQuery.trim().isEmpty()) {
-                        return missions;
-                }
-                String query = searchQuery.toLowerCase().trim();
-                return missions.stream()
-                                .filter(mission -> 
-                                        (mission.getTitle() != null && mission.getTitle().toLowerCase().contains(query)) ||
-                                        (mission.getDescription() != null && mission.getDescription().toLowerCase().contains(query)) ||
-                                        (mission.getCategory() != null && mission.getCategory().name().toLowerCase().contains(query))
-                                )
                                 .collect(Collectors.toList());
         }
 
@@ -223,10 +160,12 @@ public class TodoListService {
                                         .missionSource(MissionSource.RANDOM_OFFICIAL)
                                         .build();
                         
+                        // 시간대 정보가 있으면 설정
                         if (request.getMissionSchedules() != null) {
                                 TodoListDto.CreateRequest.MissionScheduleInfo schedule = 
                                                 request.getMissionSchedules().get(mission.getId());
                                 if (schedule != null && schedule.getStartTime() != null && schedule.getEndTime() != null) {
+                                        // 시간 검증: 시작 시간이 종료 시간보다 이전이어야 함
                                         if (!schedule.getStartTime().isBefore(schedule.getEndTime())) {
                                                 throw new CustomException(ErrorCode.INVALID_REQUEST,
                                                                 "미션 '" + mission.getTitle() + "'의 시작 시간은 종료 시간보다 이전이어야 합니다.");
@@ -236,8 +175,23 @@ public class TodoListService {
                         }
                         
                         todoList.getMissions().add(msm);
+
+                        // UserMission 생성 - 투두리스트에 추가된 미션을 나의 미션에도 추가
+                        LocalDateTime dueDate = mission.getDurationDays() != null
+                                        ? now.plusDays(mission.getDurationDays())
+                                        : defaultDueDate;
+                        UserMission userMission = UserMission.builder()
+                                        .user(user)
+                                        .mission(mission)
+                                        .missionType(mission.getMissionType())
+                                        .assignedAt(now)
+                                        .dueDate(dueDate)
+                                        .status(UserMissionStatus.ASSIGNED)
+                                        .build();
+                        userMissionRepository.save(userMission);
                 }
 
+                // 커스텀 미션 추가
                 for (Mission mission : customMissions) {
                         TodoListMission msm = TodoListMission.todoMissionBuilder()
                                         .todoList(todoList)
@@ -246,10 +200,12 @@ public class TodoListService {
                                         .missionSource(MissionSource.CUSTOM_SELECTED)
                                         .build();
                         
+                        // 시간대 정보가 있으면 설정
                         if (request.getMissionSchedules() != null) {
                                 TodoListDto.CreateRequest.MissionScheduleInfo schedule = 
                                                 request.getMissionSchedules().get(mission.getId());
                                 if (schedule != null && schedule.getStartTime() != null && schedule.getEndTime() != null) {
+                                        // 시간 검증: 시작 시간이 종료 시간보다 이전이어야 함
                                         if (!schedule.getStartTime().isBefore(schedule.getEndTime())) {
                                                 throw new CustomException(ErrorCode.INVALID_REQUEST,
                                                                 "미션 '" + mission.getTitle() + "'의 시작 시간은 종료 시간보다 이전이어야 합니다.");
@@ -259,13 +215,8 @@ public class TodoListService {
                         }
                         
                         todoList.getMissions().add(msm);
-                }
 
-                todoListRepository.save(todoList);
-
-                // UserMission 생성 (todo_list_id 연결 → 투두리스트 Hard Delete 시 나의 미션/캘린더에서도 제거)
-                for (TodoListMission msm : todoList.getMissions()) {
-                        Mission mission = msm.getMission();
+                        // UserMission 생성 - 투두리스트에 추가된 미션을 나의 미션에도 추가
                         LocalDateTime dueDate = mission.getDurationDays() != null
                                         ? now.plusDays(mission.getDurationDays())
                                         : (mission.getDeadlineDays() != null ? now.plusDays(mission.getDeadlineDays())
@@ -277,10 +228,11 @@ public class TodoListService {
                                         .assignedAt(now)
                                         .dueDate(dueDate)
                                         .status(UserMissionStatus.ASSIGNED)
-                                        .todoList(todoList)
                                         .build();
-                        userMissionRepository.saveAndFlush(userMission);
+                        userMissionRepository.save(userMission);
                 }
+
+                todoListRepository.save(todoList);
 
                 log.info("투두리스트 생성 완료: id={}, userId={}, 필수 미션 {}개, 커스텀 미션 {}개, 총 {}개",
                                 todoList.getId(), userId, RANDOM_OFFICIAL_COUNT, customMissions.size(), totalMissionCount);
@@ -312,60 +264,6 @@ public class TodoListService {
         }
 
         /**
-         * 공개 투두리스트 목록 조회
-         */
-        public Page<TodoListDto.SimpleResponse> getPublicTodoLists(Pageable pageable, String sortBy) {
-                return todoListRepository.findPublicTodoLists(pageable, sortBy)
-                                .map(todoList -> {
-                                        TodoListDto.SimpleResponse response = TodoListDto.SimpleResponse.from(todoList);
-                                        int likeCount = (int) likeRepository.countByTodoList(todoList);
-                                        return TodoListDto.SimpleResponse.builder()
-                                                        .id(response.getId())
-                                                        .title(response.getTitle())
-                                                        .description(response.getDescription())
-                                                        .completedCount(response.getCompletedCount())
-                                                        .totalCount(response.getTotalCount())
-                                                        .progressRate(response.getProgressRate())
-                                                        .canCreateNew(response.getCanCreateNew())
-                                                        .status(response.getStatus())
-                                                        .createdAt(response.getCreatedAt())
-                                                        .creatorId(response.getCreatorId())
-                                                        .creatorNickname(response.getCreatorNickname())
-                                                        .likeCount(likeCount)
-                                                        .build();
-                                });
-        }
-
-        /**
-         * 공개 투두리스트 검색
-         */
-        public Page<TodoListDto.SimpleResponse> searchPublicTodoLists(String keyword, Pageable pageable, String sortBy) {
-                if (keyword == null || keyword.trim().isEmpty()) {
-                        // 키워드가 없으면 일반 목록 조회
-                        return getPublicTodoLists(pageable, sortBy);
-                }
-                return todoListRepository.searchPublicTodoLists(keyword.trim(), pageable, sortBy)
-                                .map(todoList -> {
-                                        TodoListDto.SimpleResponse response = TodoListDto.SimpleResponse.from(todoList);
-                                        int likeCount = (int) likeRepository.countByTodoList(todoList);
-                                        return TodoListDto.SimpleResponse.builder()
-                                                        .id(response.getId())
-                                                        .title(response.getTitle())
-                                                        .description(response.getDescription())
-                                                        .completedCount(response.getCompletedCount())
-                                                        .totalCount(response.getTotalCount())
-                                                        .progressRate(response.getProgressRate())
-                                                        .canCreateNew(response.getCanCreateNew())
-                                                        .status(response.getStatus())
-                                                        .createdAt(response.getCreatedAt())
-                                                        .creatorId(response.getCreatorId())
-                                                        .creatorNickname(response.getCreatorNickname())
-                                                        .likeCount(likeCount)
-                                                        .build();
-                                });
-        }
-
-        /**
          * 투두리스트 상세 조회
          */
         public TodoListDto.DetailResponse getTodoListDetail(Long todoListId, Long userId) {
@@ -378,78 +276,6 @@ public class TodoListService {
                 }
 
                 return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
-        }
-
-        /**
-         * 공개 투두리스트 상세 조회
-         * 작성자(creator) 기준 완료 여부 및 인증 게시글 ID(verificationPostId) 포함
-         */
-        public TodoListDto.DetailResponse getPublicTodoListDetail(Long todoListId, Long userId) {
-                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
-
-                // 공개된 투두리스트만 조회 가능
-                Boolean isPublic = todoList.getIsPublic();
-                if (isPublic == null || !isPublic) {
-                        throw new CustomException(ErrorCode.ACCESS_DENIED);
-                }
-
-                int likeCount = (int) likeRepository.countByTodoList(todoList);
-                boolean isLiked = userId != null && likeRepository.existsByTodoListAndUser(todoList, userRepository.findById(userId).orElse(null));
-
-                // 작성자 기준 UserMission 목록 조회
-                List<UserMission> creatorUserMissions = userMissionRepository.findByTodoList_Id(todoList.getId());
-                Map<Long, UserMission> missionIdToUserMission = new HashMap<>();
-                for (UserMission um : creatorUserMissions) {
-                        Long mid = um.getMissionId();
-                        if (mid != null) {
-                                missionIdToUserMission.put(mid, um);
-                        }
-                }
-
-                // 미션별 작성자 완료 여부 + verificationPostId로 TodoMissionInfo 생성
-                List<TodoListDto.TodoMissionInfo> missionsForPublic = new ArrayList<>();
-                for (TodoListMission msm : todoList.getMissions()) {
-                        if (msm.getMission() == null || msm.getMission().getId() == null) {
-                                missionsForPublic.add(TodoListDto.TodoMissionInfo.from(msm, null));
-                                continue;
-                        }
-                        Long missionId = msm.getMission().getId();
-                        UserMission creatorUm = missionIdToUserMission.get(missionId);
-                        Long verificationPostId = null;
-                        if (creatorUm != null && creatorUm.getStatus() == UserMissionStatus.COMPLETED) {
-                                Long creatorId = todoList.getCreator() != null ? todoList.getCreator().getId() : null;
-                                verificationPostId = postRepository.findByUserMissionId(creatorUm.getId())
-                                                .map(p -> p.getId())
-                                                .orElseGet(() -> creatorId != null
-                                                        ? postRepository.findVerificationPostByUserIdAndMissionId(creatorId, missionId)
-                                                                .map(p -> p.getId())
-                                                                .orElse(null)
-                                                        : null);
-                        }
-                        missionsForPublic.add(TodoListDto.TodoMissionInfo.from(msm, creatorUm, verificationPostId));
-                }
-
-                // 공개 상세는 미션 목록을 이미 missionsForPublic으로 채움. userId가 null(비로그인)일 수 있어 from(todoList)만 사용
-                TodoListDto.DetailResponse baseResponse = TodoListDto.DetailResponse.from(todoList);
-                return TodoListDto.DetailResponse.builder()
-                                .id(baseResponse.getId())
-                                .title(baseResponse.getTitle())
-                                .description(baseResponse.getDescription())
-                                .completedCount(baseResponse.getCompletedCount())
-                                .totalCount(baseResponse.getTotalCount())
-                                .progressRate(baseResponse.getProgressRate())
-                                .canCreateNew(baseResponse.getCanCreateNew())
-                                .status(baseResponse.getStatus())
-                                .missions(missionsForPublic)
-                                .createdAt(baseResponse.getCreatedAt())
-                                .updatedAt(baseResponse.getUpdatedAt())
-                                .creatorId(baseResponse.getCreatorId())
-                                .creatorNickname(baseResponse.getCreatorNickname())
-                                .missionCount(baseResponse.getMissionCount() != null ? baseResponse.getMissionCount() : baseResponse.getTotalCount())
-                                .likeCount(likeCount)
-                                .isLiked(isLiked)
-                                .build();
         }
 
         /**
@@ -551,47 +377,91 @@ public class TodoListService {
                 log.info("투두리스트 보관 완료: todoListId={}, userId={}", todoListId, userId);
         }
 
+        // ============ 공유 관련 메서드 제거됨 (불필요) ============
+        // shareTodoList, unshareTodoList, getShareableTodoLists, getPublicTodoLists,
+        // searchPublicTodoLists, getPublicTodoListDetail, copyTodoList
+
+        // ============ 리뷰 관련 메서드들 ============
+
         /**
-         * 투두리스트 좋아요 추가
-         * 본인 투두리스트에는 불가. 이미 좋아요한 경우 무시(200).
+         * 투두리스트 리뷰 작성
          */
         @Transactional
-        public void likeTodoList(Long todoListId, Long userId) {
+        public TodoListDto.ReviewResponse createReview(Long todoListId, Long userId,
+                        TodoListDto.ReviewRequest request) {
                 TodoList todoList = todoListRepository.findById(todoListId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
 
+                // 자신의 투두리스트에는 리뷰 작성 불가
                 if (todoList.isCreator(userId)) {
-                        throw new CustomException(ErrorCode.INVALID_REQUEST, "자신의 투두리스트에는 좋아요를 누를 수 없습니다.");
+                        throw new CustomException(ErrorCode.INVALID_REQUEST, "자신의 투두리스트에는 리뷰를 작성할 수 없습니다.");
                 }
 
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-                if (likeRepository.existsByTodoListAndUser(todoList, user)) {
-                        return; // 이미 좋아요함 → 무시
+                // 이미 리뷰를 작성했는지 확인
+                if (reviewRepository.existsByTodoListAndUser(todoList, user)) {
+                        throw new CustomException(ErrorCode.INVALID_REQUEST, "이미 리뷰를 작성했습니다.");
                 }
 
-                TodoListLike like = TodoListLike.builder()
+                // 뱃지 보유 여부 확인 (투두리스트 내 미션 중 하나라도 뱃지가 있어야 함)
+                boolean hasBadge = todoList.getMissions().stream()
+                                .anyMatch(msm -> userBadgeRepository.hasValidBadgeForMission(userId,
+                                                msm.getMission().getId(), LocalDateTime.now()));
+
+                if (!hasBadge) {
+                        throw new CustomException(ErrorCode.BADGE_REQUIRED, "이 투두리스트의 미션 뱃지를 획득해야 리뷰를 작성할 수 있습니다.");
+                }
+
+                // 리뷰 생성
+                TodoListReview review = TodoListReview.builder()
                                 .todoList(todoList)
                                 .user(user)
+                                .rating(request.getRating())
+                                .content(request.getContent())
                                 .build();
-                likeRepository.save(like);
-                log.info("투두리스트 좋아요: todoListId={}, userId={}", todoListId, userId);
+                reviewRepository.save(review);
+
+                // 평균 별점 업데이트
+                updateAverageRating(todoList);
+
+                log.info("투두리스트 리뷰 작성: todoListId={}, userId={}", todoListId, userId);
+                return buildReviewResponse(review);
         }
 
         /**
-         * 투두리스트 좋아요 취소
+         * 투두리스트 리뷰 목록 조회
          */
-        @Transactional
-        public void unlikeTodoList(Long todoListId, Long userId) {
+        public Page<TodoListDto.ReviewResponse> getReviews(Long todoListId, Pageable pageable) {
                 TodoList todoList = todoListRepository.findById(todoListId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
 
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+                return reviewRepository.findByTodoListOrderByCreatedAtDesc(todoList, pageable)
+                                .map(this::buildReviewResponse);
+        }
 
-                likeRepository.deleteByTodoListAndUser(todoList, user);
-                log.info("투두리스트 좋아요 취소: todoListId={}, userId={}", todoListId, userId);
+        /**
+         * 평균 별점 업데이트
+         */
+        private void updateAverageRating(TodoList todoList) {
+                // 리뷰 평점 업데이트 제거됨 (공유 기능 제거)
+        }
+
+        /**
+         * ReviewResponse 빌드 헬퍼
+         */
+        private TodoListDto.ReviewResponse buildReviewResponse(TodoListReview review) {
+                return TodoListDto.ReviewResponse.builder()
+                                .id(review.getId())
+                                .todoListId(review.getTodoList().getId())
+                                .userId(review.getUser().getId())
+                                .userNickname(review.getUser().getNickname())
+                                .rating(review.getRating())
+                                .content(review.getContent())
+                                .createdAt(review.getCreatedAt())
+                                .updatedAt(review.getUpdatedAt())
+                                .build();
         }
 
         /**
@@ -609,48 +479,85 @@ public class TodoListService {
                 }
 
                 todoList.update(request.getTitle(), request.getDescription());
-                
-                // 공개 여부 변경 (isPublic이 null이 아니면 업데이트)
-                if (request.getIsPublic() != null) {
-                        todoList.setPublic(request.getIsPublic());
-                        log.info("투두리스트 공개 상태 변경: id={}, isPublic={}", todoListId, request.getIsPublic());
-                }
 
                 log.info("투두리스트 수정 완료: id={}, userId={}", todoListId, userId);
                 return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
 
         /**
-         * 투두리스트 삭제 (진행 중(ACTIVE)만 허용, Hard Delete)
-         * - DB에서 행을 실제 삭제함. setActive(false) 등 소프트 딜리트 사용하지 않음.
-         * - 진행 중 탭에서만 삭제 버튼이 노출되며, 이 메서드만 삭제 진입점임.
+         * 내 리뷰 조회
          */
-        @Transactional
-        public void deleteTodoList(Long todoListId, Long userId) {
-                log.info("투두리스트 삭제 요청 (Hard Delete 경로): todoListId={}, userId={}", todoListId, userId);
+        public TodoListDto.ReviewResponse getMyReview(Long todoListId, Long userId) {
                 TodoList todoList = todoListRepository.findById(todoListId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
 
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+                return reviewRepository.findByTodoListAndUser(todoList, user)
+                                .map(this::buildReviewResponse)
+                                .orElse(null);
+        }
+
+        /**
+         * 리뷰 수정
+         */
+        @Transactional
+        public TodoListDto.ReviewResponse updateReview(Long reviewId, Long userId, TodoListDto.UpdateReviewRequest request) {
+                TodoListReview review = reviewRepository.findById(reviewId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
+
+                // 본인 리뷰만 수정 가능
+                if (!review.getUser().getId().equals(userId)) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                review.update(request.getRating(), request.getContent());
+
+                // 평균 별점 업데이트
+                updateAverageRating(review.getTodoList());
+
+                log.info("투두리스트 리뷰 수정: reviewId={}, userId={}", reviewId, userId);
+                return buildReviewResponse(review);
+        }
+
+        /**
+         * 리뷰 삭제
+         */
+        @Transactional
+        public void deleteReview(Long reviewId, Long userId) {
+                TodoListReview review = reviewRepository.findById(reviewId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.REVIEW_NOT_FOUND));
+
+                // 본인 리뷰만 삭제 가능
+                if (!review.getUser().getId().equals(userId)) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+
+                TodoList todoList = review.getTodoList();
+                reviewRepository.delete(review);
+
+                // 평균 별점 업데이트
+                updateAverageRating(todoList);
+
+                log.info("투두리스트 리뷰 삭제: reviewId={}, userId={}", reviewId, userId);
+        }
+
+        /**
+         * 투두리스트 삭제
+         */
+        @Transactional
+        public void deleteTodoList(Long todoListId, Long userId) {
+                TodoList todoList = todoListRepository.findById(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+
+                // 본인만 삭제 가능
                 if (!todoList.isCreator(userId)) {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
-                if (todoList.getTodolistStatus() != TodoListStatus.ACTIVE) {
-                        throw new CustomException(ErrorCode.INVALID_REQUEST, "진행 중인 투두리스트만 삭제할 수 있습니다.");
-                }
-
-                // 미션을 한 번이라도 수행했으면 삭제 불가 (완전히 새로 만들고 잘못 만들었을 때만 삭제 가능)
-                List<UserMission> todoListUserMissions = userMissionRepository.findByTodoList_Id(todoList.getId());
-                boolean anyPerformed = todoListUserMissions.stream()
-                                .anyMatch(um -> um.getStatus() != UserMissionStatus.ASSIGNED);
-                if (anyPerformed) {
-                        throw new CustomException(ErrorCode.INVALID_REQUEST,
-                                        "미션을 수행한 투두리스트는 삭제할 수 없습니다. 새로 만들고 아직 미션을 하지 않았을 때만 삭제할 수 있습니다.");
-                }
-
-                userMissionRepository.deleteByTodoList_Id(todoList.getId());
-                todoListRepository.delete(todoList);
-                log.info("투두리스트 Hard Delete 완료 (DB에서 삭제됨, 해당 UserMission도 삭제): todoListId={}, userId={}", todoListId, userId);
+                todoList.setActive(false);
+                log.info("투두리스트 삭제 완료: todoListId={}, userId={}", todoListId, userId);
         }
 
         /**

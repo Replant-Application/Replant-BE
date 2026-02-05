@@ -305,7 +305,7 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/id_rsa
           chmod 600 /tmp/id_rsa
 
-      # ✅ 중요: heredoc를 single-quote로 막지 말고, 필요한 값은 env로 전달
+      # ✅ 보안 강화: 환경 변수를 파일로 전달하여 명령줄 노출 방지
       - name: Deploy via SSH
         env:
           EC2_HOST: ${{ secrets.EC2_PUBLIC_IP }}
@@ -314,9 +314,63 @@ jobs:
           DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
           IMAGE_REF: ${{ env.IMAGE_REF }}
           CONTAINER_NAME: ${{ env.CONTAINER_NAME }}
+          # 환경 변수들
+          DB1_URL: ${{ secrets.DB1_URL }}
+          DB1_USERNAME: ${{ secrets.DB1_USERNAME }}
+          DB1_PASSWORD: ${{ secrets.DB1_PASSWORD }}
+          DB_DRIVER: ${{ secrets.DB_DRIVER }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          REDIS_PORT: ${{ secrets.REDIS_PORT }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          JWT: ${{ secrets.JWT }}
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          S3_CLIENT: ${{ secrets.S3_CLIENT }}
+          S3_REGION: ${{ secrets.S3_REGION }}
+          GOOGLE_MAIL: ${{ secrets.GOOGLE_MAIL }}
+          GOOGLE_APP_PASSWORD: ${{ secrets.GOOGLE_APP_PASSWORD }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          QWEN_API_URL: ${{ secrets.QWEN_API_URL }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          FIREBASE_CONFIG_PATH: ${{ secrets.FIREBASE_CONFIG_PATH }}
         run: |
+          # 환경 변수 파일 생성 (보안: 명령줄 노출 방지)
+          # 작은따옴표 없이 사용하여 변수 확장 허용
+          cat > /tmp/docker.env << ENVFILE
+          DB1_URL=${DB1_URL}
+          DB1_USERNAME=${DB1_USERNAME}
+          DB1_PASSWORD=${DB1_PASSWORD}
+          DB_DRIVER=${DB_DRIVER}
+          SPRING_DATA_REDIS_HOST=${REDIS_URL}
+          SPRING_DATA_REDIS_PORT=${REDIS_PORT}
+          REDIS_URL=${REDIS_URL}
+          REDIS_PORT=${REDIS_PORT}
+          REDIS_PASSWORD=${REDIS_PASSWORD}
+          JWT=${JWT}
+          S3_BUCKET=${S3_BUCKET}
+          S3_ACCESS_KEY=${S3_ACCESS_KEY}
+          S3_SECRET_KEY=${S3_SECRET_KEY}
+          S3_CLIENT=${S3_CLIENT}
+          S3_REGION=${S3_REGION}
+          GOOGLE_MAIL=${GOOGLE_MAIL}
+          GOOGLE_APP_PASSWORD=${GOOGLE_APP_PASSWORD}
+          FRONTEND_URL=${FRONTEND_URL}
+          GEMINI_API_KEY=${GEMINI_API_KEY}
+          GEMINI_MODEL=${GEMINI_MODEL}
+          QWEN_API_URL=${QWEN_API_URL}
+          QWEN_API_KEY=${QWEN_API_KEY}
+          FIREBASE_CONFIG_PATH=${FIREBASE_CONFIG_PATH}
+          ENVFILE
+
+          # 환경 변수 파일을 EC2로 전송
+          scp -o StrictHostKeyChecking=no -i /tmp/id_rsa /tmp/docker.env ${EC2_USER}@${EC2_HOST}:/tmp/docker.env
+
+          # SSH로 배포 스크립트 실행
           ssh -o StrictHostKeyChecking=no -i /tmp/id_rsa ${EC2_USER}@${EC2_HOST} \
-          "IMAGE_REF='${IMAGE_REF}' CONTAINER_NAME='${CONTAINER_NAME}' DOCKER_USER='${DOCKER_USER}' DOCKER_PASS='${DOCKER_PASS}' bash -s" << EOF
+          "IMAGE_REF='${IMAGE_REF}' CONTAINER_NAME='${CONTAINER_NAME}' DOCKER_USER='${DOCKER_USER}' DOCKER_PASS='${DOCKER_PASS}' bash -s" << 'EOF'
             set -euo pipefail
 
             # Docker 없으면 설치(최소)
@@ -335,22 +389,32 @@ jobs:
 
             sudo systemctl start docker || sudo service docker start || true
 
-            echo "\${DOCKER_PASS}" | sudo docker login -u "\${DOCKER_USER}" --password-stdin
+            echo "${DOCKER_PASS}" | sudo docker login -u "${DOCKER_USER}" --password-stdin
 
-            sudo docker pull "\${IMAGE_REF}"
+            sudo docker pull "${IMAGE_REF}"
 
-            sudo docker stop "\${CONTAINER_NAME}" 2>/dev/null || true
-            sudo docker rm "\${CONTAINER_NAME}" 2>/dev/null || true
+            sudo docker stop "${CONTAINER_NAME}" 2>/dev/null || true
+            sudo docker rm "${CONTAINER_NAME}" 2>/dev/null || true
 
-            # 필요하면 환경변수/볼륨/네트워크 추가
+            # 환경 변수 파일을 사용하여 docker run (보안 강화)
+            # 파일 권한 설정 (소유자만 읽기 가능)
+            chmod 600 /tmp/docker.env
+
             sudo docker run -d \
               -p 8080:8080 \
               --restart unless-stopped \
-              --name "\${CONTAINER_NAME}" \
-              "\${IMAGE_REF}"
+              --name "${CONTAINER_NAME}" \
+              --env-file /tmp/docker.env \
+              "${IMAGE_REF}"
+
+            # 환경 변수 파일 삭제 (보안)
+            rm -f /tmp/docker.env
 
             sudo docker image prune -f
           EOF
+
+          # 로컬 임시 파일 삭제
+          rm -f /tmp/docker.env
 
   zap_scan:
     name: DAST with OWASP ZAP (report)

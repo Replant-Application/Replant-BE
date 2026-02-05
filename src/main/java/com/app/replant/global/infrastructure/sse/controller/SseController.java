@@ -135,8 +135,8 @@ public class SseController {
             @Parameter(description = "메시지 전송 요청 정보", required = true) @Valid @RequestBody SseSendRequestDto requestDto) {
         log.info("SSE 메시지 전송 요청: memberId={}, message={}", requestDto.getMemberId(), requestDto.getMessage());
 
-        // 이메일로 사용자 찾기
-        User user = userRepository.findByEmail(requestDto.getMemberId())
+        // 이메일로 사용자 찾기 - N+1 문제 방지를 위해 reant를 함께 로드
+        User user = userRepository.findByEmailWithReant(requestDto.getMemberId())
                 .orElseThrow(() -> {
                     log.warn("SSE 메시지 전송 실패: 사용자를 찾을 수 없음 - email={}", requestDto.getMemberId());
                     return new CustomException(ErrorCode.USER_NOT_FOUND);

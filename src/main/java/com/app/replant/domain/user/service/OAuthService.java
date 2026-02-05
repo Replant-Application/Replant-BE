@@ -77,8 +77,8 @@ public class OAuthService {
             userRepository.save(user);
         } else {
             // 신규 회원 - 회원가입
-            // 이메일로 기존 User 확인
-            user = userRepository.findByEmail(userInfo.getEmail()).orElse(null);
+            // 이메일로 기존 User 확인 - N+1 문제 방지를 위해 reant를 함께 로드
+            user = userRepository.findByEmailWithReant(userInfo.getEmail()).orElse(null);
 
             if (user == null) {
                 // 완전히 새로운 사용자

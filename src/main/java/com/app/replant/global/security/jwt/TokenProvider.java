@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 public class TokenProvider {
 
     private static final String AUTHORITIES_KEY = "auth";
+    private static final String USER_ID_KEY = "userId";
     private static final String BEARER_TYPE = "Bearer";
     private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 60 * 24;       // 24시간 (모바일 앱용)
     private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000L * 60 * 60 * 24 * 30; // 30일 (모바일 앱용)
@@ -44,13 +45,26 @@ public class TokenProvider {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
+        // UserDetail에서 userId 추출
+        Long userId = null;
+        if (principal instanceof UserDetail) {
+            userId = ((UserDetail) principal).getId();
+        }
+
         long now = (new Date()).getTime();
 
         // Access Token 생성
         Date accessTokenExpiresIn = new Date(now + ACCESS_TOKEN_EXPIRE_TIME);
-        String accessToken = Jwts.builder()
+        var tokenBuilder = Jwts.builder()
                 .setSubject(principal.getUsername())       // payload "sub": "email"
-                .claim(AUTHORITIES_KEY, authorities)        // payload "auth": "ROLE_USER"
+                .claim(AUTHORITIES_KEY, authorities);      // payload "auth": "ROLE_USER"
+        
+        // userId가 있으면 토큰에 포함
+        if (userId != null) {
+            tokenBuilder.claim(USER_ID_KEY, userId);       // payload "userId": 123
+        }
+        
+        String accessToken = tokenBuilder
                 .setExpiration(accessTokenExpiresIn)        // payload "exp": 1516239022 (예시)
                 .signWith(key)                             // header "alg": "HS512" (Key 타입에서 자동 감지)
                 .compact();
@@ -80,7 +94,7 @@ public class TokenProvider {
         // 토큰에 담긴 사용자의 이메일 가져오기
         String userEmail = claims.getSubject();
 
-        // 이메일을 기반으로 사용자 정보 조회
+        // 이메일을 기반으로 사용자 정보 조회 (캐싱 적용됨)
         UserDetail principal = userDetailService.loadUserByUsername(userEmail);
 
         return new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities());

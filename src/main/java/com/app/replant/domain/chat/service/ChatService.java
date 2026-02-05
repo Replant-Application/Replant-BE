@@ -48,12 +48,15 @@ public class ChatService {
      */
     @Transactional
     public ChatResponse chat(Long userId, ChatRequest request) {
-        // 1. 사용자 및 리앤트 조회
-        User user = userRepository.findById(userId)
+        // 1. 사용자 및 리앤트 조회 - N+1 문제 방지를 위해 reant를 함께 로드
+        User user = userRepository.findByIdWithReant(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         
-        Reant reant = reantRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomException(ErrorCode.REANT_NOT_FOUND));
+        // 이미 로드된 reant 사용 (중복 조회 방지)
+        Reant reant = user.getReant();
+        if (reant == null) {
+            throw new CustomException(ErrorCode.REANT_NOT_FOUND);
+        }
 
         // 2. 일일 채팅 제한 확인
         checkDailyLimit(userId);

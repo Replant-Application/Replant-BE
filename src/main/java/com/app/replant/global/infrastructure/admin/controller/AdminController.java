@@ -80,8 +80,8 @@ public class AdminController {
             @Parameter(description = "알림 전송 요청 정보", required = true) @Valid @RequestBody NotificationSendRequestDto requestDto) {
         log.info("관리자 - 알림 전송 요청: email={}, message={}", requestDto.getMemberId(), requestDto.getMessage());
 
-        // 이메일로 회원 찾기
-        User user = userRepository.findByEmail(requestDto.getMemberId())
+        // 이메일로 회원 찾기 - N+1 문제 방지를 위해 reant를 함께 로드
+        User user = userRepository.findByEmailWithReant(requestDto.getMemberId())
                 .orElseThrow(() -> {
                     log.warn("관리자 - 알림 전송 실패: 회원을 찾을 수 없음 - email={}", requestDto.getMemberId());
                     return new CustomException(ErrorCode.USER_NOT_FOUND);
@@ -117,8 +117,8 @@ public class AdminController {
             @Parameter(description = "일기 알림 전송 요청 정보", required = true) @Valid @RequestBody AdminDiaryNotificationRequestDto requestDto) {
         log.info("관리자 - 일기 알림 전송 요청: email={}", requestDto.getMemberId());
 
-        // 이메일로 회원 찾기
-        User user = userRepository.findByEmail(requestDto.getMemberId())
+        // 이메일로 회원 찾기 - N+1 문제 방지를 위해 reant를 함께 로드
+        User user = userRepository.findByEmailWithReant(requestDto.getMemberId())
                 .orElseThrow(() -> {
                     log.warn("관리자 - 일기 알림 전송 실패: 회원을 찾을 수 없음 - email={}", requestDto.getMemberId());
                     return new CustomException(ErrorCode.USER_NOT_FOUND);

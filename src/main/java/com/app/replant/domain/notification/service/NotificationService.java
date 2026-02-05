@@ -224,8 +224,8 @@ public class NotificationService {
      */
     @Transactional
     public void registerFcmToken(Long userId, String token) {
-        // 사용자 조회
-        User user = userRepository.findById(userId)
+        // 사용자 조회 - N+1 문제 방지를 위해 reant를 함께 로드
+        User user = userRepository.findByIdWithReant(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         // User 테이블에 FCM 토큰 저장 (기존 토큰이 있으면 자동으로 덮어씌워짐)

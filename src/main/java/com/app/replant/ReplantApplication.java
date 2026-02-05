@@ -3,6 +3,7 @@ package com.app.replant;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -13,6 +14,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @SpringBootApplication(exclude = { DataSourceAutoConfiguration.class })
 @EnableScheduling
+@EnableCaching
 public class ReplantApplication {
 
     public static void main(String[] args) {

@@ -175,7 +175,6 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV29Migration(conn);
             log.info("V29 마이그레이션 완료");
 
-
             // V30: todolist 테이블에 is_public 컬럼 추가
             log.info("V30 마이그레이션 실행 중: todolist 테이블 is_public 컬럼 추가...");
             executeV30Migration(conn);
@@ -211,63 +210,20 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV36Migration(conn);
             log.info("V36 마이그레이션 완료");
 
-            // V37: post 테이블에 todo_list_id 컬럼 추가
-            boolean needV37 = !columnExists(stmt, "post", "todo_list_id");
-            if (needV37) {
-                log.info("V37 마이그레이션 실행 중: post.todo_list_id 컬럼 추가...");
-                executeV37Migration(conn);
-                log.info("V37 마이그레이션 완료");
-            } else {
-                log.info("V37 마이그레이션 스킵 (이미 적용됨)");
-            }
+            // V37: spontaneous_mission 테이블 생성 (돌발 미션 전용)
+            log.info("V37 마이그레이션 실행 중: spontaneous_mission 테이블 생성...");
+            executeV37Migration(conn);
+            log.info("V37 마이그레이션 완료");
 
-            // V38: 모든 미션을 커뮤니티 인증으로 통일 (GPS/TIME → COMMUNITY)
-            log.info("V38 마이그레이션 실행 중: mission.verification_type → COMMUNITY 통일...");
+            // V38: user_mission의 is_spontaneous=true 데이터를 spontaneous_mission으로 마이그레이션
+            log.info("V38 마이그레이션 실행 중: user_mission 돌발 미션 데이터 마이그레이션...");
             executeV38Migration(conn);
             log.info("V38 마이그레이션 완료");
 
-            // V39: user.preferred_mission_category 컬럼 추가 (필수 미션용 선호 카테고리)
-            if (!columnExists(stmt, "user", "preferred_mission_category")) {
-                log.info("V39 마이그레이션 실행 중: user.preferred_mission_category 컬럼 추가...");
-                executeV39Migration(conn);
-                log.info("V39 마이그레이션 완료");
-            } else {
-                log.info("V39 마이그레이션 스킵 (이미 적용됨)");
-            }
-
-            // V40: preferred_mission_category 단일 → preferred_mission_categories 다중 (TEXT JSON 배열)
-            if (columnExists(stmt, "user", "preferred_mission_category") && !columnExists(stmt, "user", "preferred_mission_categories")) {
-                log.info("V40 마이그레이션 실행 중: user 선호 카테고리 다중 선택 전환...");
-                executeV40Migration(conn);
-                log.info("V40 마이그레이션 완료");
-            } else if (!columnExists(stmt, "user", "preferred_mission_categories")) {
-                log.info("V40 마이그레이션 실행 중: user.preferred_mission_categories 컬럼 추가...");
-                executeV40MigrationAddOnly(conn);
-                log.info("V40 마이그레이션 완료");
-            } else {
-                log.info("V40 마이그레이션 스킵 (이미 적용됨)");
-            }
-
-            // V41 마이그레이션: todolist_like 테이블 생성, todolist_review 제거 (리뷰 → 좋아요 전환)
-            if (!tableExists(stmt, "todolist_like")) {
-                log.info("V41 마이그레이션 실행 중: todolist_like 테이블 생성...");
-                executeV41Migration(conn);
-                log.info("V41 마이그레이션 완료");
-            } else {
-                log.info("V41 마이그레이션 스킵 (이미 적용됨)");
-            }
-
-            // V41 후처리: todolist_review가 아직 남아 있으면 이관 후 DROP (like는 이미 있는 경우 대비)
-            if (tableExists(stmt, "todolist_review")) {
-                log.info("V41 후처리 실행: todolist_review → todolist_like 이관 후 todolist_review 삭제...");
-                executeV41ReviewToLikeMigration(conn);
-                log.info("V41 후처리 완료");
-            }
-
-            // V42: user_mission.todo_list_id 컬럼 추가 (투두리스트 Hard Delete 시 해당 미션도 나의 미션/캘린더에서 제거용)
-            log.info("V42 마이그레이션 실행 중: user_mission.todo_list_id 컬럼 추가...");
-            executeV42Migration(conn);
-            log.info("V42 마이그레이션 완료");
+            // V39: user_mission 테이블의 is_spontaneous 컬럼 제거
+            log.info("V39 마이그레이션 실행 중: user_mission.is_spontaneous 컬럼 제거...");
+            executeV39Migration(conn);
+            log.info("V39 마이그레이션 완료");
 
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
@@ -1134,129 +1090,177 @@ public class ManualMigrationRunner implements CommandLineRunner {
         }
     }
 
-    private void executeV37Migration(Connection conn) throws Exception {
+    /**
+     * V37 마이그레이션: spontaneous_mission 테이블 생성 (돌발 미션 전용)
+     */
+    private void executeV37Migration(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
-            // V37: post 테이블에 todo_list_id 컬럼 추가 (인증 게시글 작성 시점의 투두리스트 ID 저장용)
-            executeIgnore(stmt, "ALTER TABLE `post` ADD COLUMN `todo_list_id` BIGINT NULL");
-            log.info("V37 마이그레이션: post.todo_list_id 컬럼 추가 완료");
+            // 테이블 존재 여부 확인
+            ResultSet rs = stmt.executeQuery(
+                "SELECT COUNT(*) FROM information_schema.TABLES " +
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'spontaneous_mission'"
+            );
+            boolean tableExists = rs.next() && rs.getInt(1) > 0;
+
+            if (!tableExists) {
+                // spontaneous_mission 테이블 생성
+                stmt.execute(
+                    "CREATE TABLE `spontaneous_mission` (" +
+                    "`id` BIGINT NOT NULL AUTO_INCREMENT, " +
+                    "`user_id` BIGINT NOT NULL, " +
+                    "`mission_type` VARCHAR(20) NOT NULL, " +
+                    "`assigned_at` DATETIME NOT NULL, " +
+                    "`deadline_at` DATETIME NOT NULL, " +
+                    "`status` VARCHAR(20) NOT NULL, " +
+                    "`verified_at` DATETIME NULL, " +
+                    "`meal_log_id` BIGINT NULL, " +
+                    "`post_id` BIGINT NULL, " +
+                    "`exp_reward` INT NOT NULL DEFAULT 10, " +
+                    "`created_at` DATETIME NOT NULL, " +
+                    "PRIMARY KEY (`id`), " +
+                    "INDEX `idx_spontaneous_user_date` (`user_id`, `assigned_at`), " +
+                    "INDEX `idx_spontaneous_status` (`status`), " +
+                    "INDEX `idx_spontaneous_type` (`mission_type`), " +
+                    "FOREIGN KEY (`user_id`) REFERENCES `user`(`id`), " +
+                    "FOREIGN KEY (`meal_log_id`) REFERENCES `meal_log`(`id`), " +
+                    "FOREIGN KEY (`post_id`) REFERENCES `post`(`id`) " +
+                    ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+                );
+                log.info("V37 마이그레이션: spontaneous_mission 테이블 생성 완료");
+            } else {
+                log.info("V37 마이그레이션: spontaneous_mission 테이블이 이미 존재합니다.");
+            }
         }
     }
 
     /**
-     * V38: 모든 미션의 인증 방식을 커뮤니티 인증(인증글 작성)으로 통일.
-     * 기존 GPS/TIME 인증 타입 미션을 COMMUNITY로 변경. (돌발 미션은 별도 DB 사용)
+     * V38 마이그레이션: user_mission의 is_spontaneous=true 데이터를 spontaneous_mission으로 마이그레이션
      */
     private void executeV38Migration(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
-            int updated = stmt.executeUpdate(
-                "UPDATE `mission` SET `verification_type` = 'COMMUNITY' " +
-                "WHERE `verification_type` IN ('GPS', 'TIME')"
+            // 이미 마이그레이션되었는지 확인 (spontaneous_mission에 데이터가 있고 user_mission에 is_spontaneous=true가 없으면 완료)
+            ResultSet checkRs = stmt.executeQuery(
+                "SELECT COUNT(*) FROM user_mission WHERE is_spontaneous = TRUE"
             );
-            log.info("V38 마이그레이션: {}개 미션 verification_type → COMMUNITY 변경 완료", updated);
+            int remainingCount = checkRs.next() ? checkRs.getInt(1) : 0;
+            
+            if (remainingCount == 0) {
+                log.info("V38 마이그레이션: 마이그레이션할 데이터가 없습니다. (이미 완료됨)");
+                return;
+            }
+            
+            log.info("V38 마이그레이션: {}개의 돌발 미션 데이터 마이그레이션 시작", remainingCount);
+            
+            // user_mission의 is_spontaneous=true 데이터를 spontaneous_mission으로 마이그레이션
+            // 미션 제목을 기반으로 SpontaneousMissionType 결정
+            String migrationSql = 
+                "INSERT INTO spontaneous_mission (" +
+                "  user_id, mission_type, assigned_at, deadline_at, status, " +
+                "  verified_at, post_id, meal_log_id, exp_reward, created_at" +
+                ") " +
+                "SELECT " +
+                "  um.user_id, " +
+                "  CASE " +
+                "    WHEN m.title LIKE '%기상%' OR m.title LIKE '%일어나%' THEN 'WAKE_UP' " +
+                "    WHEN m.title LIKE '%아침%식사%' OR m.title LIKE '%아침%밥%' THEN 'MEAL_BREAKFAST' " +
+                "    WHEN m.title LIKE '%점심%식사%' OR m.title LIKE '%점심%밥%' THEN 'MEAL_LUNCH' " +
+                "    WHEN m.title LIKE '%저녁%식사%' OR m.title LIKE '%저녁%밥%' THEN 'MEAL_DINNER' " +
+                "    WHEN m.title LIKE '%일기%' OR m.title LIKE '%감성%' THEN 'DIARY' " +
+                "    ELSE 'WAKE_UP' " +  // 기본값
+                "  END AS mission_type, " +
+                "  um.assigned_at, " +
+                "  CASE " +
+                "    WHEN m.title LIKE '%기상%' OR m.title LIKE '%일어나%' THEN DATE_ADD(um.assigned_at, INTERVAL 10 MINUTE) " +
+                "    WHEN m.title LIKE '%일기%' OR m.title LIKE '%감성%' THEN DATE_ADD(um.assigned_at, INTERVAL 1440 MINUTE) " +
+                "    ELSE DATE_ADD(um.assigned_at, INTERVAL 120 MINUTE) " +  // 식사 미션: 2시간
+                "  END AS deadline_at, " +
+                "  CASE " +
+                "    WHEN um.status = 'ASSIGNED' THEN 'ASSIGNED' " +
+                "    WHEN um.status = 'COMPLETED' THEN 'COMPLETED' " +
+                "    WHEN um.status = 'FAILED' OR um.status = 'EXPIRED' THEN 'FAILED' " +
+                "    ELSE 'ASSIGNED' " +
+                "  END AS status, " +
+                "  CASE " +
+                "    WHEN um.status = 'COMPLETED' THEN COALESCE(mv.verified_at, um.assigned_at) " +
+                "    ELSE NULL " +
+                "  END AS verified_at, " +
+                "  p.id AS post_id, " +
+                "  NULL AS meal_log_id, " +  // meal_log 연결은 나중에 수동으로 처리 필요
+                "  10 AS exp_reward, " +
+                "  um.created_at " +
+                "FROM user_mission um " +
+                "INNER JOIN mission m ON um.mission_id = m.id " +
+                "LEFT JOIN mission_verification mv ON mv.user_mission_id = um.id " +
+                "LEFT JOIN post p ON p.user_mission_id = um.id " +
+                "WHERE um.is_spontaneous = TRUE " +
+                "AND NOT EXISTS (" +
+                "  SELECT 1 FROM spontaneous_mission sm " +
+                "  WHERE sm.user_id = um.user_id " +
+                "  AND DATE(sm.assigned_at) = DATE(um.assigned_at) " +
+                "  AND sm.mission_type = CASE " +
+                "    WHEN m.title LIKE '%기상%' OR m.title LIKE '%일어나%' THEN 'WAKE_UP' " +
+                "    WHEN m.title LIKE '%아침%식사%' OR m.title LIKE '%아침%밥%' THEN 'MEAL_BREAKFAST' " +
+                "    WHEN m.title LIKE '%점심%식사%' OR m.title LIKE '%점심%밥%' THEN 'MEAL_LUNCH' " +
+                "    WHEN m.title LIKE '%저녁%식사%' OR m.title LIKE '%저녁%밥%' THEN 'MEAL_DINNER' " +
+                "    WHEN m.title LIKE '%일기%' OR m.title LIKE '%감성%' THEN 'DIARY' " +
+                "    ELSE 'WAKE_UP' " +
+                "  END" +
+                ")";
+            
+            int migratedCount = stmt.executeUpdate(migrationSql);
+            log.info("V38 마이그레이션: {}개의 돌발 미션 데이터 마이그레이션 완료", migratedCount);
+            
+            // 마이그레이션된 데이터의 meal_log 연결 처리 (식사 미션의 경우)
+            // meal_log와 user_mission의 연결은 복잡하므로, 식사 미션의 경우 meal_log를 찾아서 연결
+            String updateMealLogSql = 
+                "UPDATE spontaneous_mission sm " +
+                "INNER JOIN user_mission um ON sm.user_id = um.user_id " +
+                "  AND DATE(sm.assigned_at) = DATE(um.assigned_at) " +
+                "INNER JOIN mission m ON um.mission_id = m.id " +
+                "LEFT JOIN meal_log ml ON ml.user_id = um.user_id " +
+                "  AND ml.meal_date = DATE(um.assigned_at) " +
+                "  AND (" +
+                "    (sm.mission_type = 'MEAL_BREAKFAST' AND ml.meal_type = 'BREAKFAST') OR " +
+                "    (sm.mission_type = 'MEAL_LUNCH' AND ml.meal_type = 'LUNCH') OR " +
+                "    (sm.mission_type = 'MEAL_DINNER' AND ml.meal_type = 'DINNER') " +
+                "  ) " +
+                "SET sm.meal_log_id = ml.id " +
+                "WHERE sm.mission_type IN ('MEAL_BREAKFAST', 'MEAL_LUNCH', 'MEAL_DINNER') " +
+                "AND sm.meal_log_id IS NULL " +
+                "AND ml.id IS NOT NULL";
+            
+            int mealLogUpdated = stmt.executeUpdate(updateMealLogSql);
+            if (mealLogUpdated > 0) {
+                log.info("V38 마이그레이션: {}개의 식사 미션에 meal_log 연결 완료", mealLogUpdated);
+            }
+            
+        } catch (Exception e) {
+            log.error("V38 마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
+            throw e;
         }
     }
 
     /**
-     * V39: user 테이블에 preferred_mission_category 컬럼 추가 (필수 미션용 선호 카테고리)
+     * V39 마이그레이션: user_mission 테이블의 is_spontaneous 컬럼 제거
      */
     private void executeV39Migration(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
-            executeIgnore(stmt,
-                "ALTER TABLE `user` ADD COLUMN `preferred_mission_category` VARCHAR(20) NULL");
-            log.info("V39 마이그레이션: user.preferred_mission_category 컬럼 추가 완료");
-        }
-    }
-
-    /**
-     * V40: preferred_mission_category 단일 컬럼을 preferred_mission_categories(TEXT)로 이전 후 기존 컬럼 삭제
-     */
-    private void executeV40Migration(Connection conn) throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
-            executeIgnore(stmt,
-                "ALTER TABLE `user` ADD COLUMN `preferred_mission_categories` TEXT NULL");
-            executeIgnore(stmt,
-                "UPDATE `user` SET `preferred_mission_categories` = `preferred_mission_category` " +
-                "WHERE `preferred_mission_category` IS NOT NULL AND `preferred_mission_category` != ''");
-            executeIgnore(stmt,
-                "ALTER TABLE `user` DROP COLUMN `preferred_mission_category`");
-            log.info("V40 마이그레이션: user 선호 카테고리 다중 컬럼 전환 완료");
-        }
-    }
-
-    /**
-     * V40 대안: preferred_mission_category가 없는 DB에 preferred_mission_categories만 추가
-     */
-    private void executeV40MigrationAddOnly(Connection conn) throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
-            executeIgnore(stmt,
-                "ALTER TABLE `user` ADD COLUMN `preferred_mission_categories` TEXT NULL");
-            log.info("V40 마이그레이션: user.preferred_mission_categories 컬럼 추가 완료");
-        }
-    }
-
-    /**
-     * V41 마이그레이션: todolist_like 테이블 생성, todolist_review 데이터 이관 후 삭제 (리뷰 → 좋아요 전환)
-     */
-    private void executeV41Migration(Connection conn) throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
-            stmt.execute(
-                "CREATE TABLE `todolist_like` (" +
-                "  `id` BIGINT NOT NULL AUTO_INCREMENT," +
-                "  `todolist_id` BIGINT NOT NULL," +
-                "  `user_id` BIGINT NOT NULL," +
-                "  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP," +
-                "  PRIMARY KEY (`id`)," +
-                "  UNIQUE KEY `uk_todolist_like_todolist_user` (`todolist_id`, `user_id`)," +
-                "  INDEX `idx_todolist_like_todolist` (`todolist_id`)," +
-                "  INDEX `idx_todolist_like_user` (`user_id`)" +
-                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
-            );
-            log.info("V41 마이그레이션: todolist_like 테이블 생성 완료");
-
-            if (tableExists(stmt, "todolist_review")) {
-                executeIgnore(stmt,
-                    "INSERT INTO `todolist_like` (`todolist_id`, `user_id`, `created_at`) " +
-                    "SELECT `todolist_id`, `user_id`, `created_at` FROM `todolist_review`");
-                log.info("V41 마이그레이션: todolist_review → todolist_like 데이터 이관 완료");
-                stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
-                stmt.execute("DROP TABLE IF EXISTS `todolist_review`");
-                stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
-                log.info("V41 마이그레이션: todolist_review 테이블 삭제 완료");
-            }
-        }
-    }
-
-    /**
-     * V41 후처리: todolist_review가 남아 있는 경우(like 테이블은 이미 있음) 이관 후 DROP
-     * INSERT IGNORE 로 중복 시 스킵하여 안전하게 이관
-     */
-    private void executeV41ReviewToLikeMigration(Connection conn) throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
-            executeIgnore(stmt,
-                "INSERT IGNORE INTO `todolist_like` (`todolist_id`, `user_id`, `created_at`) " +
-                "SELECT `todolist_id`, `user_id`, `created_at` FROM `todolist_review`");
-            log.info("V41 후처리: todolist_review → todolist_like 데이터 이관 완료");
-            stmt.execute("SET FOREIGN_KEY_CHECKS = 0");
-            stmt.execute("DROP TABLE IF EXISTS `todolist_review`");
-            stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
-            log.info("V41 후처리: todolist_review 테이블 삭제 완료");
-        }
-    }
-
-    /**
-     * V42: user_mission.todo_list_id 컬럼 추가
-     * 투두리스트에서 생성된 미션만 식별해 Hard Delete 시 나의 미션/캘린더에서도 함께 제거
-     */
-    private void executeV42Migration(Connection conn) throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
-            if (!columnExists(stmt, "user_mission", "todo_list_id")) {
-                executeIgnore(stmt,
-                    "ALTER TABLE `user_mission` ADD COLUMN `todo_list_id` BIGINT NULL DEFAULT NULL, " +
-                    "ADD INDEX `idx_user_mission_todo_list` (`todo_list_id`)");
-                log.info("V42 마이그레이션: user_mission.todo_list_id 컬럼 추가 완료");
+            // 컬럼 존재 여부 확인
+            if (columnExists(stmt, "user_mission", "is_spontaneous")) {
+                // 외래키 제약조건이 있을 수 있으므로 안전하게 제거
+                try {
+                    stmt.execute("ALTER TABLE `user_mission` DROP COLUMN `is_spontaneous`");
+                    log.info("V39 마이그레이션: user_mission.is_spontaneous 컬럼 제거 완료");
+                } catch (SQLException e) {
+                    // 컬럼이 다른 곳에서 참조되고 있을 수 있으므로 경고만 출력
+                    log.warn("V39 마이그레이션: user_mission.is_spontaneous 컬럼 제거 실패 (이미 제거되었거나 참조 중): {}", e.getMessage());
+                }
             } else {
-                log.info("V42 마이그레이션: user_mission.todo_list_id 컬럼이 이미 존재함");
+                log.info("V39 마이그레이션: user_mission.is_spontaneous 컬럼이 이미 존재하지 않습니다.");
             }
+        } catch (Exception e) {
+            log.error("V39 마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
+            // 컬럼 제거 실패는 치명적이지 않으므로 예외를 던지지 않음
         }
     }
 }

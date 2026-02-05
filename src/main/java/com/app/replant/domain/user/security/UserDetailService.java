@@ -7,6 +7,8 @@ import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -25,9 +27,10 @@ public class UserDetailService implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
+    @Cacheable(value = "userDetails", key = "#email", unless = "#result == null")
     public UserDetail loadUserByUsername(String email) throws UsernameNotFoundException {
-        // JWT 인증에는 Reant가 필요 없으므로 User만 조회 (불필요한 JOIN 방지)
-        User user = userRepository.findByEmail(email)
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        User user = userRepository.findByEmailWithReant(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
         // 계정 상태 확인
@@ -36,5 +39,14 @@ public class UserDetailService implements UserDetailsService {
         }
 
         return new UserDetail(user);
+    }
+
+    /**
+     * 사용자 정보가 변경되었을 때 캐시를 무효화
+     * (예: 사용자 정보 수정, 비밀번호 변경 등)
+     */
+    @CacheEvict(value = "userDetails", key = "#email")
+    public void evictUserCache(String email) {
+        log.debug("사용자 캐시 무효화: {}", email);
     }
 }

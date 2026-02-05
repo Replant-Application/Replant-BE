@@ -7,7 +7,6 @@ import com.app.replant.domain.post.dto.CommentResponse;
 import com.app.replant.domain.post.dto.PostRequest;
 import com.app.replant.domain.post.dto.PostResponse;
 import com.app.replant.domain.post.dto.VerificationPostRequest;
-import com.app.replant.domain.post.dto.VerificationPostUpdateRequest;
 import com.app.replant.domain.post.enums.PostType;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.post.entity.Comment;
@@ -20,16 +19,8 @@ import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
-import com.app.replant.domain.reant.repository.ReantRepository;
-import com.app.replant.domain.badge.repository.UserBadgeRepository;
-import com.app.replant.domain.mission.entity.Mission;
-import com.app.replant.domain.missionset.entity.TodoList;
-import com.app.replant.domain.missionset.entity.TodoListMission;
-import com.app.replant.domain.missionset.repository.TodoListRepository;
-import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
-import com.app.replant.global.filter.BadWordFilterService;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,8 +32,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -50,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
+import java.util.Collections;
 
 @Service
 @Transactional(readOnly = true)
@@ -69,12 +59,7 @@ public class PostService {
     private final UserMissionRepository userMissionRepository;
     private final NotificationService notificationService;
     private final com.app.replant.domain.usermission.service.UserMissionService userMissionService;
-    private final ReantRepository reantRepository;
-    private final TodoListRepository todoListRepository;
-    private final TodoListMissionRepository todoListMissionRepository;
-    private final UserBadgeRepository userBadgeRepository;
     private final ObjectMapper objectMapper;
-    private final BadWordFilterService badWordFilterService;
 
     // ========================================
     // 게시글 CRUD
@@ -87,9 +72,10 @@ public class PostService {
     public Page<PostResponse> getPosts(Long missionId, Boolean badgeOnly, Pageable pageable,
             Long currentUserId) {
         boolean badgeFilter = badgeOnly != null && badgeOnly;
-        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        User currentUser = currentUserId != null ? userRepository.findByIdWithReant(currentUserId).orElse(null) : null;
 
-        return postRepository.findWithFilters(missionId, badgeFilter, pageable, currentUserId)
+        return postRepository.findWithFilters(missionId, badgeFilter, pageable)
                 .map(post -> {
                     long commentCount = commentRepository.countByPostId(post.getId());
                     long likeCount = postLikeRepository.countByPostId(post.getId());
@@ -104,11 +90,8 @@ public class PostService {
 
     public PostResponse getPost(Long postId, Long currentUserId) {
         Post post = findPostById(postId);
-        // 비공개 일반글: 작성자만 조회 가능
-        if (post.isGeneralPost() && Boolean.FALSE.equals(post.getIsPublic()) && !post.isAuthor(currentUserId)) {
-            throw new CustomException(ErrorCode.POST_PRIVATE_ACCESS_DENIED);
-        }
-        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        User currentUser = currentUserId != null ? userRepository.findByIdWithReant(currentUserId).orElse(null) : null;
 
         long commentCount = commentRepository.countByPostId(postId);
         long likeCount = postLikeRepository.countByPostId(postId);
@@ -125,9 +108,6 @@ public class PostService {
         log.info("일반 게시글 생성 호출 - userId={}, title={}", userId, request.getTitle());
         User user = findUserById(userId);
 
-        // 비속어 필터링
-        validateBadWords(request.getTitle(), request.getContent());
-
         String imageUrlsJson = null;
         if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
             try {
@@ -137,13 +117,11 @@ public class PostService {
             }
         }
 
-        boolean isPublic = request.getIsPublic() != null ? request.getIsPublic() : true;
         Post post = Post.generalBuilder()
                 .user(user)
                 .title(request.getTitle())
                 .content(request.getContent())
                 .imageUrls(imageUrlsJson)
-                .isPublic(isPublic)
                 .build();
         
         log.debug("일반 게시글 생성 전 - postType={}, userId={}, title={}", post.getPostType(), userId, request.getTitle());
@@ -160,9 +138,6 @@ public class PostService {
     @Transactional
     public PostResponse createVerificationPost(Long userId, VerificationPostRequest request) {
         User user = findUserById(userId);
-
-        // 비속어 필터링
-        validateBadWords(null, request.getContent());
 
         // UserMission 조회
         UserMission userMission = userMissionRepository.findByIdAndUserId(request.getUserMissionId(), userId)
@@ -184,8 +159,8 @@ public class PostService {
         }
 
         // VERIFICATION 타입 게시글 생성
-        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, request.getCompletionRate(), request.getTodoListId());
-        log.debug("인증 게시글 생성 전 - postType={}, userId={}, userMissionId={}, todoListId={}", post.getPostType(), userId, userMission.getId(), request.getTodoListId());
+        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, request.getCompletionRate());
+        log.debug("인증 게시글 생성 전 - postType={}, userId={}, userMissionId={}", post.getPostType(), userId, userMission.getId());
 
         // UserMission 상태를 PENDING(인증대기)으로 변경
         userMission.updateStatus(UserMissionStatus.PENDING);
@@ -223,7 +198,8 @@ public class PostService {
      * 인증 게시글 목록 조회 (VERIFICATION 타입만)
      */
     public Page<PostResponse> getVerificationPosts(String status, Pageable pageable, Long currentUserId) {
-        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        User currentUser = currentUserId != null ? userRepository.findByIdWithReant(currentUserId).orElse(null) : null;
         
         // 정렬 필드 검증
         Pageable validatedPageable = validateAndSanitizePageable(pageable);
@@ -252,7 +228,8 @@ public class PostService {
         Post post = postRepository.findVerificationPostById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
-        User currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        User currentUser = currentUserId != null ? userRepository.findByIdWithReant(currentUserId).orElse(null) : null;
 
         long commentCount = commentRepository.countByPostId(postId);
         long likeCount = postLikeRepository.countByPostId(postId);
@@ -265,7 +242,7 @@ public class PostService {
      * 인증 게시글 수정
      */
     @Transactional
-    public PostResponse updateVerificationPost(Long postId, Long userId, VerificationPostUpdateRequest request) {
+    public PostResponse updateVerificationPost(Long postId, Long userId, VerificationPostRequest request) {
         Post post = postRepository.findVerificationPostById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
@@ -281,9 +258,6 @@ public class PostService {
             throw new CustomException(ErrorCode.VERIFICATION_ALREADY_APPROVED);
         }
 
-        // 비속어 필터링
-        validateBadWords(null, request.getContent());
-
         String imageUrlsJson = null;
         if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
             try {
@@ -297,7 +271,8 @@ public class PostService {
 
         long commentCount = commentRepository.countByPostId(postId);
         long likeCount = postLikeRepository.countByPostId(postId);
-        boolean isLiked = postLikeRepository.existsByPostAndUser(post, userRepository.findById(userId).orElse(null));
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        boolean isLiked = postLikeRepository.existsByPostAndUser(post, userRepository.findByIdWithReant(userId).orElse(null));
 
         return PostResponse.from(post, commentCount, likeCount, isLiked, userId);
     }
@@ -310,9 +285,6 @@ public class PostService {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
-        // 비속어 필터링
-        validateBadWords(request.getTitle(), request.getContent());
-
         String imageUrlsJson = null;
         if (request.getImageUrls() != null) {
             try {
@@ -322,7 +294,7 @@ public class PostService {
             }
         }
 
-        post.update(request.getTitle(), request.getContent(), imageUrlsJson, request.getIsPublic());
+        post.update(request.getTitle(), request.getContent(), imageUrlsJson);
         long commentCount = commentRepository.countByPostId(postId);
         long likeCount = postLikeRepository.countByPostId(postId);
         return PostResponse.from(post, commentCount, likeCount, false, userId);
@@ -336,112 +308,18 @@ public class PostService {
             throw new CustomException(ErrorCode.NOT_POST_AUTHOR);
         }
 
-        // 인증글인 경우 추가 처리
+        // 인증글인 경우 UserMission 상태를 되돌림
         if (post.isVerificationPost() && post.getUserMission() != null) {
             UserMission userMission = post.getUserMission();
-            
-            // 인증 완료된 게시글이면 경험치 회수
-            if ("APPROVED".equals(post.getStatus())) {
-                // 경험치 회수 로직
-                int baseExpReward = getExpReward(userMission);
-                if (baseExpReward > 0) {
-                    Integer completionRateRaw = post.getCompletionRate();
-                    if (completionRateRaw == null) {
-                        completionRateRaw = 100;
-                    }
-                    // completionRate 범위 검증 (0-100)
-                    if (completionRateRaw < 0) {
-                        completionRateRaw = 0;
-                    } else if (completionRateRaw > 100) {
-                        completionRateRaw = 100;
-                    }
-                    
-                    // final 변수로 복사 (람다에서 사용하기 위해)
-                    final Integer completionRate = completionRateRaw;
-                    
-                    // 지급된 경험치 역산
-                    int actualExpReward = (int) Math.round(baseExpReward * (completionRate / 100.0));
-                    
-                    if (actualExpReward > 0) {
-                        reantRepository.findByUserId(userMission.getUser().getId())
-                                .ifPresent(reant -> {
-                                    reant.subtractExp(actualExpReward);
-                                    reantRepository.save(reant); // 명시적으로 저장하여 확실하게 반영
-                                    log.info("경험치 회수: postId={}, userMissionId={}, baseExp={}, completionRate={}%, actualExp={}", 
-                                            postId, userMission.getId(), baseExpReward, completionRate, actualExpReward);
-                                });
-                    }
-                }
-            }
-            
-            // 인증 게시글 삭제 시 무조건 FAILED로 변경 (실수로 삭제한 경우도 고려하지 않음)
-            if (userMission.getStatus() != UserMissionStatus.FAILED) {
-                UserMissionStatus previousStatus = userMission.getStatus();
-                userMission.fail(); // FAILED 상태로 변경
-                log.info("인증글 삭제로 인해 UserMission 실패 처리: userMissionId={}, 이전 상태={}, 새 상태=FAILED", 
-                        userMission.getId(), previousStatus);
-                
-                // 배지 삭제 (해당 UserMission과 연결된 배지)
-                userBadgeRepository.findByUserMissionId(userMission.getId())
-                        .ifPresent(badge -> {
-                            userBadgeRepository.delete(badge);
-                            log.info("인증글 삭제로 인해 배지 삭제: badgeId={}, userMissionId={}", 
-                                    badge.getId(), userMission.getId());
-                        });
-            }
-            
-            // 투두리스트에서 미션 제거 (todoListId가 있는 경우)
-            if (post.getTodoListId() != null && userMission.getMission() != null) {
-                Long todoListId = post.getTodoListId();
-                Long missionId = userMission.getMission().getId();
-                
-                // missions를 fetch join하여 조회 (lazy loading 문제 방지)
-                Optional<TodoList> todoListOpt = todoListRepository.findTodoListByIdWithMissions(todoListId);
-                if (todoListOpt.isPresent()) {
-                    TodoList todoList = todoListOpt.get();
-                    
-                    // 본인 투두리스트인지 확인
-                    if (todoList.isCreator(userId)) {
-                        Optional<TodoListMission> todoListMissionOpt = 
-                                todoListMissionRepository.findByTodoListAndMission(todoList, userMission.getMission());
-                        
-                        if (todoListMissionOpt.isPresent()) {
-                            TodoListMission todoListMission = todoListMissionOpt.get();
-                            
-                            // TodoListMission 제거 (카운트 조정 없이 완전히 제거)
-                            todoList.removeMission(todoListMission);
-                            todoListMissionRepository.delete(todoListMission);
-                            
-                            log.info("인증글 삭제로 인해 투두리스트에서 미션 제거: postId={}, todoListId={}, missionId={}, userId={}", 
-                                    postId, todoListId, missionId, userId);
-                        } else {
-                            log.warn("투두리스트에서 미션을 찾을 수 없음: todoListId={}, missionId={}", todoListId, missionId);
-                        }
-                    } else {
-                        log.warn("본인의 투두리스트가 아님: todoListId={}, userId={}", todoListId, userId);
-                    }
-                } else {
-                    log.warn("투두리스트를 찾을 수 없음: todoListId={}", todoListId);
-                }
+            // PENDING 상태였으면 ASSIGNED로 되돌림
+            if (userMission.getStatus() == UserMissionStatus.PENDING) {
+                userMission.updateStatus(UserMissionStatus.ASSIGNED);
+                log.info("인증글 삭제로 인해 UserMission 상태 복원: userMissionId={}, status={}", 
+                        userMission.getId(), userMission.getStatus());
             }
         }
 
         post.softDelete();
-    }
-
-    /**
-     * 미션 경험치 보상 계산 (UserMissionService의 getExpReward와 동일한 로직)
-     */
-    private int getExpReward(UserMission userMission) {
-        Mission mission = userMission.getMission();
-        if (mission == null) {
-            return 10;  // 기본값 (공식 미션 가정)
-        }
-        // 커스텀 미션은 항상 0 반환
-        if (mission.isCustomMission()) {
-            return 0;
-        }
-        return mission.getExpReward();
     }
 
     // ========================================
@@ -454,17 +332,9 @@ public class PostService {
 
     public Page<CommentResponse> getComments(Long postId, Pageable pageable, Long currentUserId) {
         findPostById(postId);
-        // 전체 댓글 조회 후 부모별 자식 맵 구성 (답글의 답글까지 포함)
-        List<Comment> allComments = commentRepository.findAllByPostIdWithUser(postId);
-        Map<Long, List<Comment>> repliesByParentId = allComments.stream()
-                .filter(c -> c.getParent() != null)
-                .collect(Collectors.groupingBy(c -> c.getParent().getId()));
-        List<Comment> roots = allComments.stream()
-                .filter(c -> c.getParent() == null)
-                .sorted(Comparator.comparing(Comment::getCreatedAt))
-                .collect(Collectors.toList());
-        List<CommentResponse> responseList = roots.stream()
-                .map(root -> CommentResponse.fromWithRepliesRecursive(root, repliesByParentId, currentUserId))
+        List<Comment> comments = commentRepository.findParentCommentsByPostIdWithUser(postId);
+        List<CommentResponse> responseList = comments.stream()
+                .map(comment -> CommentResponse.fromWithReplies(comment, currentUserId))
                 .collect(Collectors.toList());
 
         int start = (int) pageable.getOffset();
@@ -479,9 +349,6 @@ public class PostService {
     public CommentResponse createComment(Long postId, Long userId, CommentRequest request) {
         Post post = findPostById(postId);
         User user = findUserById(userId);
-
-        // 비속어 필터링
-        validateBadWords(null, request.getContent());
 
         Comment parentComment = null;
         if (request.getParentId() != null) {
@@ -520,9 +387,6 @@ public class PostService {
         if (!comment.isAuthor(userId)) {
             throw new CustomException(ErrorCode.NOT_COMMENT_AUTHOR);
         }
-
-        // 비속어 필터링
-        validateBadWords(null, request.getContent());
 
         comment.updateContent(request.getContent());
         return CommentResponse.from(comment, userId);
@@ -583,12 +447,10 @@ public class PostService {
             // sendLikeNotification(post.getUser(), user, post);
         }
 
-        // 좋아요 수 조회 (한 번만 조회하여 재사용)
-        long likeCount = postLikeRepository.countByPostId(postId);
-        boolean isVerified = false;
-
         // VERIFICATION 타입: 좋아요 추가/취소 후 인증 체크 (좋아요 수가 변경되었으므로 재확인)
         if (post.isVerificationPost()) {
+            // flush 후 다시 조회하여 최신 좋아요 수 확인
+            long likeCount = postLikeRepository.countByPostId(postId);
             newlyVerified = post.checkAndApproveByLikes(likeCount);
 
             if (newlyVerified) {
@@ -598,31 +460,19 @@ public class PostService {
                 post = postRepository.findByIdAndDelFlagFalse(postId)
                         .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
                 log.info("인증 완료! postId={}, likeCount={}, status={}", postId, likeCount, post.getStatus());
-                
-                // 인증 완료 처리 (배지, 경험치 등)
-                // UserMission이 연결되어 있는 경우에만 완료 처리
-                if (post.getUserMission() != null) {
-                    userMissionService.completeMissionVerification(post.getUserMission());
-                    log.info("UserMission 완료 처리: userMissionId={}, userId={}", 
-                            post.getUserMission().getId(), post.getUser().getId());
-                } else {
-                    log.warn("인증 게시글에 UserMission이 연결되어 있지 않습니다. postId={}", postId);
-                }
+                // 인증 완료 처리 (뱃지, 경험치 등)
+                userMissionService.completeMissionVerification(post.getUserMission());
 
                 // 알림 전송
                 sendVerificationSuccessNotification(post.getUser(), post);
-                isVerified = true; // 새로 인증되었으므로 true
-            } else {
-                // 새로 인증되지 않은 경우: 이미 APPROVED 상태인지 확인
-                // (좋아요 취소해도 이미 인증된 게시글은 상태 유지)
-                // newlyVerified가 false이면 이미 재조회하지 않았으므로 현재 상태 확인
-                isVerified = "APPROVED".equals(post.getStatus());
             }
         }
 
+        long likeCount = postLikeRepository.countByPostId(postId);
+
         result.put("isLiked", isLiked);
         result.put("likeCount", likeCount);
-        result.put("verified", isVerified); // 현재 인증 상태 반환
+        result.put("verified", newlyVerified);
 
         return result;
     }
@@ -678,7 +528,7 @@ public class PostService {
 
     private void sendVerificationSuccessNotification(User postAuthor, Post post) {
         String title = "미션 인증이 완료되었습니다!";
-        String content = String.format("'%s' 미션 인증이 완료되어 배지를 획득했습니다.",
+        String content = String.format("'%s' 미션 인증이 완료되어 뱃지를 획득했습니다.",
                 post.getMissionTitle() != null ? post.getMissionTitle() : "미션");
 
         notificationService.createAndPushNotification(
@@ -713,20 +563,9 @@ public class PostService {
     }
 
     private User findUserById(Long userId) {
-        return userRepository.findById(userId)
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        return userRepository.findByIdWithReant(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-    }
-
-    /**
-     * 비속어 필터링 검사
-     */
-    private void validateBadWords(String title, String content) {
-        if (title != null && badWordFilterService.containsBadWordIgnoreBlank(title)) {
-            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
-        }
-        if (content != null && badWordFilterService.containsBadWordIgnoreBlank(content)) {
-            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
-        }
     }
 
     /**

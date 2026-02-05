@@ -156,6 +156,7 @@ public class User extends BaseEntity {
     private List<UserOauth> oauthList = new ArrayList<>();
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @org.hibernate.annotations.LazyToOne(org.hibernate.annotations.LazyToOneOption.NO_PROXY)  // N+1 문제 방지: 프록시 대신 실제 엔티티 로드
     @JsonIgnore  // 순환 참조 방지 및 lazy loading 방지
     private com.app.replant.domain.reant.entity.Reant reant;
 

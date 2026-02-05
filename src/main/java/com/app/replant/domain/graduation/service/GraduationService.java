@@ -145,7 +145,8 @@ public class GraduationService {
     }
 
     private User findUserById(Long userId) {
-        return userRepository.findById(userId)
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        return userRepository.findByIdWithReant(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
     }
 

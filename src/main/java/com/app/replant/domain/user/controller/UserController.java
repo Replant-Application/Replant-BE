@@ -47,8 +47,8 @@ public class UserController {
     @Operation(summary = "다른 유저 프로필 조회")
     @GetMapping("/{userId}")
     public ApiResponse<UserProfileResponse> getUserProfile(@PathVariable Long userId) {
-        User user = userService.findById(userId);
-        Reant reant = reantService.findByUserId(userId);
+        User user = userService.findById(userId);  // 이미 reant를 포함해서 조회됨
+        Reant reant = user.getReant();  // 중복 조회 방지 - 이미 로드된 reant 사용
         return ApiResponse.success(UserProfileResponse.from(user, reant));
     }
 

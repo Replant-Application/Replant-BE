@@ -137,15 +137,6 @@ public class UserMissionController {
                 return ApiResponse.success(mission);
         }
 
-        @Operation(summary = "커스텀 미션 인증 취소", description = "실수로 인증 완료한 커스텀 미션을 다시 체크하면 인증을 취소합니다.")
-        @PutMapping("/cancel-custom/{missionId}")
-        public ApiResponse<UserMissionResponse> cancelCustomMission(
-                        @Parameter(description = "미션 ID (Mission ID)", example = "1") @PathVariable Long missionId,
-                        @AuthenticationPrincipal Long userId) {
-                UserMissionResponse mission = userMissionService.cancelCustomMissionCompletion(userId, missionId);
-                return ApiResponse.success(mission);
-        }
-
         @GetMapping("/history")
         @Operation(summary = "미션 완료 이력 조회", description = "완료한 미션의 이력을 조회합니다.")
         public ApiResponse<Page<UserMissionResponse>> getMissionHistory(
@@ -177,54 +168,4 @@ public class UserMissionController {
                 return ApiResponse.success(missions);
         }
 
-        @Operation(summary = "돌발 미션 인증", description = "돌발 미션을 인증합니다. 기상 미션은 시간 제한(1일), 식사 미션은 게시글 작성으로 인증합니다.")
-        @PostMapping("/{userMissionId}/verify-spontaneous")
-        public ApiResponse<VerifyMissionResponse> verifySpontaneousMission(
-                        @Parameter(description = "사용자 미션 ID", example = "1") @PathVariable Long userMissionId,
-                        @AuthenticationPrincipal Long userId,
-                        @RequestBody @Valid VerifySpontaneousMissionRequest request) {
-                VerifyMissionResponse response = userMissionService.verifySpontaneousMission(userMissionId, userId, request);
-                return ApiResponse.success(response);
-        }
-
-        @Operation(summary = "기상 미션 상태 조회", description = "현재 사용자의 활성화된 기상 미션 상태를 조회합니다. 기상 미션이 없으면 null을 반환합니다.")
-        @GetMapping("/wakeup/current")
-        public ApiResponse<WakeUpMissionStatusResponse> getCurrentWakeUpMission(
-                        @AuthenticationPrincipal Long userId) {
-                WakeUpMissionStatusResponse status = userMissionService.getCurrentWakeUpMissionStatus(userId);
-                // 기상 미션이 없는 경우는 정상적인 상황일 수 있으므로 null을 반환 (에러가 아님)
-                return ApiResponse.success(status);
-        }
-
-        @Operation(summary = "기상 미션 인증 (간편)", description = "기상 미션을 간편하게 인증합니다. userMissionId를 쿼리 파라미터로 받습니다. userMissionId가 없으면 자동으로 찾습니다. GET/POST 모두 지원 (POST 권장).")
-        @RequestMapping(value = "/wakeup/verify-time", method = {RequestMethod.GET, RequestMethod.POST})
-        public ApiResponse<VerifyMissionResponse> verifyWakeUpMissionWithQuery(
-                        @Parameter(description = "사용자 미션 ID (선택사항, 없으면 자동으로 찾음)", example = "1") @RequestParam(required = false) Long userMissionId,
-                        @AuthenticationPrincipal Long userId) {
-                // userMissionId가 없으면 현재 사용자의 ASSIGNED 상태인 기상 미션을 자동으로 찾기
-                if (userMissionId == null) {
-                        userMissionId = userMissionService.findCurrentWakeUpMissionId(userId);
-                        if (userMissionId == null) {
-                                throw new com.app.replant.global.exception.CustomException(
-                                                com.app.replant.global.exception.ErrorCode.USER_MISSION_NOT_FOUND,
-                                                "인증할 기상 미션을 찾을 수 없습니다.");
-                        }
-                }
-                
-                // 기상 미션 인증 요청 생성 (postId 없음)
-                VerifySpontaneousMissionRequest request = new VerifySpontaneousMissionRequest();
-                VerifyMissionResponse response = userMissionService.verifySpontaneousMission(userMissionId, userId, request);
-                return ApiResponse.success(response);
-        }
-        
-        @Operation(summary = "기상 미션 인증 (경로 변수)", description = "기상 미션을 경로 변수로 인증합니다. userMissionId를 URL 경로에 포함합니다.")
-        @RequestMapping(value = "/wakeup/{userMissionId}/verify-time", method = {RequestMethod.GET, RequestMethod.POST})
-        public ApiResponse<VerifyMissionResponse> verifyWakeUpMissionWithPath(
-                        @Parameter(description = "사용자 미션 ID", example = "1") @PathVariable Long userMissionId,
-                        @AuthenticationPrincipal Long userId) {
-                // 기상 미션 인증 요청 생성 (postId 없음)
-                VerifySpontaneousMissionRequest request = new VerifySpontaneousMissionRequest();
-                VerifyMissionResponse response = userMissionService.verifySpontaneousMission(userMissionId, userId, request);
-                return ApiResponse.success(response);
-        }
 }

@@ -2,7 +2,6 @@ package com.app.replant.domain.usermission.entity;
 
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.enums.MissionType;
-import com.app.replant.domain.missionset.entity.TodoList;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import jakarta.persistence.*;
@@ -52,22 +51,11 @@ public class UserMission {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // 돌발 미션 여부
-    @Column(name = "is_spontaneous", nullable = false)
-    private Boolean isSpontaneous = false;
-
-    /** 투두리스트에서 생성된 미션인 경우 해당 투두리스트. null이면 미션 탭 등 다른 경로로 배정된 미션. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "todo_list_id")
-    private TodoList todoList;
-
     @Builder
     private UserMission(User user, Mission mission, MissionType missionType,
-            LocalDateTime assignedAt, LocalDateTime dueDate, UserMissionStatus status, Boolean isSpontaneous,
-            TodoList todoList) {
+            LocalDateTime assignedAt, LocalDateTime dueDate, UserMissionStatus status) {
         this.user = user;
         this.mission = mission;
-        this.todoList = todoList;
 
         // missionType 결정 로직
         if (missionType != null) {
@@ -80,7 +68,6 @@ public class UserMission {
         this.assignedAt = assignedAt != null ? assignedAt : LocalDateTime.now();
         this.dueDate = dueDate;
         this.status = status != null ? status : UserMissionStatus.ASSIGNED;
-        this.isSpontaneous = isSpontaneous != null ? isSpontaneous : false;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -131,7 +118,6 @@ public class UserMission {
 
     /**
      * 미션 제목 조회
-     * 돌발 미션의 경우 mission이 null일 수 있으므로, 별도 필드나 다른 방법으로 제목을 저장해야 함
      */
     public String getMissionTitle() {
         return this.mission != null ? this.mission.getTitle() : "미션";
@@ -147,10 +133,4 @@ public class UserMission {
         return this.mission != null ? this.mission.getMissionType() : null;
     }
 
-    /**
-     * 돌발 미션 여부 확인
-     */
-    public boolean isSpontaneousMission() {
-        return Boolean.TRUE.equals(this.isSpontaneous);
-    }
 }

@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -77,6 +78,7 @@ public class TodoListDto {
     }
 
     @Getter
+    @Setter
     @Builder
     public static class SimpleResponse {
         private Long id;
@@ -111,6 +113,7 @@ public class TodoListDto {
     }
 
     @Getter
+    @Setter
     @Builder
     public static class DetailResponse {
         private Long id;

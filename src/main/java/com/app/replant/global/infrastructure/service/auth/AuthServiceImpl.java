@@ -70,7 +70,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(readOnly = true)
     public Optional<User> getUserByEmail(String email) {
-        return userRepository.findByEmail(email);
+        // N+1 문제 방지를 위해 reant를 함께 로드
+        return userRepository.findByEmailWithReant(email);
     }
 
     @Override
@@ -306,8 +307,8 @@ public class AuthServiceImpl implements AuthService {
             throw new CustomException(ErrorCode.REQUIRED_MISSING);
         }
 
-        // 2. 회원 조회 (이메일로 확인)
-        User user = userRepository.findByEmail(resetPasswordDto.getMemberId())
+        // 2. 회원 조회 (이메일로 확인) - N+1 문제 방지를 위해 reant를 함께 로드
+        User user = userRepository.findByEmailWithReant(resetPasswordDto.getMemberId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         // 3. 임시 비밀번호 생성 및 이메일 발송
@@ -341,8 +342,8 @@ public class AuthServiceImpl implements AuthService {
             throw new CustomException(ErrorCode.REQUIRED_MISSING);
         }
 
-        // 2. 회원 조회
-        User user = userRepository.findByEmail(changePasswordDto.getMemberId())
+        // 2. 회원 조회 - N+1 문제 방지를 위해 reant를 함께 로드
+        User user = userRepository.findByEmailWithReant(changePasswordDto.getMemberId())
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         // 3. 기존 비밀번호 확인
