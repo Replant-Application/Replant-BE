@@ -160,7 +160,7 @@ public class PostService {
         }
 
         // VERIFICATION 타입 게시글 생성
-        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, request.getCompletionRate(), null);
+        Post post = Post.createVerificationPost(user, userMission, request.getContent(), imageUrlsJson, request.getCompletionRate(), request.getTodoListId());
         log.debug("인증 게시글 생성 전 - postType={}, userId={}, userMissionId={}", post.getPostType(), userId, userMission.getId());
 
         // UserMission 상태를 PENDING(인증대기)으로 변경

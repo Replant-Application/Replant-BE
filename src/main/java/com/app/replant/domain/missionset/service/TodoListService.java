@@ -136,6 +136,8 @@ public class TodoListService {
          */
         public TodoListDto.DetailResponse getPublicTodoListDetail(Long todoListId, Long userId) {
                 // TODO: 공개 기능이 삭제되어 임시로 일반 상세 조회로 대체
+                // 주의: 접근 권한 체크가 있으므로 본인 투두리스트만 조회 가능
+                // 공개 기능이 필요하면 별도 구현 필요
                 return getTodoListDetail(todoListId, userId);
         }
         

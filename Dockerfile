@@ -3,8 +3,10 @@
     WORKDIR /app
     
     # 시스템 패키지 업데이트 및 타임존 설정 (KST)
+    # libexpat 취약점(CVE-2026-24515) 해결을 위해 모든 패키지 업그레이드
     RUN apk update && \
-        apk upgrade && \
+        apk upgrade --available && \
+        apk add --no-cache --upgrade libexpat expat && \
         apk add --no-cache tzdata && \
         cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
         echo "Asia/Seoul" > /etc/timezone && \
