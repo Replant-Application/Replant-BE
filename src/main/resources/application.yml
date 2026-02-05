@@ -102,11 +102,12 @@ spring:
   # ===========================================
   ai:
     # Google Gemini (Primary)
-    # 주의: API Key만 사용 시 project-id는 선택사항 (Vertex AI 사용 시에만 필수)
+    # 주의: Spring AI가 project-id와 location을 필수로 체크하지만, API Key만 사용 시 실제로는 사용되지 않음
     google:
       genai:
         api-key: ${GEMINI_API_KEY:${env.GEMINI_API_KEY}}
         project-id: ${GEMINI_PROJECT_ID:${env.GEMINI_PROJECT_ID:replant-application}}
+        location: ${GEMINI_LOCATION:${env.GEMINI_LOCATION:us-central1}}
         chat:
           options:
             model: ${GEMINI_MODEL:${env.GEMINI_MODEL:gemini-3-flash-preview}}
