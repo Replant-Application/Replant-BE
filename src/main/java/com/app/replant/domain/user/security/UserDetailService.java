@@ -8,7 +8,6 @@ import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -27,7 +26,6 @@ public class UserDetailService implements UserDetailsService {
 
     @Override
     @Transactional(readOnly = true)
-    @Cacheable(value = "userDetails", key = "#email", unless = "#result == null")
     public UserDetail loadUserByUsername(String email) throws UsernameNotFoundException {
         // N+1 문제 방지를 위해 reant를 함께 로드
         User user = userRepository.findByEmailWithReant(email)

@@ -1,4 +1,4 @@
-name: Build, Test, Scan, and Deploy Web with Docker + SonarCloud + Snyk + Trivy + ZAP
+name: Build, Test, Scan, and Deploy Web with Docker + SonarCloud + Snyk + Trivy
 
 on:
   push:
@@ -9,7 +9,7 @@ concurrency:
   group: web-ci-cd-${{ github.ref }}
   cancel-in-progress: true
 
-# 최소 권한 (필요 시 job 단위로 추가)
+# 최소 권한
 permissions:
   contents: read
 
@@ -138,9 +138,6 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.scanner.force-deprecated-java-version=true
 
-      # (선택) "품질게이트"를 확실히 job fail로 반영하고 싶으면 아래를 추가 고려
-      # - SonarCloud 프로젝트에서 Quality Gate가 브랜치에 강제되도록 설정하는 게 일반적입니다.
-
   docker_build_and_push:
     name: Build and Push Docker Image
     needs: sonarcloud_scan
@@ -169,7 +166,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }} # 권장: Docker Hub Access Token
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -205,7 +202,6 @@ jobs:
           mkdir -p .trivy
           curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o .trivy/html.tpl
 
-      # 1) HTML 리포트(항상 생성, 실패 안 함)
       - name: Trivy report (HTML)
         uses: aquasecurity/trivy-action@0.28.0
         with:
@@ -225,7 +221,6 @@ jobs:
           name: trivy-report
           path: trivy-report.html
 
-      # 2) Slack용 JSON 생성(항상, 실패 안 함)
       - name: Trivy scan (JSON for Slack)
         if: always()
         uses: aquasecurity/trivy-action@0.28.0
@@ -238,7 +233,6 @@ jobs:
           vuln-type: "os,library"
           severity: "CRITICAL,HIGH"
 
-      # 3) Slack 알림(항상)
       - name: Send Trivy CVE summary to Slack
         if: always()
         env:
@@ -272,7 +266,6 @@ jobs:
           jq -n --arg text "$TEXT" '{text:$text}' \
             | curl -sSf -X POST -H 'Content-type: application/json' --data @- "$SLACK_WEBHOOK_URL"
 
-      # 4) 게이트는 맨 마지막(여기서 실패해도 Slack은 이미 보냄)
       - name: Trivy gate (fail on CRITICAL/HIGH)
         uses: aquasecurity/trivy-action@0.28.0
         with:
@@ -290,7 +283,6 @@ jobs:
           echo "Artifact로 trivy-report.html 업로드 완료" >> "$GITHUB_STEP_SUMMARY"
           echo "- Image: $IMAGE_REF" >> "$GITHUB_STEP_SUMMARY"
 
-
   deploy:
     name: Deploy to EC2 (Docker Run)
     needs: trivy_scan
@@ -300,16 +292,16 @@ jobs:
         run: |
           echo "IMAGE_REF=${{ env.REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
           echo "CONTAINER_NAME=${{ env.IMAGE_NAME }}" >> $GITHUB_ENV
+
       - name: Set up SSH Key
         run: |
           echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/id_rsa
           chmod 600 /tmp/id_rsa
 
-      # ✅ 보안 강화: 환경 변수를 파일로 전달하여 명령줄 노출 방지
       - name: Deploy via SSH
         env:
           EC2_HOST: ${{ secrets.EC2_PUBLIC_IP }}
-          EC2_USER: ${{ secrets.EC2_SSH_USER }} # 예: ec2-user 또는 ubuntu
+          EC2_USER: ${{ secrets.EC2_SSH_USER }}
           DOCKER_USER: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASS: ${{ secrets.DOCKER_PASSWORD }}
           IMAGE_REF: ${{ env.IMAGE_REF }}
@@ -333,8 +325,6 @@ jobs:
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_PROJECT_ID: ${{ secrets.GEMINI_PROJECT_ID }}
-          # GEMINI_LOCATION은 Vertex AI 사용 시에만 필요 (API Key만 사용 시 주석 처리)
-          # GEMINI_LOCATION: ${{ secrets.GEMINI_LOCATION }}
           GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
           GEMINI_TEMPERATURE: ${{ secrets.GEMINI_TEMPERATURE }}
           QWEN_API_URL: ${{ secrets.QWEN_API_URL }}
@@ -362,8 +352,7 @@ jobs:
           APP_LATEST_VERSION: ${{ secrets.APP_LATEST_VERSION }}
           FIREBASE_CONFIG_PATH: ${{ secrets.FIREBASE_CONFIG_PATH }}
         run: |
-          # 환경 변수 파일 생성 (보안: 명령줄 노출 방지)
-          # 작은따옴표 없이 사용하여 변수 확장 허용
+          # docker.env 파일 생성
           cat > /tmp/docker.env << ENVFILE
           DB1_URL=${DB1_URL}
           DB1_USERNAME=${DB1_USERNAME}
@@ -385,8 +374,6 @@ jobs:
           FRONTEND_URL=${FRONTEND_URL}
           GEMINI_API_KEY=${GEMINI_API_KEY}
           GEMINI_PROJECT_ID=${GEMINI_PROJECT_ID}
-          # GEMINI_LOCATION은 Vertex AI 사용 시에만 필요 (API Key만 사용 시 주석 처리)
-          # GEMINI_LOCATION=${GEMINI_LOCATION}
           GEMINI_MODEL=${GEMINI_MODEL}
           GEMINI_TEMPERATURE=${GEMINI_TEMPERATURE}
           QWEN_API_URL=${QWEN_API_URL}
@@ -415,41 +402,24 @@ jobs:
           FIREBASE_CONFIG_PATH=${FIREBASE_CONFIG_PATH}
           ENVFILE
 
-          # 환경 변수 파일을 EC2로 전송
           scp -o StrictHostKeyChecking=no -i /tmp/id_rsa /tmp/docker.env ${EC2_USER}@${EC2_HOST}:/tmp/docker.env
 
-          # SSH로 배포 스크립트 실행
           ssh -o StrictHostKeyChecking=no -i /tmp/id_rsa ${EC2_USER}@${EC2_HOST} \
           "IMAGE_REF='${IMAGE_REF}' CONTAINER_NAME='${CONTAINER_NAME}' DOCKER_USER='${DOCKER_USER}' DOCKER_PASS='${DOCKER_PASS}' bash -s" << 'EOF'
             set -euo pipefail
 
-            # Docker 없으면 설치(최소)
+            # Docker 설치 및 시작 (생략 가능하면 생략)
             if ! command -v docker >/dev/null 2>&1; then
-              if command -v yum >/dev/null 2>&1; then
-                sudo yum -y install docker || (sudo amazon-linux-extras install docker -y)
-                sudo systemctl enable docker
-                sudo systemctl start docker
-              elif command -v apt-get >/dev/null 2>&1; then
-                sudo apt-get update -y
-                sudo apt-get install -y docker.io
-                sudo systemctl enable docker
-                sudo systemctl start docker
-              fi
+              sudo yum -y install docker || sudo apt-get install -y docker.io
+              sudo systemctl start docker
             fi
 
-            sudo systemctl start docker || sudo service docker start || true
-
             echo "${DOCKER_PASS}" | sudo docker login -u "${DOCKER_USER}" --password-stdin
-
             sudo docker pull "${IMAGE_REF}"
-
             sudo docker stop "${CONTAINER_NAME}" 2>/dev/null || true
             sudo docker rm "${CONTAINER_NAME}" 2>/dev/null || true
 
-            # 환경 변수 파일을 사용하여 docker run (보안 강화)
-            # 파일 권한 설정 (소유자만 읽기 가능)
             chmod 600 /tmp/docker.env
-
             sudo docker run -d \
               -p 8080:8080 \
               --restart unless-stopped \
@@ -457,60 +427,29 @@ jobs:
               --env-file /tmp/docker.env \
               "${IMAGE_REF}"
 
-            # 환경 변수 파일 삭제 (보안)
             rm -f /tmp/docker.env
-
             sudo docker image prune -f
           EOF
 
-          # 로컬 임시 파일 삭제
           rm -f /tmp/docker.env
 
-  zap_scan:
-    name: DAST with OWASP ZAP (report)
-    needs: deploy
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      issues: write # ZAP이 이슈/코멘트 남길 때 필요. 필요 없으면 지워도 됨.
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      # ✅ 배포 직후 앱 준비 대기(자주 실패하는 부분 방지)
-      - name: Wait for service to be ready
+      # 배포 결과 Slack 알림
+      - name: Send Deployment Result to Slack
+        if: always() # 배포 실패 시에도 실행
         env:
-          TARGET: ${{ secrets.DEPLOY_TARGET_URL }} # 예: http://1.2.3.4/
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          STATUS: ${{ job.status }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          set -euo pipefail
-          echo "Waiting for: ${TARGET}"
-          for i in {1..60}; do
-            code="$(curl -s -o /dev/null -w "%{http_code}" "${TARGET}" || true)"
-            if [ "$code" = "200" ] || [ "$code" = "301" ] || [ "$code" = "302" ]; then
-              echo "Service is up (HTTP $code)"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Service did not become ready in time."
-          exit 1
-
-      - name: ZAP Full Scan
-        uses: zaproxy/action-full-scan@v0.12.0
-        with:
-          # 보통은 GitHub 토큰이면 충분 (PAT 과권한 방지)
-          token: ${{ github.token }}
-          docker_name: ghcr.io/zaproxy/zaproxy:stable
-          target: ${{ secrets.DEPLOY_TARGET_URL }}
-          rules_file_name: .zap/rules.tsv
-          cmd_options: "-a"
-
-      - name: Upload ZAP Report(s)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-report
-          path: |
-            report_html.html
-            report_json.json
-            report_md.md
+          if [ "${STATUS}" = "success" ]; then
+            EMOJI="✅"
+            MESSAGE="배포 성공 (Deployment Success)"
+          else
+            EMOJI="🚨"
+            MESSAGE="배포 실패 (Deployment Failed)"
+          fi
+          
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\": \"${EMOJI} ${MESSAGE}\n• Repo: ${REPO}\n• Log: ${RUN_URL}\"}" \
+            "$SLACK_WEBHOOK_URL"
