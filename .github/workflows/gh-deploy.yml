@@ -332,7 +332,8 @@ jobs:
           GOOGLE_APP_PASSWORD: ${{ secrets.GOOGLE_APP_PASSWORD }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_PROJECT_ID: ${{ secrets.GEMINI_PROJECT_ID }}
+          # GEMINI_PROJECT_ID는 Vertex AI 사용 시에만 필요 (API Key만 사용 시 주석 처리)
+          # GEMINI_PROJECT_ID: ${{ secrets.GEMINI_PROJECT_ID }}
           GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
           GEMINI_TEMPERATURE: ${{ secrets.GEMINI_TEMPERATURE }}
           QWEN_API_URL: ${{ secrets.QWEN_API_URL }}
@@ -382,7 +383,8 @@ jobs:
           GOOGLE_APP_PASSWORD=${GOOGLE_APP_PASSWORD}
           FRONTEND_URL=${FRONTEND_URL}
           GEMINI_API_KEY=${GEMINI_API_KEY}
-          GEMINI_PROJECT_ID=${GEMINI_PROJECT_ID}
+          # GEMINI_PROJECT_ID는 Vertex AI 사용 시에만 필요 (API Key만 사용 시 주석 처리)
+          # GEMINI_PROJECT_ID=${GEMINI_PROJECT_ID}
           GEMINI_MODEL=${GEMINI_MODEL}
           GEMINI_TEMPERATURE=${GEMINI_TEMPERATURE}
           QWEN_API_URL=${QWEN_API_URL}

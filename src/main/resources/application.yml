@@ -101,13 +101,16 @@ spring:
   # 주의: spring-dotenv의 ${env.}가 여기서 작동하지 않으므로 시스템 환경변수 사용
   # ===========================================
   ai:
-    # Google Gemini (Primary)
-    # 주의: Spring AI가 project-id와 location을 필수로 체크하지만, API Key만 사용 시 실제로는 사용되지 않음
+    # Google Gemini (Primary) - API Key만 사용 (Gemini Developer API)
+    # 주의: project-id와 location을 설정하면 Vertex AI 모드로 전환되어 credentials가 필요함
+    # API Key만 사용하려면 project-id와 location을 설정하지 않아야 함
     google:
       genai:
         api-key: ${GEMINI_API_KEY:${env.GEMINI_API_KEY}}
-        project-id: ${GEMINI_PROJECT_ID:${env.GEMINI_PROJECT_ID:replant-application}}
-        location: ${GEMINI_LOCATION:${env.GEMINI_LOCATION:us-central1}}
+        # project-id와 location은 Vertex AI 사용 시에만 필요
+        # API Key만 사용 시 주석 처리
+        # project-id: ${GEMINI_PROJECT_ID:${env.GEMINI_PROJECT_ID}}
+        # location: ${GEMINI_LOCATION:${env.GEMINI_LOCATION}}
         chat:
           options:
             model: ${GEMINI_MODEL:${env.GEMINI_MODEL:gemini-3-flash-preview}}
