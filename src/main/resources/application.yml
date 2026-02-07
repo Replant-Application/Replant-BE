@@ -176,9 +176,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: ${env.ACTUATOR_ENDPOINTS:health,info,metrics}
+        include: ${env.ACTUATOR_ENDPOINTS:health,info,metrics,prometheus}
       base-path: ${env.ACTUATOR_BASE_PATH:/actuator}
   endpoint:
     health:
       show-details: ${env.ACTUATOR_HEALTH_SHOW_DETAILS:when-authorized}
       roles: ${env.ACTUATOR_HEALTH_ROLES:ADMIN}
+  metrics:
+    export:
+      prometheus:
+        enabled: true

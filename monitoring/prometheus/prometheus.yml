@@ -1,0 +1,50 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'replant-backend'
+    environment: 'production'
+
+# Alertmanager 설정 (선택사항)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# 규칙 파일 (선택사항)
+# rule_files:
+#   - "alert_rules.yml"
+
+scrape_configs:
+  # Prometheus 자체 모니터링
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter - EC2 인스턴스 메트릭 (CPU, Memory, Disk 등)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'ec2-instance'
+          nodename: 'replant-server'
+
+  # Spring Boot Actuator 메트릭 수집
+  - job_name: 'replant-backend'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['172.17.0.1:8080']  # Docker 네트워크에서 호스트 접근 (Linux)
+        labels:
+          application: 'replant-backend'
+          instance: 'replant-backend-1'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+
+  # 추가 인스턴스가 있다면 아래와 같이 추가 가능
+  # - job_name: 'replant-backend-instance-2'
+  #   metrics_path: '/actuator/prometheus'
+  #   static_configs:
+  #     - targets: ['host.docker.internal:8081']
+  #       labels:
+  #         application: 'replant-backend'
+  #         instance: 'replant-backend-2'

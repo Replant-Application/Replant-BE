@@ -112,6 +112,9 @@ dependencies {
     // Spring AI - OpenAI 호환 (Qwen/vLLM Fallback용)
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
     
+    // Prometheus 메트릭 (모니터링)
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    
     // Development
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     
