@@ -136,9 +136,6 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 
-                // Anonymous 인증 활성화 (permitAll()이 제대로 작동하도록)
-                .anonymous(anonymous -> anonymous.enable())
-                
                 // 권한별 URL 접근 설정
                 .authorizeHttpRequests(auth -> {
                     auth
