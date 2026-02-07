@@ -317,6 +317,18 @@ jobs:
           echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/id_rsa
           chmod 600 /tmp/id_rsa
 
+      # FCM Admin SDK JSON: 레포에 올리면 키 유출 → GitHub Secret에 Base64로 저장 후 배포 시 EC2에 파일 생성
+      - name: Upload Firebase Admin SDK JSON to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_PUBLIC_IP }}
+          EC2_USER: ${{ secrets.EC2_SSH_USER }}
+          FIREBASE_ADMIN_SDK_JSON_BASE64: ${{ secrets.FIREBASE_ADMIN_SDK_JSON_BASE64 }}
+        run: |
+          echo "$FIREBASE_ADMIN_SDK_JSON_BASE64" | base64 -d > /tmp/replant-admin.json
+          ssh -o StrictHostKeyChecking=no -i /tmp/id_rsa ${EC2_USER}@${EC2_HOST} "mkdir -p /opt/replant/firebase"
+          scp -o StrictHostKeyChecking=no -i /tmp/id_rsa /tmp/replant-admin.json ${EC2_USER}@${EC2_HOST}:/opt/replant/firebase/replant-admin.json
+          rm -f /tmp/replant-admin.json
+
       - name: Deploy via SSH
         env:
           EC2_HOST: ${{ secrets.EC2_PUBLIC_IP }}
@@ -369,7 +381,6 @@ jobs:
           MAX_FILE_SIZE: ${{ secrets.MAX_FILE_SIZE }}
           MAX_REQUEST_SIZE: ${{ secrets.MAX_REQUEST_SIZE }}
           APP_LATEST_VERSION: ${{ secrets.APP_LATEST_VERSION }}
-          FIREBASE_CONFIG_PATH: ${{ secrets.FIREBASE_CONFIG_PATH }}
         run: |
           # docker.env 파일 생성
           cat > /tmp/docker.env << ENVFILE
@@ -418,7 +429,7 @@ jobs:
           MAX_FILE_SIZE=${MAX_FILE_SIZE}
           MAX_REQUEST_SIZE=${MAX_REQUEST_SIZE}
           APP_LATEST_VERSION=${APP_LATEST_VERSION}
-          FIREBASE_CONFIG_PATH=${FIREBASE_CONFIG_PATH}
+          FIREBASE_CONFIG_PATH=/opt/replant/firebase/replant-admin.json
           ENVFILE
 
           scp -o StrictHostKeyChecking=no -i /tmp/id_rsa /tmp/docker.env ${EC2_USER}@${EC2_HOST}:/tmp/docker.env
@@ -444,6 +455,7 @@ jobs:
               --restart unless-stopped \
               --name "${CONTAINER_NAME}" \
               --env-file /tmp/docker.env \
+              -v /opt/replant/firebase/replant-admin.json:/opt/replant/firebase/replant-admin.json:ro \
               "${IMAGE_REF}"
 
             rm -f /tmp/docker.env
