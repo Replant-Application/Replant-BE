@@ -108,9 +108,8 @@ spring:
       genai:
         api-key: ${GEMINI_API_KEY:${env.GEMINI_API_KEY:dummy-api-key}}
         project-id: ${GEMINI_PROJECT_ID:${env.GEMINI_PROJECT_ID:replant-application}}
-        # location 설정 시 Vertex AI 모드로 전환됨 (credentials 필요)
-        # API Key 모드 사용 시 location을 설정하지 않음
-        # location: ${GEMINI_LOCATION:${env.GEMINI_LOCATION:us-central1}}
+        # location은 Spring AI가 필수로 요구함 (기본값: us-central1)
+        location: ${GEMINI_LOCATION:${env.GEMINI_LOCATION:us-central1}}
         chat:
           options:
             model: ${GEMINI_MODEL:${env.GEMINI_MODEL:gemini-3-flash-preview}}
