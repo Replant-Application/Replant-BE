@@ -33,7 +33,10 @@ scrape_configs:
   - job_name: 'replant-backend'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['172.17.0.1:8080']  # Docker 네트워크에서 호스트 접근 (Linux)
+      # 방법 1: monitoring 네트워크에 연결된 경우 컨테이너 이름 사용
+      # - targets: ['replant-backend:8080']
+      # 방법 2: 호스트에서 직접 실행 중인 경우 호스트 IP 사용
+      - targets: ['172.31.54.210:8080']  # EC2 인스턴스의 Private IP
         labels:
           application: 'replant-backend'
           instance: 'replant-backend-1'
