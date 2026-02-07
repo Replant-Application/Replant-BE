@@ -1,5 +1,7 @@
 package com.app.replant.domain.user.service;
 
+import com.app.replant.domain.user.dto.SpontaneousMissionRequest;
+import com.app.replant.domain.user.dto.SpontaneousMissionResponse;
 import com.app.replant.domain.user.dto.UserUpdateRequest;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.enums.MetropolitanArea;
@@ -142,5 +144,48 @@ public class UserService {
         
         log.info("계정 복구 완료 (이메일 기반) - userId: {}, email: {}, deletedAt: {}", 
                 user.getId(), user.getEmail(), user.getDeletedAt());
+    }
+
+    /**
+     * 돌발 미션 설정 조회
+     * 설정이 없으면 404 (앱에서 신규 설정 모드로 전환)
+     */
+    public SpontaneousMissionResponse getSpontaneousMissionSetup(Long userId) {
+        User user = findById(userId);
+        if (!user.isSpontaneousMissionSetupCompleted() || user.getWakeTime() == null || user.getWakeTime().isEmpty()) {
+            throw new CustomException(ErrorCode.NOT_FOUND);
+        }
+        return SpontaneousMissionResponse.builder()
+                .isSpontaneousMissionSetupCompleted(user.isSpontaneousMissionSetupCompleted())
+                .wakeTime(user.getWakeTime())
+                .build();
+    }
+
+    /**
+     * 돌발 미션 설정 등록 (최초 설정, 기상 시간만)
+     */
+    @Transactional
+    public SpontaneousMissionResponse setupSpontaneousMission(Long userId, SpontaneousMissionRequest request) {
+        User user = findById(userId);
+        user.setupSpontaneousMission(request.getWakeTime());
+        User saved = userRepository.save(user);
+        return SpontaneousMissionResponse.builder()
+                .isSpontaneousMissionSetupCompleted(saved.isSpontaneousMissionSetupCompleted())
+                .wakeTime(saved.getWakeTime())
+                .build();
+    }
+
+    /**
+     * 돌발 미션 설정 수정 (기상 시간만)
+     */
+    @Transactional
+    public SpontaneousMissionResponse updateSpontaneousMissionSetup(Long userId, SpontaneousMissionRequest request) {
+        User user = findById(userId);
+        user.setupSpontaneousMission(request.getWakeTime());
+        User saved = userRepository.save(user);
+        return SpontaneousMissionResponse.builder()
+                .isSpontaneousMissionSetupCompleted(saved.isSpontaneousMissionSetupCompleted())
+                .wakeTime(saved.getWakeTime())
+                .build();
     }
 }

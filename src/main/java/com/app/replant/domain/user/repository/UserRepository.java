@@ -56,26 +56,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findUsersByWakeTime(String time);
 
     /**
-     * 특정 시간에 식사 미션을 받을 사용자 조회 (아침/점심/저녁)
-     * Soft Delete된 사용자 제외
-     */
-    @Query("SELECT u FROM User u WHERE u.status = 'ACTIVE' " +
-           "AND (u.delFlag = false OR u.delFlag IS NULL) " +
-           "AND u.isSpontaneousMissionSetupCompleted = true " +
-           "AND (u.breakfastTime = :time OR u.lunchTime = :time OR u.dinnerTime = :time)")
-    List<User> findUsersByMealTime(String time);
-
-    /**
-     * 특정 시간에 취침 미션을 받을 사용자 조회
-     * Soft Delete된 사용자 제외
-     */
-    @Query("SELECT u FROM User u WHERE u.status = 'ACTIVE' " +
-           "AND (u.delFlag = false OR u.delFlag IS NULL) " +
-           "AND u.isSpontaneousMissionSetupCompleted = true " +
-           "AND u.sleepTime = :time")
-    List<User> findUsersBySleepTime(String time);
-
-    /**
      * 30일 이상 지난 INACTIVE 사용자 조회 (DELETED로 변경 대상)
      */
     @Query("SELECT u FROM User u WHERE u.delFlag = true " +

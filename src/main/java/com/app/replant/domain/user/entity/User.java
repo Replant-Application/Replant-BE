@@ -284,16 +284,15 @@ public class User extends BaseEntity {
     }
 
     /**
-     * 돌발 미션 설정 완료 처리
+     * 돌발 미션 설정 완료 처리 (기상 시간만 사용)
      */
-    public void setupSpontaneousMission(String sleepTime, String wakeTime, 
-                                        String breakfastTime, String lunchTime, String dinnerTime) {
+    public void setupSpontaneousMission(String wakeTime) {
         this.isSpontaneousMissionSetupCompleted = true;
-        this.sleepTime = sleepTime;
         this.wakeTime = wakeTime;
-        this.breakfastTime = breakfastTime;
-        this.lunchTime = lunchTime;
-        this.dinnerTime = dinnerTime;
+        this.sleepTime = null;
+        this.breakfastTime = null;
+        this.lunchTime = null;
+        this.dinnerTime = null;
         this.spontaneousMissionSetupAt = LocalDateTime.now(); // 설정 시점 기록
     }
     

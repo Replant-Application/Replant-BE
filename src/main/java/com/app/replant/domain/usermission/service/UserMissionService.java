@@ -530,6 +530,10 @@ public class UserMissionService {
     private VerificationType getVerificationType(UserMission userMission) {
         Mission mission = userMission.getMission();
         if (mission != null) {
+            // 기상 미션 등 BUTTON 타입은 시간 인증(TIME)으로 처리 (1분 이상 = 인증 완료)
+            if (mission.getVerificationType() == VerificationType.BUTTON) {
+                return VerificationType.TIME;
+            }
             return mission.getVerificationType();
         }
         throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
@@ -552,7 +556,14 @@ public class UserMissionService {
 
     private Integer getRequiredMinutes(UserMission userMission) {
         Mission mission = userMission.getMission();
-        return mission != null ? mission.getRequiredMinutes() : null;
+        if (mission == null) {
+            return null;
+        }
+        // 기상 미션 등 BUTTON 타입: 1분 이상이면 인증 완료로 처리
+        if (mission.getVerificationType() == VerificationType.BUTTON) {
+            return mission.getRequiredMinutes() != null ? mission.getRequiredMinutes() : 1;
+        }
+        return mission.getRequiredMinutes();
     }
 
     /**

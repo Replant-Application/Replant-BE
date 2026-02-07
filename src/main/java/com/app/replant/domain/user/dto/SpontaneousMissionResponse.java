@@ -11,9 +11,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class SpontaneousMissionResponse {
     private Boolean isSpontaneousMissionSetupCompleted;
-    private String sleepTime;
     private String wakeTime;
-    private String breakfastTime;
-    private String lunchTime;
-    private String dinnerTime;
 }

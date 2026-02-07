@@ -24,7 +24,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -116,29 +118,31 @@ public class TodoListService {
         }
         
         /**
-         * 공개 투두리스트 목록 조회 (삭제된 기능 - 임시로 빈 페이지 반환)
+         * 공개 투두리스트 목록 조회 (set_type=TODOLIST, is_public=true)
          */
         public Page<TodoListDto.SimpleResponse> getPublicTodoLists(Pageable pageable, String sortBy) {
-                // TODO: 공개 기능이 삭제되어 임시로 빈 페이지 반환
-                return Page.empty(pageable);
+                return todoListRepository.findPublicTodoLists(pageable, sortBy != null ? sortBy : "latest")
+                                .map(TodoListDto.SimpleResponse::from);
         }
-        
+
         /**
-         * 공개 투두리스트 검색 (삭제된 기능 - 임시로 빈 페이지 반환)
+         * 공개 투두리스트 검색
          */
         public Page<TodoListDto.SimpleResponse> searchPublicTodoLists(String keyword, Pageable pageable, String sortBy) {
-                // TODO: 공개 기능이 삭제되어 임시로 빈 페이지 반환
-                return Page.empty(pageable);
+                return todoListRepository.searchPublicTodoLists(keyword, pageable, sortBy != null ? sortBy : "latest")
+                                .map(TodoListDto.SimpleResponse::from);
         }
-        
+
         /**
-         * 공개 투두리스트 상세 조회 (삭제된 기능 - 임시로 예외 발생)
+         * 공개 투두리스트 상세 조회 (공개된 것만 조회 가능)
          */
         public TodoListDto.DetailResponse getPublicTodoListDetail(Long todoListId, Long userId) {
-                // TODO: 공개 기능이 삭제되어 임시로 일반 상세 조회로 대체
-                // 주의: 접근 권한 체크가 있으므로 본인 투두리스트만 조회 가능
-                // 공개 기능이 필요하면 별도 구현 필요
-                return getTodoListDetail(todoListId, userId);
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+                if (!Boolean.TRUE.equals(todoList.getIsPublic())) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
         }
         
         /**
@@ -168,13 +172,15 @@ public class TodoListService {
                 User user = userRepository.findById(userId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-                // 검증: 당일 이미 투두리스트가 생성되었는지 확인
-                LocalDateTime now = LocalDateTime.now();
-                LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
+                // 검증: 당일 이미 투두리스트가 생성되었는지 확인 (사용자 기준 오늘 = KST)
+                ZoneId zoneSeoul = ZoneId.of("Asia/Seoul");
+                LocalDateTime startOfDay = LocalDate.now(zoneSeoul).atStartOfDay();
                 LocalDateTime endOfDay = startOfDay.plusDays(1);
                 if (todoListRepository.existsByCreatorAndCreatedDate(user, startOfDay, endOfDay)) {
                         throw new CustomException(ErrorCode.TODO_DUPLICATE_DATE);
                 }
+
+                LocalDateTime now = LocalDateTime.now();
 
                 // 검증: 필수 공식 미션 3개 필수
                 if (request.getRandomMissionIds() == null
@@ -454,6 +460,9 @@ public class TodoListService {
                 }
 
                 todoList.update(request.getTitle(), request.getDescription());
+                if (request.getIsPublic() != null) {
+                        todoList.setPublic(request.getIsPublic());
+                }
 
                 log.info("투두리스트 수정 완료: id={}, userId={}", todoListId, userId);
                 return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
