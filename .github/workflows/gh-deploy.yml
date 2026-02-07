@@ -44,7 +44,11 @@ jobs:
           echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> .env
           echo "REDIS_PORT=${{ secrets.REDIS_PORT }}" >> .env
           echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}" >> .env
-          echo "JWT=${{ secrets.JWT }}" >> .env
+          if [ -n "${{ secrets.JWT }}" ]; then
+            echo "JWT=${{ secrets.JWT }}" >> .env
+          else
+            echo "JWT=FHjL73XX2KdsjunrdePaZjO+VriGoeP5+ErcTeEiCsMRr9MYoMU7rvnWmj6xtq6f2PMRynWQguzdSTCdoQOpAQ==" >> .env
+          fi
           echo "S3_BUCKET=${{ secrets.S3_BUCKET }}" >> .env
           echo "S3_ACCESS_KEY=${{ secrets.S3_ACCESS_KEY }}" >> .env
           echo "S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }}" >> .env
@@ -63,6 +67,17 @@ jobs:
           echo "QWEN_TEMPERATURE=${{ secrets.QWEN_TEMPERATURE }}" >> .env
 
       - name: Run tests
+        env:
+          JWT: ${{ secrets.JWT || 'FHjL73XX2KdsjunrdePaZjO+VriGoeP5+ErcTeEiCsMRr9MYoMU7rvnWmj6xtq6f2PMRynWQguzdSTCdoQOpAQ==' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_PROJECT_ID: ${{ secrets.GEMINI_PROJECT_ID || 'replant-application' }}
+          GEMINI_LOCATION: ${{ secrets.GEMINI_LOCATION || 'us-central1' }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-3-flash-preview' }}
+          GEMINI_TEMPERATURE: ${{ secrets.GEMINI_TEMPERATURE || '0.7' }}
+          QWEN_API_URL: ${{ secrets.QWEN_API_URL || 'http://localhost:8000' }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY || 'dummy-key' }}
+          QWEN_MODEL: ${{ secrets.QWEN_MODEL || 'Qwen/Qwen2.5-14B-Instruct-AWQ' }}
+          QWEN_TEMPERATURE: ${{ secrets.QWEN_TEMPERATURE || '0.7' }}
         run: ./gradlew test
 
   snyk_scan:
