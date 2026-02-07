@@ -1,0 +1,150 @@
+# ===========================================
+# 테스트 환경 설정
+# 실제 외부 서비스 연결 없이 컨텍스트 로딩 테스트용
+# ===========================================
+
+server:
+  port: 0  # 랜덤 포트 사용
+
+spring:
+  application:
+    name: Replant-BE-Test
+
+  # ===========================================
+  # DataSource 설정 (H2 인메모리 DB 사용)
+  # ===========================================
+  datasource:
+    secondary:
+      jdbc-url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+      username: sa
+      password: 
+      driver-class-name: org.h2.Driver
+      connection-timeout: 30000
+      maximum-pool-size: 10
+      minimum-idle: 5
+      max-lifetime: 1800000
+      idle-timeout: 600000
+      leak-detection-threshold: 60000
+      pool-name: H2-TestPool
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.H2Dialect
+    show-sql: false
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  # Flyway 비활성화
+  flyway:
+    enabled: false
+
+  # ===========================================
+  # Redis 설정 (테스트용 더미 값)
+  # ===========================================
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      timeout: 2000ms
+      connect-timeout: 2000ms
+
+  # Redis 자동설정 오류 무시
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.actuate.autoconfigure.data.redis.RedisHealthContributorAutoConfiguration
+
+  # ===========================================
+  # Mail 설정 (테스트용 더미 값)
+  # ===========================================
+  mail:
+    host: localhost
+    port: 587
+    username: test@test.com
+    password: test-password
+    properties:
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
+      mail.smtp.starttls.required: false
+
+  # ===========================================
+  # Spring AI - LLM 설정 (테스트용 더미 값)
+  # ===========================================
+  ai:
+    google:
+      genai:
+        api-key: test-api-key
+        project-id: test-project
+        chat:
+          options:
+            model: gemini-3-flash-preview
+            temperature: 0.7
+    
+    openai:
+      base-url: http://localhost:8000
+      api-key: test-api-key
+      chat:
+        options:
+          model: test-model
+          temperature: 0.7
+
+# ===========================================
+# JWT 설정 (테스트용 더미 값)
+# ===========================================
+jwt:
+  secret: test-jwt-secret-key-for-testing-purposes-only-minimum-256-bits
+
+# ===========================================
+# AWS S3 설정 (테스트용 더미 값)
+# ===========================================
+aws:
+  s3:
+    bucket: test-bucket
+    accessKey: test-access-key
+    secretKey: test-secret-key
+    client: test-client
+    region: ap-northeast-2
+
+# ===========================================
+# Frontend URL 설정
+# ===========================================
+frontend:
+  url: http://localhost:8081
+
+# ===========================================
+# 채팅 서비스 설정
+# ===========================================
+chat:
+  llm:
+    primary: gemini
+    fallback: qwen
+    timeout: 30000
+    max-retries: 2
+  prompt:
+    max-length: 15
+    max-length-unit: 글자
+
+# Swagger/OpenAPI 설정
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  default-consumes-media-type: application/json
+
+# Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      roles: ADMIN
