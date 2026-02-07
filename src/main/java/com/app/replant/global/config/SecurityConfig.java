@@ -151,10 +151,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/version/**").permitAll() // 버전 체크 (인증 불필요)
                         .requestMatchers("/ws/**").permitAll() // WebSocket
                         .requestMatchers("/files/**").permitAll() // 파일 업로드/다운로드
-                        // Actuator - 공개 엔드포인트만 허용 (health, info, prometheus)
+                        // Actuator - 공개 엔드포인트만 허용 (health, info, metrics, prometheus)
                         // 순서 중요: 구체적인 경로를 먼저 설정
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/actuator/info").permitAll()
+                        .requestMatchers("/actuator/metrics").permitAll()
+                        .requestMatchers("/actuator/metrics/**").permitAll() // 특정 메트릭 조회도 허용
                         .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN") // 나머지는 관리자만
                         // Swagger/OpenAPI 경로 허용 (모든 변형 포함)
