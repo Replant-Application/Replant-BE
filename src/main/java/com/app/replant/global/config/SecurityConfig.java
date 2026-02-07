@@ -136,6 +136,9 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 
+                // Anonymous 인증 활성화 (permitAll()이 제대로 작동하도록)
+                .anonymous(anonymous -> anonymous.enable())
+                
                 // 권한별 URL 접근 설정
                 .authorizeHttpRequests(auth -> {
                     auth
@@ -152,7 +155,10 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**").permitAll() // WebSocket
                         .requestMatchers("/files/**").permitAll() // 파일 업로드/다운로드
                         // Actuator - 공개 엔드포인트만 허용 (health, info, prometheus)
-                        .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus").permitAll()
+                        // 순서 중요: 구체적인 경로를 먼저 설정
+                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/actuator/info").permitAll()
+                        .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers("/actuator/**").hasRole("ADMIN") // 나머지는 관리자만
                         // Swagger/OpenAPI 경로 허용 (모든 변형 포함)
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/swagger-ui/index.html").permitAll()

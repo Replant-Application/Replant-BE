@@ -27,6 +27,18 @@ public class JwtFilter extends OncePerRequestFilter {
     private final TokenProvider tokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
 
+    // Actuator, Swagger 등 공개 엔드포인트는 JWT 필터를 거치지 않음
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return path != null && (
+                path.startsWith("/actuator") ||
+                path.startsWith("/swagger") ||
+                path.startsWith("/v3/api-docs") ||
+                path.startsWith("/h2-console")
+        );
+    }
+
     // 실제 필터링 로직은 doFilterInternal 에 들어감
     // JWT 토큰의 인증 정보를 현재 쓰레드의 SecurityContext 에 저장하는 역할 수행
     @Override
