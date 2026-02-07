@@ -25,27 +25,31 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    /**
+     * ID로 사용자 조회. N+1 방지를 위해 reant를 함께 로드(JOIN FETCH).
+     */
     public User findById(Long userId) {
-        User user = userRepository.findById(userId)
+        User user = userRepository.findByIdWithReant(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        
-        // Soft Delete된 사용자 체크
+
         if (user.isDeleted()) {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
-        
+
         return user;
     }
 
+    /**
+     * 이메일로 사용자 조회. N+1 방지를 위해 reant를 함께 로드(JOIN FETCH).
+     */
     public User findByEmail(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailWithReant(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-        
-        // Soft Delete된 사용자 체크
+
         if (user.isDeleted()) {
             throw new CustomException(ErrorCode.USER_NOT_FOUND);
         }
-        
+
         return user;
     }
 
