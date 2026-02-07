@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 env:
-  IMAGE_NAME: your-image-name
+  IMAGE_NAME: replant-backend
   REGISTRY: docker.io
   IMAGE_TAG: ${{ github.sha }}
 
@@ -430,6 +430,8 @@ jobs:
           MAX_FILE_SIZE=${MAX_FILE_SIZE}
           MAX_REQUEST_SIZE=${MAX_REQUEST_SIZE}
           APP_LATEST_VERSION=${APP_LATEST_VERSION}
+          ACTUATOR_ENDPOINTS=health,info,metrics,prometheus
+          ACTUATOR_BASE_PATH=/actuator
           FIREBASE_CONFIG_PATH=/opt/replant/firebase/replant-admin.json
           ENVFILE
 
