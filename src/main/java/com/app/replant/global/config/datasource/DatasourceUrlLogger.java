@@ -17,6 +17,9 @@ import javax.sql.DataSource;
 @Component
 public class DatasourceUrlLogger implements ApplicationRunner {
 
+    private static final String PASSWORD_PARAM = "password";
+    private static final String MASKED_VALUE = "***";
+    
     private final DataSource secondaryDataSource;
 
     public DatasourceUrlLogger(@Qualifier("secondaryDataSource") DataSource secondaryDataSource) {
@@ -28,7 +31,9 @@ public class DatasourceUrlLogger implements ApplicationRunner {
         if (secondaryDataSource instanceof HikariDataSource hikari) {
             String url = hikari.getJdbcUrl();
             // 비밀번호 제외하고 호스트/DB만 로그 (예: jdbc:mysql://host:port/dbname?params)
-            String safe = url != null ? url.replaceAll("([?&]password=)[^&]*", "$1***") : "null";
+            String safe = url != null 
+                ? url.replaceAll("([?&]" + PASSWORD_PARAM + "=)[^&]*", "$1" + MASKED_VALUE) 
+                : "null";
             log.info("[DB 연결 확인] Secondary DataSource JDBC URL: {}", safe);
         }
     }

@@ -28,7 +28,9 @@ public class MariaDBConnectionTest {
         }
 
         System.out.println("=== MariaDB Connection Test ===");
-        System.out.println("URL: " + url.replaceAll("password=[^&]*", "password=****"));
+        String passwordParam = "password";
+        String maskedUrl = url.replaceAll(passwordParam + "=[^&]*", passwordParam + "=****");
+        System.out.println("URL: " + maskedUrl);
         System.out.println("Username: " + username);
         System.out.println("Attempting to connect...");
 

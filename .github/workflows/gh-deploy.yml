@@ -66,14 +66,14 @@ jobs:
         env:
           JWT: ${{ secrets.JWT }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_PROJECT_ID: ${{ secrets.GEMINI_PROJECT_ID || 'replant-application' }}
-          GEMINI_LOCATION: ${{ secrets.GEMINI_LOCATION || 'us-central1' }}
-          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL || 'gemini-3-flash-preview' }}
-          GEMINI_TEMPERATURE: ${{ secrets.GEMINI_TEMPERATURE || '0.7' }}
-          QWEN_API_URL: ${{ secrets.QWEN_API_URL || 'http://localhost:8000' }}
-          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY || 'dummy-key' }}
-          QWEN_MODEL: ${{ secrets.QWEN_MODEL || 'Qwen/Qwen2.5-14B-Instruct-AWQ' }}
-          QWEN_TEMPERATURE: ${{ secrets.QWEN_TEMPERATURE || '0.7' }}
+          GEMINI_PROJECT_ID: ${{ secrets.GEMINI_PROJECT_ID }}
+          GEMINI_LOCATION: ${{ secrets.GEMINI_LOCATION }}
+          GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+          GEMINI_TEMPERATURE: ${{ secrets.GEMINI_TEMPERATURE }}
+          QWEN_API_URL: ${{ secrets.QWEN_API_URL }}
+          QWEN_API_KEY: ${{ secrets.QWEN_API_KEY }}
+          QWEN_MODEL: ${{ secrets.QWEN_MODEL }}
+          QWEN_TEMPERATURE: ${{ secrets.QWEN_TEMPERATURE }}
         run: ./gradlew test
 
   snyk_scan:
