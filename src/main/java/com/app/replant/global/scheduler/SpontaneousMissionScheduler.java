@@ -60,7 +60,6 @@ public class SpontaneousMissionScheduler {
             assignSpontaneousMissionsInternal();
         } catch (Exception e) {
             log.error("돌발 미션 할당 스케줄러 실행 중 예외 발생", e);
-            e.printStackTrace();
         }
         
         // TODO: SpontaneousMissionService가 삭제되어 만료 처리 기능 비활성화
@@ -114,7 +113,6 @@ public class SpontaneousMissionScheduler {
                 
             } catch (Exception e) {
                 log.error("사용자 조회 실패", e);
-                e.printStackTrace();
                 return;
             }
             
@@ -301,7 +299,6 @@ public class SpontaneousMissionScheduler {
         } catch (Exception e) {
             log.error("돌발 미션 알림 전송 실패: userId={}, missionType={}, missionId={}, error={}", 
                     user.getId(), missionType, missionId, e.getMessage(), e);
-            e.printStackTrace();
             // 알림 전송 실패해도 미션 할당은 성공했으므로 계속 진행
         }
     }

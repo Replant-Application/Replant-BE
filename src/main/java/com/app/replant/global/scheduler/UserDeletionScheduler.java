@@ -67,7 +67,6 @@ public class UserDeletionScheduler {
             
         } catch (Exception e) {
             log.error("사용자 삭제 스케줄러 실행 중 예외 발생", e);
-            e.printStackTrace();
         }
     }
 }
