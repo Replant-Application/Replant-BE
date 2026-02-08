@@ -93,15 +93,17 @@ public class UserMemoryVectorService {
 
     public List<Document> searchUserMemory(Long userId, String query, UserMemoryCategory category, int topK) {
         FilterExpressionBuilder builder = new FilterExpressionBuilder();
-        var userFilter = builder.eq("user_id", userId.toString());
-        var filter = category == null
-                ? userFilter
-                : builder.and(userFilter, builder.eq("category", category.value()));
+        FilterExpressionBuilder.Expression filterExpression = category == null
+                ? builder.eq("user_id", userId.toString())
+                : builder.and(
+                        builder.eq("user_id", userId.toString()),
+                        builder.eq("category", category.value())
+                ).build();
 
         SearchRequest request = SearchRequest.builder()
                 .query(query)
                 .topK(topK)
-                .filterExpression(filter)
+                .filterExpression(filterExpression)
                 .build();
 
         return vectorStore.similaritySearch(request);
