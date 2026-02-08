@@ -5,6 +5,7 @@ import com.app.replant.domain.diary.dto.DiaryResponse;
 import com.app.replant.domain.diary.dto.DiaryStatsResponse;
 import com.app.replant.domain.diary.entity.Diary;
 import com.app.replant.domain.diary.repository.DiaryRepository;
+import com.app.replant.domain.rag.service.UserMemoryVectorService;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.global.exception.CustomException;
@@ -34,6 +35,7 @@ public class DiaryService {
     private final DiaryRepository diaryRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
+    private final UserMemoryVectorService userMemoryVectorService;
 
     // 정렬 가능한 필드명 목록
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
@@ -89,6 +91,7 @@ public class DiaryService {
     public DiaryResponse getDiaryByDate(Long userId, LocalDate date) {
         Diary diary = diaryRepository.findByUserIdAndDate(userId, date)
                 .orElseThrow(() -> new CustomException(ErrorCode.DIARY_ISNULL));
+        userMemoryVectorService.upsertDiary(diary);
         return DiaryResponse.from(diary);
     }
 
@@ -124,6 +127,7 @@ public class DiaryService {
                 .build();
 
         Diary saved = diaryRepository.save(diary);
+        userMemoryVectorService.upsertDiary(saved);
         log.info("다이어리 생성 완료 - userId={}, diaryId={}", userId, saved.getId());
 
         return DiaryResponse.from(saved);
@@ -205,6 +209,7 @@ public class DiaryService {
     public void deleteDiary(Long diaryId, Long userId) {
         Diary diary = findDiaryByIdAndUserId(diaryId, userId);
         diary.softDelete();
+        userMemoryVectorService.deleteDiary(diaryId);
         log.info("다이어리 삭제 완료 (Soft Delete) - userId={}, diaryId={}", userId, diaryId);
     }
 

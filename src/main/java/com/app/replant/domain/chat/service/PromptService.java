@@ -61,27 +61,47 @@ public class PromptService {
     }
 
     /**
-     * 시스템 프롬프트 생성
+     * Build prompt with optional RAG context.
      */
-    private String buildSystemPrompt(Reant reant) {
-        // 다음 레벨까지 필요한 경험치 (레벨별 테이블: L1→10, L2→50, L3→100, L4→200, L5→500, L6+→500)
-        int nextLevelExp = reant.getNextLevelExp();
+    public String buildPromptWithContext(String userMessage, String context, Reant reant, User user) {
+        String systemPrompt = buildSystemPrompt(reant);
+        String contextBlock = (context == null || context.isBlank())
+                ? ""
+                : """
 
-        return getSystemPromptTemplate().formatted(
-                reant.getName(),                // 캐릭터 이름 (소개)
-                reant.getName(),                // 캐릭터 이름 (정보)
-                reant.getLevel(),               // 레벨
-                reant.getExp(),                 // 현재 경험치
-                nextLevelExp,                   // 다음 레벨 필요 경험치
-                reant.getStage().name(),        // 성장 단계
-                maxLength,                      // 최대 길이
-                maxLengthUnit                   // 길이 단위
-        );
+## Context
+%s
+""".formatted(context);
+
+        return """
+%s
+%s
+
+## User Message
+%s
+
+## Answer (%d%s max, friendly tone):
+""".formatted(systemPrompt, contextBlock, userMessage, maxLength, maxLengthUnit);
     }
 
     /**
-     * 에러 발생 시 기본 응답 생성
+     * Build system prompt.
      */
+    private String buildSystemPrompt(Reant reant) {
+        int nextLevelExp = reant.getNextLevelExp();
+
+        return getSystemPromptTemplate().formatted(
+                reant.getName(),
+                reant.getName(),
+                reant.getLevel(),
+                reant.getExp(),
+                nextLevelExp,
+                reant.getStage().name(),
+                maxLength,
+                maxLengthUnit
+        );
+    }
+
     public String getDefaultResponse(Reant reant) {
         String[] defaultResponses = {
                 "잠깐 멍해졌어요... 다시 말해줄래요? 🤔",

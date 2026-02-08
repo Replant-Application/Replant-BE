@@ -1,7 +1,7 @@
 # ===========================================
 # Replant Backend Application Configuration
-# 모든 민감한 정보는 .env 파일에서 로드됩니다
-# spring-dotenv 라이브러리 사용: ${env.변수명}
+# 모든 민감???보??.env ?일?서 로드?니??
+# spring-dotenv ?이브러??용: ${env.변?명}
 # ===========================================
 
 server:
@@ -13,7 +13,7 @@ spring:
     name: Replant-BE
 
   # ===========================================
-  # DataSource 설정 (MariaDB) - .env에서 로드
+  # DataSource ?정 (MariaDB) - .env?서 로드
   # ===========================================
   datasource:
     secondary:
@@ -43,7 +43,7 @@ spring:
   jackson:
     time-zone: Asia/Seoul
     serialization:
-      write-dates-as-timestamps: false  # LocalDateTime을 ISO 8601 형식으로 직렬화
+      write-dates-as-timestamps: false  # LocalDateTime??ISO 8601 ?식?로 직렬??
 
   jpa:
     hibernate:
@@ -58,12 +58,12 @@ spring:
     show-sql: true
     database-platform: org.hibernate.dialect.MySQLDialect
 
-  # Flyway 비활성화 (마이그레이션 제거됨)
+  # Flyway 비활?화 (마이그레?션 ?거??
   flyway:
     enabled: false
 
   # ===========================================
-  # Redis 설정 - .env에서 로드
+  # Redis ?정 - .env?서 로드
   # ===========================================
   data:
     redis:
@@ -73,18 +73,18 @@ spring:
       timeout: ${env.REDIS_TIMEOUT:2000ms}
       connect-timeout: ${env.REDIS_CONNECT_TIMEOUT:2000ms}
 
-  # Redis 자동설정 오류 무시
+  # Redis ?동?정 ?류 무시
   autoconfigure:
     exclude:
       - org.springframework.boot.actuate.autoconfigure.data.redis.RedisHealthContributorAutoConfiguration
 
-  # Log 설정
+  # Log ?정
   output:
     ansi:
       enabled: always
 
   # ===========================================
-  # Mail 설정 (Gmail SMTP) - .env에서 로드
+  # Mail ?정 (Gmail SMTP) - .env?서 로드
   # ===========================================
   mail:
     host: ${env.MAIL_HOST:smtp.gmail.com}
@@ -97,26 +97,28 @@ spring:
       mail.smtp.starttls.required: ${env.MAIL_SMTP_STARTTLS_REQUIRED:true}
 
   # ===========================================
-  # Spring AI - LLM 설정
-  # 주의: spring-dotenv의 ${env.}가 여기서 작동하지 않으므로 시스템 환경변수 사용
+  # Spring AI - LLM ?정
+  # 주의: spring-dotenv??${env.}가 ?기???동?? ?으므??스???경변???용
   # ===========================================
   ai:
-    # Google Gemini (Primary) - API Key만 사용
-    # 주의: Spring AI가 project-id와 location을 필수로 체크하므로 설정 필요
-    # api-key가 설정되어 있으면 API Key 모드로 동작 (credentials 불필요)
+    model:
+      embedding: transformers
+    # Google Gemini (Primary) - API Key??용
+    # 주의: Spring AI가 project-id? location???수?체크????정 ?요
+    # api-key가 ?정?어 ?으?API Key 모드??작 (credentials 불필??
     google:
       genai:
         api-key: ${GEMINI_API_KEY:${env.GEMINI_API_KEY:dummy-api-key}}
         project-id: ${GEMINI_PROJECT_ID:${env.GEMINI_PROJECT_ID:replant-application}}
-        # location은 Spring AI가 필수로 요구함 (기본값: us-central1)
+        # location? Spring AI가 ?수??구??(기본? us-central1)
         location: ${GEMINI_LOCATION:${env.GEMINI_LOCATION:us-central1}}
         chat:
           options:
             model: ${GEMINI_MODEL:${env.GEMINI_MODEL:gemini-3-flash-preview}}
             temperature: ${env.GEMINI_TEMPERATURE:0.7}
     
-    # OpenAI 호환 API - Qwen/vLLM (Fallback)
-    # 주의: Spring AI가 자동으로 /v1을 추가하므로 base-url에 /v1 제외
+    # OpenAI ?환 API - Qwen/vLLM (Fallback)
+    # 주의: Spring AI가 ?동?로 /v1??추????base-url??/v1 ?외
     openai:
       base-url: ${QWEN_API_URL:${env.QWEN_API_URL:http://localhost:8000}}
       api-key: ${QWEN_API_KEY:${env.QWEN_API_KEY:dummy}}
@@ -125,14 +127,32 @@ spring:
           model: ${QWEN_MODEL:${env.QWEN_MODEL:Qwen/Qwen2.5-14B-Instruct-AWQ}}
           temperature: ${env.QWEN_TEMPERATURE:0.7}
 
+    # Embedding - Transformers (ONNX)
+    embedding:
+      transformer:
+        onnx:
+          model-uri: ${env.EMBEDDING_MODEL_ONNX_URI:https://huggingface.co/intfloat/multilingual-e5-small/resolve/main/onnx/model.onnx}
+        tokenizer:
+          uri: ${env.EMBEDDING_TOKENIZER_URI:https://huggingface.co/intfloat/multilingual-e5-small/resolve/main/tokenizer.json}
+        token: ${env.HF_TOKEN:}
+        cache:
+          enabled: true
+
+    # Vector Store - Qdrant (gRPC)
+    vectorstore:
+      qdrant:
+        host: ${env.QDRANT_HOST:localhost}
+        port: ${env.QDRANT_GRPC_PORT:6334}
+        collection-name: ${env.QDRANT_COLLECTION:user_memory}
+
 # ===========================================
-# JWT 설정 - .env 또는 시스템 환경변수에서 로드
+# JWT ?정 - .env ?는 ?스???경변?에??로드
 # ===========================================
 jwt:
   secret: ${JWT:${env.JWT:}}
 
 # ===========================================
-# AWS S3 설정 - .env에서 로드
+# AWS S3 ?정 - .env?서 로드
 # ===========================================
 aws:
   s3:
@@ -143,13 +163,13 @@ aws:
     region: ${env.S3_REGION:ap-northeast-2}
 
 # ===========================================
-# Frontend URL 설정 (CORS) - .env에서 로드
+# Frontend URL ?정 (CORS) - .env?서 로드
 # ===========================================
 frontend:
   url: ${env.FRONTEND_URL:http://localhost:8081}
 
 # ===========================================
-# 채팅 서비스 설정
+# 채팅 ?비???정
 # ===========================================
 chat:
   llm:
@@ -159,9 +179,12 @@ chat:
     max-retries: ${env.LLM_MAX_RETRIES:2}
   prompt:
     max-length: ${env.CHAT_PROMPT_MAX_LENGTH:15}
-    max-length-unit: ${env.CHAT_PROMPT_MAX_LENGTH_UNIT:글자}
+    max-length-unit: ${env.CHAT_PROMPT_MAX_LENGTH_UNIT:??}
+  rag:
+    top-k: ${env.CHAT_RAG_TOP_K:4}
+    max-chars: ${env.CHAT_RAG_MAX_CHARS:800}
 
-# Swagger/OpenAPI 설정
+# Swagger/OpenAPI ?정
 springdoc:
   swagger-ui:
     path: ${env.SWAGGER_UI_PATH:/swagger-ui.html}
@@ -171,7 +194,7 @@ springdoc:
     path: ${env.API_DOCS_PATH:/v3/api-docs}
   default-consumes-media-type: application/json
 
-# Actuator 설정
+# Actuator ?정
 management:
   endpoints:
     web:
@@ -186,3 +209,12 @@ management:
     export:
       prometheus:
         enabled: true
+
+# ===========================================
+# One-time RAG Sync (Startup)
+# ===========================================
+rag:
+  sync:
+    once: ${env.RAG_SYNC_ONCE:false}
+    limit: ${env.RAG_SYNC_LIMIT:0}
+

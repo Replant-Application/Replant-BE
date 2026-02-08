@@ -112,6 +112,12 @@ dependencies {
     
     // Spring AI - OpenAI 호환 (Qwen/vLLM Fallback용)
     implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+
+    // Spring AI - Embeddings (ONNX Transformers)
+    implementation 'org.springframework.ai:spring-ai-starter-model-transformers'
+
+    // Spring AI - Vector Store (Qdrant)
+    implementation 'org.springframework.ai:spring-ai-starter-vector-store-qdrant'
     
     // Prometheus 메트릭 (모니터링)
     implementation 'io.micrometer:micrometer-registry-prometheus'

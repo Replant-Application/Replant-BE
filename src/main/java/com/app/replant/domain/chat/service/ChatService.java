@@ -23,6 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import com.app.replant.domain.rag.enums.UserMemoryCategory;
+import com.app.replant.domain.rag.service.UserMemoryVectorService;
+import org.springframework.ai.document.Document;
+import org.springframework.beans.factory.annotation.Value;
+import java.util.List;
 
 /**
  * 채팅 서비스
@@ -39,6 +44,13 @@ public class ChatService {
     private final UserRepository userRepository;
     private final PromptService promptService;
     private final LLMService llmService;
+    private final UserMemoryVectorService userMemoryVectorService;
+
+    @Value("${chat.rag.top-k:4}")
+    private int ragTopK;
+
+    @Value("${chat.rag.max-chars:800}")
+    private int ragMaxChars;
 
     // 일일 채팅 제한 (Rate Limiting)
     private static final int DAILY_CHAT_LIMIT = 100;
@@ -62,7 +74,10 @@ public class ChatService {
         checkDailyLimit(userId);
 
         // 3. 프롬프트 구성
-        String prompt = promptService.buildPrompt(request.getMessage(), reant, user);
+        String ragContext = buildRagContext(userId, request.getMessage());
+        log.debug("RAG context length={} chars (topK={}, maxChars={})", ragContext.length(), ragTopK, ragMaxChars);
+        String prompt = promptService.buildPromptWithContext(request.getMessage(), ragContext, reant, user);
+        log.debug("Prompt length={} chars", prompt.length());
         String defaultResponse = promptService.getDefaultResponse(reant);
 
         // 4. LLM 호출
@@ -128,6 +143,45 @@ public class ChatService {
     /**
      * 채팅 로그 저장
      */
+    private String buildRagContext(Long userId, String query) {
+        if (ragTopK <= 0 || ragMaxChars <= 0) {
+            log.debug("RAG disabled (topK={}, maxChars={})", ragTopK, ragMaxChars);
+            return "";
+        }
+        List<Document> docs = userMemoryVectorService.searchUserMemory(userId, query, UserMemoryCategory.DIARY, ragTopK);
+        if (docs == null || docs.isEmpty()) {
+            log.debug("RAG no results (userId={})", userId);
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        int used = 0;
+        for (Document doc : docs) {
+            if (doc == null || doc.getText() == null) {
+                continue;
+            }
+            String textLine = doc.getText().trim();
+            if (textLine.isEmpty()) {
+                continue;
+            }
+            String date = doc.getMetadata() != null && doc.getMetadata().get("date") != null
+                    ? doc.getMetadata().get("date").toString()
+                    : null;
+            String line = date == null ? textLine : "[" + date + "] " + textLine;
+            if (sb.length() > 0) {
+                sb.append("
+");
+            }
+            sb.append(line);
+            used++;
+            if (sb.length() >= ragMaxChars) {
+                sb.setLength(ragMaxChars);
+                break;
+            }
+        }
+        log.debug("RAG results used={}/{} (userId={})", used, docs.size(), userId);
+        return sb.toString();
+    }
+
     private ChatLog saveChatLog(User user, Reant reant, String userMessage, LLMService.LLMResult result, String defaultResponse) {
         // AI 응답이 null인 경우 기본 응답 사용
         String aiResponse = result.response();
