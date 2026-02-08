@@ -36,8 +36,11 @@ public class ChatLog extends BaseEntity {
     @JoinColumn(name = "reant_id", nullable = false)
     private Reant reant;
 
-    @Column(name = "user_message", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "user_message", columnDefinition = "TEXT")
     private String userMessage;
+
+    @Column(name = "is_proactive", nullable = false)
+    private Boolean isProactive = false;
 
     @Column(name = "ai_response", nullable = false, columnDefinition = "TEXT")
     private String aiResponse;
@@ -69,7 +72,7 @@ public class ChatLog extends BaseEntity {
     private ChatLog(User user, Reant reant, String userMessage, String aiResponse,
                     LLMProvider llmProvider, String modelName,
                     Integer promptTokens, Integer responseTokens, Integer responseTimeMs,
-                    ChatStatus status, String errorMessage) {
+                    ChatStatus status, String errorMessage, Boolean isProactive) {
         this.user = user;
         this.reant = reant;
         this.userMessage = userMessage;
@@ -81,6 +84,7 @@ public class ChatLog extends BaseEntity {
         this.responseTimeMs = responseTimeMs;
         this.status = status != null ? status : ChatStatus.SUCCESS;
         this.errorMessage = errorMessage;
+        this.isProactive = isProactive != null ? isProactive : false;
     }
 
     /**
