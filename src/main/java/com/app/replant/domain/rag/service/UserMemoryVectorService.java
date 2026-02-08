@@ -93,12 +93,12 @@ public class UserMemoryVectorService {
 
     public List<Document> searchUserMemory(Long userId, String query, UserMemoryCategory category, int topK) {
         FilterExpressionBuilder builder = new FilterExpressionBuilder();
-        FilterExpressionBuilder.Expression filterExpression = category == null
-                ? builder.eq("user_id", userId.toString())
+        String filterExpression = category == null
+                ? builder.eq("user_id", userId.toString()).toString()
                 : builder.and(
                         builder.eq("user_id", userId.toString()),
                         builder.eq("category", category.value())
-                ).build();
+                ).toString();
 
         SearchRequest request = SearchRequest.builder()
                 .query(query)
