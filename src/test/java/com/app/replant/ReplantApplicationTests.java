@@ -4,8 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import com.app.replant.global.config.TestVectorStoreConfig;
 import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import com.app.replant.domain.rag.service.UserMemoryVectorService;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -21,6 +23,9 @@ import org.springframework.test.context.TestPropertySource;
     "app.version.message="
 })
 class ReplantApplicationTests {
+
+    @MockBean
+    private UserMemoryVectorService userMemoryVectorService;
 
     @Test
     void contextLoads() {
