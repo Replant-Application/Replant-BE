@@ -168,8 +168,7 @@ public class ChatService {
                     : null;
             String line = date == null ? textLine : "[" + date + "] " + textLine;
             if (sb.length() > 0) {
-                sb.append("
-");
+                sb.append("\n");
             }
             sb.append(line);
             used++;
