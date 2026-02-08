@@ -51,28 +51,20 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // 개발 환경에서는 모든 Origin 허용 (Android 에뮬레이터 지원)
-        // 프로덕션에서는 특정 도메인만 허용하도록 수정 필요
+        // CORS: 허용 도메인만 명시 (S5122 대응 — 와일드카드 미사용)
         boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev") ||
                        Arrays.asList(environment.getActiveProfiles()).contains("local");
-        
-        if (isDev) {
-            // 개발 환경: 모든 Origin 허용
-            configuration.setAllowedOriginPatterns(Arrays.asList("*"));
-            // 모든 Origin 허용 시 credentials는 false로 설정해야 함
-            configuration.setAllowCredentials(false);
-        } else {
-            // 프로덕션: 특정 도메인만 허용
-            configuration.setAllowedOriginPatterns(Arrays.asList(
+
+        configuration.setAllowedOriginPatterns(Arrays.asList(
                 frontendUrl,
                 "http://localhost:8081",     // React Native Metro 기본 포트
                 "http://localhost:3000",     // 웹 개발 서버
                 "http://127.0.0.1:8081",
                 "http://127.0.0.1:3000",
-                "http://10.0.2.2:*"          // Android Emulator (모든 포트)
-            ));
-            configuration.setAllowCredentials(true);
-        }
+                "http://10.0.2.2:8081",      // Android Emulator
+                "http://10.0.2.2:3000"
+        ));
+        configuration.setAllowCredentials(!isDev);
 
         // 허용할 HTTP 메서드
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
