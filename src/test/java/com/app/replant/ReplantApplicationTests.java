@@ -2,11 +2,14 @@ package com.app.replant;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import com.app.replant.global.config.TestVectorStoreConfig;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TestVectorStoreConfig.class)
 @TestPropertySource(properties = {
     "FRONTEND_URL=http://localhost:8081",
     "GOOGLE_MAIL=test@test.com",

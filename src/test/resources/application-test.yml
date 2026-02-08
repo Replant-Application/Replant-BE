@@ -55,6 +55,8 @@ spring:
   # Redis 자동설정 오류 무시
   autoconfigure:
     exclude:
+      - org.springframework.ai.model.transformers.autoconfigure.TransformersEmbeddingModelAutoConfiguration
+      - org.springframework.ai.vectorstore.qdrant.autoconfigure.QdrantVectorStoreAutoConfiguration
       - org.springframework.boot.actuate.autoconfigure.data.redis.RedisHealthContributorAutoConfiguration
 
   # ===========================================
@@ -74,6 +76,8 @@ spring:
   # Spring AI - LLM 설정 (테스트용 더미 값)
   # ===========================================
   ai:
+    model:
+      embedding: none
     google:
       genai:
         api-key: test-api-key
