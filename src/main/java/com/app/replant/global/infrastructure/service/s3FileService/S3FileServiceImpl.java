@@ -123,8 +123,7 @@ public class S3FileServiceImpl implements S3FileService {
             return true;
 
         } catch (Exception e) {
-            e.printStackTrace();
-
+            log.error("S3 delete failed: fileName={}", fileName, e);
         }
 
         return false;
@@ -160,8 +159,7 @@ public class S3FileServiceImpl implements S3FileService {
             return byteArrayOutputStream.toByteArray();
 
         } catch (Exception e) {
-            e.printStackTrace();
-
+            log.error("S3 download failed: fileName={}", fileName, e);
         }
 
         return null;
