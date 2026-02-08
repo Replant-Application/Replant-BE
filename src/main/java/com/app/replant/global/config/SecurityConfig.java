@@ -26,6 +26,10 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @EnableWebSecurity
 @Configuration
@@ -39,8 +43,14 @@ public class SecurityConfig {
     private final XssProtectionFilter xssProtectionFilter;
     private final Environment environment;
 
-    @Value("${FRONTEND_URL}")
+    @Value("${frontend.url}")
     private String frontendUrl;
+
+    @Value("${cors.extra.origins:}")
+    private String corsExtraOrigins;
+
+    @Value("${csp.connect-src.extras:}")
+    private String cspConnectSrcExtras;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -51,19 +61,19 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // CORS: 허용 도메인만 명시 (S5122 대응 — 와일드카드 미사용)
+        // CORS: 허용 도메인만 명시 (S5122/S1313 — 와일드카드·하드코딩 IP 제거, 설정에서 로드)
         boolean isDev = Arrays.asList(environment.getActiveProfiles()).contains("dev") ||
                        Arrays.asList(environment.getActiveProfiles()).contains("local");
 
-        configuration.setAllowedOriginPatterns(Arrays.asList(
+        List<String> baseOrigins = Arrays.asList(
                 frontendUrl,
-                "http://localhost:8081",     // React Native Metro 기본 포트
-                "http://localhost:3000",     // 웹 개발 서버
-                "http://127.0.0.1:8081",
-                "http://127.0.0.1:3000",
-                "http://10.0.2.2:8081",      // Android Emulator
-                "http://10.0.2.2:3000"
-        ));
+                "http://localhost:8081",
+                "http://localhost:3000"
+        );
+        List<String> extra = (corsExtraOrigins == null || corsExtraOrigins.isBlank())
+                ? Collections.emptyList()
+                : Arrays.stream(corsExtraOrigins.split(",")).map(String::trim).filter(s -> !s.isEmpty()).collect(Collectors.toList());
+        configuration.setAllowedOriginPatterns(Stream.concat(baseOrigins.stream(), extra.stream()).collect(Collectors.toList()));
         configuration.setAllowCredentials(!isDev);
 
         // 허용할 HTTP 메서드
@@ -117,7 +127,7 @@ public class SecurityConfig {
                                         "style-src 'self' 'unsafe-inline'; " +
                                         "img-src 'self' data: https:; " +
                                         "font-src 'self' data:; " +
-                                        "connect-src 'self' http://localhost:* http://127.0.0.1:* " + frontendUrl + "; " +
+                                        "connect-src 'self' " + (cspConnectSrcExtras != null ? cspConnectSrcExtras + " " : "") + frontendUrl + "; " +
                                         "frame-ancestors 'self'")
                         )
                         // X-XSS-Protection header is deprecated; CSP provides better protection
