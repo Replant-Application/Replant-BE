@@ -33,6 +33,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -333,9 +334,21 @@ public class PostService {
 
     public Page<CommentResponse> getComments(Long postId, Pageable pageable, Long currentUserId) {
         findPostById(postId);
-        List<Comment> comments = commentRepository.findParentCommentsByPostIdWithUser(postId);
-        List<CommentResponse> responseList = comments.stream()
-                .map(comment -> CommentResponse.fromWithReplies(comment, currentUserId))
+        // 전체 댓글 조회 후 부모별 자식 맵으로 트리 구성 (대댓글의 대댓글까지 포함)
+        List<Comment> allComments = commentRepository.findAllByPostIdWithUser(postId);
+        Map<Long, List<Comment>> repliesByParentId = allComments.stream()
+                .filter(c -> c.getParent() != null)
+                .collect(Collectors.groupingBy(c -> c.getParent().getId()));
+        repliesByParentId.replaceAll((k, list) -> {
+            list.sort(Comparator.comparing(Comment::getCreatedAt));
+            return list;
+        });
+        List<Comment> roots = allComments.stream()
+                .filter(c -> c.getParent() == null)
+                .sorted(Comparator.comparing(Comment::getCreatedAt))
+                .collect(Collectors.toList());
+        List<CommentResponse> responseList = roots.stream()
+                .map(root -> CommentResponse.fromWithRepliesRecursive(root, repliesByParentId, currentUserId))
                 .collect(Collectors.toList());
 
         int start = (int) pageable.getOffset();
