@@ -1,8 +1,12 @@
 package com.app.replant.domain.usermission.repository;
 
 import com.app.replant.domain.mission.enums.MissionType;
+import com.app.replant.domain.missionset.entity.QTodoList;
+import com.app.replant.domain.missionset.enums.TodoListStatus;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -32,17 +36,25 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
     private static final ZoneId ZONE_SEOUL = ZoneId.of("Asia/Seoul");
 
     /**
-     * 사용자별 미션 목록 조회 - 오늘 + 어제(KST) 할당된 미션 반환
-     *
-     * @param userId 사용자 ID
-     * @param pageable 페이징 정보
-     * @return 오늘+어제(KST) 할당된 ASSIGNED, PENDING, COMPLETED 미션 목록
+     * 사용자별 미션 목록 조회 - 나의 미션 = 현재 진행중인(ACTIVE) 투두리스트 기준만 반환.
+     * 오늘+어제(KST) 할당된 ASSIGNED/PENDING/COMPLETED 중, 해당 날짜에 ACTIVE 투두리스트가 있는 UserMission만 포함.
      */
     @Override
     public Page<UserMission> findByUserIdWithFilters(Long userId, Pageable pageable) {
         LocalDate today = LocalDate.now(ZONE_SEOUL);
-        LocalDateTime startOfYesterday = today.minusDays(1).atStartOfDay();  // 어제 00:00 KST
-        LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();          // 내일 00:00 KST (오늘 23:59:59 포함)
+        LocalDateTime startOfYesterday = today.minusDays(1).atStartOfDay();
+        LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();
+
+        QTodoList todoList = QTodoList.todoList;
+        var hasActiveTodoListOnSameDay = JPAExpressions.selectOne()
+                .from(todoList)
+                .where(
+                        todoList.creator.id.eq(userId),
+                        todoList.todolistStatus.eq(TodoListStatus.ACTIVE),
+                        Expressions.dateTemplate(LocalDate.class, "DATE({0})", todoList.createdAt)
+                                .eq(Expressions.dateTemplate(LocalDate.class, "DATE({0})", userMission.assignedAt))
+                )
+                .exists();
 
         JPAQuery<UserMission> query = queryFactory
                 .selectFrom(userMission)
@@ -53,7 +65,8 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
                                 userMission.status.eq(UserMissionStatus.ASSIGNED)
                                         .or(userMission.status.eq(UserMissionStatus.PENDING))
                                         .or(userMission.status.eq(UserMissionStatus.COMPLETED))
-                        ))
+                        )
+                        .and(hasActiveTodoListOnSameDay))
                 .orderBy(userMission.assignedAt.desc(), userMission.id.desc());
 
         return getPage(query, pageable);
