@@ -474,6 +474,7 @@ public class TodoListService {
         /**
          * 투두리스트 삭제 (Hard Delete)
          * - 진행 중(ACTIVE)인 경우에만 삭제 가능
+         * - 해당 투두리스트에 연결된 UserMission(나의 미션 진행중) 삭제 → 나의 미션에서도 사라지도록
          * - 연관 TodoListLike 삭제 후 TodoList 및 하위 TodoListMission 물리 삭제
          */
         @Transactional
@@ -487,6 +488,25 @@ public class TodoListService {
 
                 if (todoList.getTodolistStatus() != TodoListStatus.ACTIVE) {
                         throw new CustomException(ErrorCode.TODO_LIST_DELETE_ONLY_ACTIVE);
+                }
+
+                // 나의 미션(진행중)에서도 제거: 해당 투두리스트와 같은 날·같은 미션의 ASSIGNED/PENDING UserMission 삭제
+                List<Long> missionIds = todoList.getMissions().stream()
+                                .map(msm -> msm.getMission().getId())
+                                .collect(Collectors.toList());
+                if (!missionIds.isEmpty()) {
+                        ZoneId zone = ZoneId.of("Asia/Seoul");
+                        LocalDate createdDate = todoList.getCreatedAt().atZone(zone).toLocalDate();
+                        LocalDateTime startOfDay = createdDate.atStartOfDay();
+                        LocalDateTime endOfDay = createdDate.plusDays(1).atStartOfDay();
+                        List<UserMission> toDelete = userMissionRepository.findByUser_IdAndMission_IdInAndStatusInAndAssignedAtBetween(
+                                        todoList.getCreator().getId(),
+                                        missionIds,
+                                        List.of(UserMissionStatus.ASSIGNED, UserMissionStatus.PENDING),
+                                        startOfDay,
+                                        endOfDay);
+                        userMissionRepository.deleteAll(toDelete);
+                        log.info("투두리스트 삭제: 연관 UserMission {}건 삭제 (나의 미션에서 제거)", toDelete.size());
                 }
 
                 todoListLikeRepository.deleteByTodoList(todoList);
