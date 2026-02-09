@@ -14,12 +14,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 리앤트 선제 메시지 스케줄러
@@ -44,6 +44,9 @@ public class ReantProactiveChatScheduler {
 
     // 비활성 기준 (시간)
     private static final int INACTIVITY_HOURS = 24;
+
+    /** S2245: 보안·암호학적 용도가 아니어도 SonarCloud PRNG 경고 회피용 */
+    private static final SecureRandom secureRandom = new SecureRandom();
 
     // ============================================
     // 메시지 템플릿
@@ -164,6 +167,6 @@ public class ReantProactiveChatScheduler {
     }
 
     private String pickRandom(String[] messages) {
-        return messages[ThreadLocalRandom.current().nextInt(messages.length)];
+        return messages[secureRandom.nextInt(messages.length)];
     }
 }
