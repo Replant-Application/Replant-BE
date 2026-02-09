@@ -7,6 +7,7 @@ import com.app.replant.domain.missionset.entity.TodoList;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.enums.MissionSource;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
+import com.app.replant.domain.missionset.repository.TodoListLikeRepository;
 import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
 import com.app.replant.domain.user.entity.User;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
 public class TodoListService {
 
         private final TodoListRepository todoListRepository;
+        private final TodoListLikeRepository todoListLikeRepository;
         private final TodoListMissionRepository todoListMissionRepository;
         private final MissionRepository missionRepository;
         private final UserRepository userRepository;
@@ -470,20 +472,26 @@ public class TodoListService {
 
 
         /**
-         * 투두리스트 삭제
+         * 투두리스트 삭제 (Hard Delete)
+         * - 진행 중(ACTIVE)인 경우에만 삭제 가능
+         * - 연관 TodoListLike 삭제 후 TodoList 및 하위 TodoListMission 물리 삭제
          */
         @Transactional
         public void deleteTodoList(Long todoListId, Long userId) {
-                TodoList todoList = todoListRepository.findById(todoListId)
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
 
-                // 본인만 삭제 가능
                 if (!todoList.isCreator(userId)) {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
-                todoList.setActive(false);
-                log.info("투두리스트 삭제 완료: todoListId={}, userId={}", todoListId, userId);
+                if (todoList.getTodolistStatus() != TodoListStatus.ACTIVE) {
+                        throw new CustomException(ErrorCode.TODO_LIST_DELETE_ONLY_ACTIVE);
+                }
+
+                todoListLikeRepository.deleteByTodoList(todoList);
+                todoListRepository.delete(todoList);
+                log.info("투두리스트 삭제 완료 (Hard Delete): todoListId={}, userId={}", todoListId, userId);
         }
 
         /**
