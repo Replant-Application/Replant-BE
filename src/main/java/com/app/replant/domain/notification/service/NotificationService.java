@@ -101,6 +101,7 @@ public class NotificationService {
 
         Long userId = user.getId();
         boolean isOnline = redisUserOnlineRepository.isOnline(userId);
+        log.info("[알림] 온라인 여부 - userId: {}, isOnline: {} (true=SSE 시도, false=FCM만)", userId, isOnline);
 
         if (isOnline) {
             // 사용자가 접속 중 (Redis 기준 online)

@@ -54,8 +54,12 @@ public class UserMissionService {
     private final PostRepository postRepository;
 
     public Page<UserMissionResponse> getUserMissions(Long userId, Pageable pageable) {
-        return userMissionRepository.findByUserIdWithFilters(userId, pageable)
-                .map(UserMissionResponse::from);
+        log.info("[나의 미션] API 요청 - userId: {}, page: {}, size: {}",
+                userId, pageable.getPageNumber(), pageable.getPageSize());
+        Page<UserMission> missionPage = userMissionRepository.findByUserIdWithFilters(userId, pageable);
+        log.info("[나의 미션] API 응답 - userId: {}, 총 {}건 (ACTIVE 투두리스트 기준)",
+                userId, missionPage.getTotalElements());
+        return missionPage.map(UserMissionResponse::from);
     }
 
     public UserMissionResponse getUserMission(Long userMissionId, Long userId) {

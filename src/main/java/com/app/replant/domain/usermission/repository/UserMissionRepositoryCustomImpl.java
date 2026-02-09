@@ -10,6 +10,7 @@ import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.support.PageableExecutionUtils;
@@ -28,6 +29,7 @@ import static com.app.replant.domain.mission.entity.QMission.mission;
  * UserMissionRepository Custom Implementation
  * QueryDSL을 사용한 복잡한 쿼리 구현
  */
+@Slf4j
 @RequiredArgsConstructor
 public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCustom {
 
@@ -41,6 +43,9 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
      */
     @Override
     public Page<UserMission> findByUserIdWithFilters(Long userId, Pageable pageable) {
+        log.info("[나의 미션] 조회 (ACTIVE 투두리스트 기준) - userId: {}, page: {}, size: {}",
+                userId, pageable.getPageNumber(), pageable.getPageSize());
+
         LocalDate today = LocalDate.now(ZONE_SEOUL);
         LocalDateTime startOfYesterday = today.minusDays(1).atStartOfDay();
         LocalDateTime endOfToday = today.plusDays(1).atStartOfDay();
@@ -69,7 +74,10 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
                         .and(hasActiveTodoListOnSameDay))
                 .orderBy(userMission.assignedAt.desc(), userMission.id.desc());
 
-        return getPage(query, pageable);
+        Page<UserMission> page = getPage(query, pageable);
+        log.info("[나의 미션] 조회 결과 - userId: {}, 총 {}건, 현재 페이지 {}건",
+                userId, page.getTotalElements(), page.getNumberOfElements());
+        return page;
     }
 
     @Override

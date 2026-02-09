@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -24,6 +25,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "UserMission", description = "내 미션 API - 사용자에게 할당된 미션 관리")
+@Slf4j
 @RestController
 @RequestMapping("/api/missions/my")
 @RequiredArgsConstructor
@@ -84,7 +86,8 @@ public class UserMissionController {
                                 );
                         }
                 }
-                
+
+                log.info("[나의 미션] 목록 조회 API - userId: {}", userId);
                 Page<UserMissionResponse> missions = userMissionService.getUserMissions(userId, validatedPageable);
                 return ApiResponse.success(missions);
         }
