@@ -16,6 +16,7 @@ import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.badge.repository.UserBadgeRepository;
+import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,7 @@ public class TodoListService {
         private final UserRepository userRepository;
         private final UserMissionRepository userMissionRepository;
         private final UserBadgeRepository userBadgeRepository;
+        private final PostRepository postRepository;
 
         private static final int RANDOM_OFFICIAL_COUNT = 3; // 필수 공식 미션 개수
 
@@ -136,7 +138,8 @@ public class TodoListService {
         }
 
         /**
-         * 공개 투두리스트 상세 조회 (공개된 것만 조회 가능)
+         * 공개 투두리스트 상세 조회 (공개된 것만 조회 가능).
+         * 미션별로 작성자(creator)가 해당 미션에 대해 쓴 인증 게시글이 있으면 verificationPostId를 채워서 반환.
          */
         public TodoListDto.DetailResponse getPublicTodoListDetail(Long todoListId, Long userId) {
                 TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
@@ -144,7 +147,20 @@ public class TodoListService {
                 if (!Boolean.TRUE.equals(todoList.getIsPublic())) {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
-                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
+                Long creatorId = todoList.getCreator() != null ? todoList.getCreator().getId() : null;
+                List<TodoListDto.TodoMissionInfo> missionInfos = new java.util.ArrayList<>();
+                if (todoList.getMissions() != null) {
+                        for (TodoListMission msm : todoList.getMissions()) {
+                                Long verificationPostId = null;
+                                if (creatorId != null && msm.getMission() != null) {
+                                        verificationPostId = postRepository.findVerificationPostByUserIdAndMissionId(creatorId, msm.getMission().getId())
+                                                .map(p -> p.getId())
+                                                .orElse(null);
+                                }
+                                missionInfos.add(TodoListDto.TodoMissionInfo.fromPublic(msm, verificationPostId));
+                        }
+                }
+                return TodoListDto.DetailResponse.fromPublicDetail(todoList, missionInfos);
         }
         
         /**
