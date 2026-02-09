@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
@@ -48,7 +49,7 @@ public class VersionController {
     @Operation(summary = "앱 버전 체크", description = "현재 앱 버전과 서버의 최소/최신 버전을 비교하여 업데이트 필요 여부를 반환합니다.")
     @PostMapping("/check")
     public ApiResponse<VersionCheckResponse> checkVersion(
-            @RequestBody VersionCheckRequest request) {
+            @Valid @RequestBody VersionCheckRequest request) {
         log.info("[Version] 버전 체크 요청 - currentVersion: {}", request.getCurrentVersion());
         
         // 항상 기본 메시지 사용 (인코딩 문제 방지)
