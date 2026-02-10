@@ -50,6 +50,7 @@ jobs:
           echo "S3_SECRET_KEY=${{ secrets.S3_SECRET_KEY }}" >> .env
           echo "S3_CLIENT=${{ secrets.S3_CLIENT }}" >> .env
           echo "S3_REGION=${{ secrets.S3_REGION }}" >> .env
+          echo "S3_CLOUDFRONT_DOMAIN=${{ secrets.S3_CLOUDFRONT_DOMAIN }}" >> .env
           echo "GOOGLE_MAIL=${{ secrets.GOOGLE_MAIL }}" >> .env
           echo "GOOGLE_APP_PASSWORD=${{ secrets.GOOGLE_APP_PASSWORD }}" >> .env
           echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
@@ -362,6 +363,7 @@ jobs:
           S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
           S3_CLIENT: ${{ secrets.S3_CLIENT }}
           S3_REGION: ${{ secrets.S3_REGION }}
+          S3_CLOUDFRONT_DOMAIN: ${{ secrets.S3_CLOUDFRONT_DOMAIN }}
           GOOGLE_MAIL: ${{ secrets.GOOGLE_MAIL }}
           GOOGLE_APP_PASSWORD: ${{ secrets.GOOGLE_APP_PASSWORD }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
@@ -410,6 +412,7 @@ jobs:
           S3_SECRET_KEY=${S3_SECRET_KEY}
           S3_CLIENT=${S3_CLIENT}
           S3_REGION=${S3_REGION}
+          S3_CLOUDFRONT_DOMAIN=${S3_CLOUDFRONT_DOMAIN}
           GOOGLE_MAIL=${GOOGLE_MAIL}
           GOOGLE_APP_PASSWORD=${GOOGLE_APP_PASSWORD}
           FRONTEND_URL=${FRONTEND_URL}
