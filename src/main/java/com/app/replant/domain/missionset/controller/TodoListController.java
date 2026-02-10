@@ -123,7 +123,7 @@ public class TodoListController {
         public ApiResponse<Page<TodoListDto.SimpleResponse>> getPublicTodoLists(
                         @RequestParam(required = false, defaultValue = "popular") String sortBy,
                         @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-                        @AuthenticationPrincipal(required = false) Long userId) {
+                        @AuthenticationPrincipal Long userId) {
                 Page<TodoListDto.SimpleResponse> response = todoListService.getPublicTodoLists(pageable, sortBy, userId);
                 return ApiResponse.success(response);
         }
@@ -134,7 +134,7 @@ public class TodoListController {
                         @RequestParam(required = false) String keyword,
                         @RequestParam(required = false, defaultValue = "popular") String sortBy,
                         @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
-                        @AuthenticationPrincipal(required = false) Long userId) {
+                        @AuthenticationPrincipal Long userId) {
                 Page<TodoListDto.SimpleResponse> response = todoListService.searchPublicTodoLists(keyword, pageable, sortBy, userId);
                 return ApiResponse.success(response);
         }
