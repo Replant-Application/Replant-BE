@@ -109,6 +109,7 @@ aws:
     secretKey: test-secret-key
     client: test-client
     region: ap-northeast-2
+    cloudfront-domain: test-cloudfront-domain.net
 
 # ===========================================
 # Frontend URL 설정
@@ -170,10 +171,3 @@ cors:
 csp:
   connect-src:
     extras: http://localhost:* http://127.0.0.1:*
-
-# ===========================================
-# AWS S3 CloudFront 설정 (테스트용)
-# ===========================================
-aws:
-  s3:
-    cloudfront-domain: test-cloudfront-domain.net
