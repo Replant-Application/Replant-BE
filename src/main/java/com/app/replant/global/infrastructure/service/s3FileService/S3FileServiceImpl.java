@@ -26,6 +26,9 @@ public class S3FileServiceImpl implements S3FileService {
     @Value("${aws.s3.bucket}")
     private String bucket;
 
+    @Value("${aws.s3.cloudfront-domain}")
+    private String cloudfrontDomain;
+
     public S3FileServiceImpl(
             @Value("${aws.s3.accessKey}") String accessKey,
             @Value("${aws.s3.secretKey}") String secretKey,
@@ -97,8 +100,8 @@ public class S3FileServiceImpl implements S3FileService {
         // ?�일 ?�로??
         s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(multipartFile.getInputStream(), multipartFile.getSize()));
 
-        // ?�로?�한 ?�일??URL
-        String fileUrl = s3Client.utilities().getUrl(GetUrlRequest.builder().bucket(bucket).key(fileName).build()).toString();
+        // CloudFront 도메인을 사용한 URL 생성
+        String fileUrl = "https://" + cloudfrontDomain + "/" + fileName;
 
         // ?�로?�한 ?�일??URL �?Name 반환
         return UploadedFileInfoDto.builder()

@@ -141,6 +141,7 @@ aws:
     secretKey: ${env.S3_SECRET_KEY}
     client: ${env.S3_CLIENT:cloud5-s3}
     region: ${env.S3_REGION:ap-northeast-2}
+    cloudfront-domain: ${env.S3_CLOUDFRONT_DOMAIN}
 
 # ===========================================
 # Frontend URL 설정 (CORS) - .env에서 로드
