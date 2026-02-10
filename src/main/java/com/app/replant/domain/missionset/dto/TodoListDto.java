@@ -297,13 +297,15 @@ public class TodoListDto {
 
         public static TodoMissionInfo from(TodoListMission msm) {
             Mission mission = msm.getMission();
+            String missionTypeStr = mission != null && mission.getMissionType() != null ? mission.getMissionType().name() : "UNKNOWN";
+            String verificationTypeStr = mission != null && mission.getVerificationType() != null ? mission.getVerificationType().name() : "UNKNOWN";
             return TodoMissionInfo.builder()
                     .id(msm.getId())
-                    .missionId(mission.getId())
-                    .title(mission.getTitle())
-                    .description(mission.getDescription())
-                    .missionType(mission.getMissionType().name())
-                    .verificationType(mission.getVerificationType().name())
+                    .missionId(mission != null ? mission.getId() : null)
+                    .title(mission != null ? mission.getTitle() : null)
+                    .description(mission != null ? mission.getDescription() : null)
+                    .missionType(missionTypeStr)
+                    .verificationType(verificationTypeStr)
                     .displayOrder(msm.getDisplayOrder())
                     .isCompleted(msm.getIsCompleted() != null ? msm.getIsCompleted() : false)
                     .completedAt(msm.getCompletedAt())
@@ -350,13 +352,15 @@ public class TodoListDto {
                 }
             }
             
+            String missionTypeStr = mission.getMissionType() != null ? mission.getMissionType().name() : "UNKNOWN";
+            String verificationTypeStr = mission.getVerificationType() != null ? mission.getVerificationType().name() : "UNKNOWN";
             return TodoMissionInfo.builder()
                     .id(msm.getId())
                     .missionId(mission.getId())
                     .title(mission.getTitle())
                     .description(mission.getDescription())
-                    .missionType(mission.getMissionType().name())
-                    .verificationType(mission.getVerificationType().name())
+                    .missionType(missionTypeStr)
+                    .verificationType(verificationTypeStr)
                     .displayOrder(msm.getDisplayOrder())
                     .isCompleted(msm.getIsCompleted() != null ? msm.getIsCompleted() : false)
                     .completedAt(msm.getCompletedAt())
@@ -413,13 +417,15 @@ public class TodoListDto {
                         .verificationPostId(verificationPostId)
                         .build();
             }
+            String mType = mission.getMissionType() != null ? mission.getMissionType().name() : "UNKNOWN";
+            String vType = mission.getVerificationType() != null ? mission.getVerificationType().name() : "UNKNOWN";
             return TodoMissionInfo.builder()
                     .id(msm.getId())
                     .missionId(mission.getId())
                     .title(mission.getTitle())
                     .description(mission.getDescription())
-                    .missionType(mission.getMissionType().name())
-                    .verificationType(mission.getVerificationType().name())
+                    .missionType(mType)
+                    .verificationType(vType)
                     .displayOrder(msm.getDisplayOrder())
                     .isCompleted(msm.getIsCompleted() != null && msm.getIsCompleted())
                     .completedAt(msm.getCompletedAt())
@@ -445,13 +451,16 @@ public class TodoListDto {
         private Integer expReward;
 
         public static MissionSimpleResponse from(Mission mission) {
+            String mType = mission.getMissionType() != null ? mission.getMissionType().name() : "UNKNOWN";
+            String vType = mission.getVerificationType() != null ? mission.getVerificationType().name() : "UNKNOWN";
+            String cat = mission.getCategory() != null ? mission.getCategory().name() : "UNKNOWN";
             return MissionSimpleResponse.builder()
                     .id(mission.getId())
                     .title(mission.getTitle())
                     .description(mission.getDescription())
-                    .missionType(mission.getMissionType().name())
-                    .verificationType(mission.getVerificationType().name())
-                    .category(mission.getCategory().name())
+                    .missionType(mType)
+                    .verificationType(vType)
+                    .category(cat)
                     .expReward(mission.isCustomMission() ? 0 : mission.getExpReward())
                     .build();
         }

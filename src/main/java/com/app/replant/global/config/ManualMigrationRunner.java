@@ -237,7 +237,27 @@ public class ManualMigrationRunner implements CommandLineRunner {
         log.info("=== 수동 마이그레이션 종료 ===");
     }
 
+    /**
+     * SQL 식별자(테이블/컬럼/인덱스 이름)로 허용되는 문자만 포함하는지 검증.
+     * SQL 인젝션 방지를 위해 동적 쿼리에 사용 전 호출한다.
+     */
+    private static boolean isValidSqlIdentifier(String s) {
+        if (s == null || s.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (!Character.isLetterOrDigit(c) && c != '_') {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private boolean columnExists(Statement stmt, String tableName, String columnName) {
+        if (!isValidSqlIdentifier(tableName) || !isValidSqlIdentifier(columnName)) {
+            return false;
+        }
         try {
             ResultSet rs = stmt.executeQuery(
                 "SELECT COUNT(*) FROM information_schema.COLUMNS " +
@@ -254,6 +274,9 @@ public class ManualMigrationRunner implements CommandLineRunner {
     }
 
     private boolean tableExists(Statement stmt, String tableName) {
+        if (!isValidSqlIdentifier(tableName)) {
+            return false;
+        }
         try {
             ResultSet rs = stmt.executeQuery(
                 "SELECT COUNT(*) FROM information_schema.TABLES " +
@@ -269,6 +292,9 @@ public class ManualMigrationRunner implements CommandLineRunner {
     }
 
     private boolean indexExists(Statement stmt, String tableName, String indexName) {
+        if (!isValidSqlIdentifier(tableName) || !isValidSqlIdentifier(indexName)) {
+            return false;
+        }
         try {
             ResultSet rs = stmt.executeQuery(
                 "SELECT COUNT(*) FROM information_schema.STATISTICS " +
