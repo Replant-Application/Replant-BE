@@ -36,7 +36,7 @@ public class ChatLog extends BaseEntity {
     @JoinColumn(name = "reant_id", nullable = false)
     private Reant reant;
 
-    @Column(name = "user_message", columnDefinition = "TEXT")
+    @Column(name = "user_message", nullable = true, columnDefinition = "TEXT")
     private String userMessage;
 
     @Column(name = "is_proactive", nullable = false)

@@ -140,6 +140,19 @@ public class UserMissionController {
                 return ApiResponse.success(mission);
         }
 
+        @Operation(summary = "커스텀 미션 취소", description = "커스텀 미션을 취소합니다. COMPLETED 상태인 경우 ASSIGNED로 상태 변경(인증 취소), ASSIGNED 상태인 경우 삭제(내 미션에서 제거)합니다.")
+        @PutMapping("/cancel-custom/{missionId}")
+        public ApiResponse<UserMissionResponse> cancelCustomMission(
+                        @Parameter(description = "미션 ID (Mission ID)", example = "451") @PathVariable Long missionId,
+                        @AuthenticationPrincipal Long userId) {
+                UserMissionResponse response = userMissionService.cancelCustomMission(userId, missionId);
+                // 삭제된 경우(ASSIGNED 상태였던 경우) 204 반환, 인증 취소된 경우(COMPLETED -> ASSIGNED) 200 반환
+                if (response == null) {
+                        return ApiResponse.success(null);
+                }
+                return ApiResponse.success(response);
+        }
+
         @GetMapping("/history")
         @Operation(summary = "미션 완료 이력 조회", description = "완료한 미션의 이력을 조회합니다.")
         public ApiResponse<Page<UserMissionResponse>> getMissionHistory(

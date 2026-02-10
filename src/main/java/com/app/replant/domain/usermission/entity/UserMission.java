@@ -2,6 +2,8 @@ package com.app.replant.domain.usermission.entity;
 
 import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.enums.MissionType;
+import com.app.replant.domain.missionset.entity.TodoList;
+import com.app.replant.domain.spontaneousmission.entity.SpontaneousMission;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import jakarta.persistence.*;
@@ -33,6 +35,16 @@ public class UserMission {
     @JoinColumn(name = "mission_id")
     private Mission mission;
 
+    // 돌발 미션 참조 (spontaneous_mission 테이블)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "spontaneous_mission_id")
+    private SpontaneousMission spontaneousMission;
+
+    // 투두리스트 참조
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "todo_list_id")
+    private TodoList todoList;
+
     // 미션 타입 구분 (OFFICIAL / CUSTOM)
     @Enumerated(EnumType.STRING)
     @Column(name = "mission_type")
@@ -51,11 +63,21 @@ public class UserMission {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @PrePersist
+    protected void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
+    }
+
     @Builder
-    private UserMission(User user, Mission mission, MissionType missionType,
+    private UserMission(User user, Mission mission, SpontaneousMission spontaneousMission, 
+            TodoList todoList, MissionType missionType,
             LocalDateTime assignedAt, LocalDateTime dueDate, UserMissionStatus status) {
         this.user = user;
         this.mission = mission;
+        this.spontaneousMission = spontaneousMission;
+        this.todoList = todoList;
 
         // missionType 결정 로직
         if (missionType != null) {
@@ -100,11 +122,11 @@ public class UserMission {
     }
     
     /**
-     * 돌발 미션 여부 확인 (mission이 null인 경우)
-     * 돌발 미션은 별도의 SpontaneousMission 엔티티로 관리되므로 mission이 null입니다.
+     * 돌발 미션 여부 확인 (spontaneousMission이 있는 경우)
+     * 돌발 미션은 별도의 SpontaneousMission 엔티티로 관리됩니다.
      */
     public boolean isSpontaneousMission() {
-        return this.mission == null;
+        return this.spontaneousMission != null;
     }
 
     /**

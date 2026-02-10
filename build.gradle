@@ -96,6 +96,8 @@ dependencies {
 
     // (선택) 캐시 기능 활성화용
     implementation 'org.springframework.boot:spring-boot-starter-cache'
+    // Caffeine 인메모리 캐시 (UserDetail 캐싱용)
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
     // Rate Limiting (Bucket4j)
     implementation 'com.bucket4j:bucket4j-core:8.7.0'

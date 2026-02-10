@@ -5,6 +5,7 @@ import com.app.replant.domain.mission.enums.*;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -70,6 +71,19 @@ public class MissionResponse {
     }
 
     public static MissionResponse from(Mission mission, boolean isAttempted, boolean isCompleted, Long participantCount) {
+        // ageRanges를 안전하게 복사 (LazyInitializationException 방지)
+        List<AgeRange> ageRanges = new ArrayList<>();
+        try {
+            List<AgeRange> originalAgeRanges = mission.getAgeRanges();
+            if (originalAgeRanges != null) {
+                // 명시적으로 접근하여 초기화 시도 (세션이 열려있으면 초기화됨)
+                ageRanges = new ArrayList<>(originalAgeRanges);
+            }
+        } catch (org.hibernate.LazyInitializationException e) {
+            // 세션이 닫혀있으면 빈 리스트로 설정
+            ageRanges = new ArrayList<>();
+        }
+        
         MissionResponseBuilder builder = MissionResponse.builder()
                 .id(mission.getId())
                 .missionType(mission.getMissionType())
@@ -86,7 +100,7 @@ public class MissionResponse {
                 .participantCount(participantCount)
                 // 사용자 맞춤 필드
                 .worryType(mission.getWorryType())
-                .ageRanges(mission.getAgeRanges())
+                .ageRanges(ageRanges)
                 .genderType(mission.getGenderType())
                 .regionType(mission.getRegionType())
                 .placeType(mission.getPlaceType())
@@ -118,6 +132,19 @@ public class MissionResponse {
     }
 
     public static MissionResponse from(Mission mission, long reviewCount, boolean isAttempted, boolean isCompleted, Long participantCount) {
+        // ageRanges를 안전하게 복사 (LazyInitializationException 방지)
+        List<AgeRange> ageRanges = new ArrayList<>();
+        try {
+            List<AgeRange> originalAgeRanges = mission.getAgeRanges();
+            if (originalAgeRanges != null) {
+                // 명시적으로 접근하여 초기화 시도 (세션이 열려있으면 초기화됨)
+                ageRanges = new ArrayList<>(originalAgeRanges);
+            }
+        } catch (org.hibernate.LazyInitializationException e) {
+            // 세션이 닫혀있으면 빈 리스트로 설정
+            ageRanges = new ArrayList<>();
+        }
+        
         MissionResponseBuilder builder = MissionResponse.builder()
                 .id(mission.getId())
                 .missionType(mission.getMissionType())
@@ -135,7 +162,7 @@ public class MissionResponse {
                 .participantCount(participantCount)
                 // 사용자 맞춤 필드
                 .worryType(mission.getWorryType())
-                .ageRanges(mission.getAgeRanges())
+                .ageRanges(ageRanges)
                 .genderType(mission.getGenderType())
                 .regionType(mission.getRegionType())
                 .placeType(mission.getPlaceType())

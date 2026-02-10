@@ -43,4 +43,9 @@ public interface UserBadgeRepository extends JpaRepository<UserBadge, Long> {
      * UserMission으로 배지 조회 (인증 게시글 삭제 시 배지 삭제용)
      */
     Optional<UserBadge> findByUserMissionId(Long userMissionId);
+
+    /**
+     * 사용자별 획득한 배지 수 조회 (통계용)
+     */
+    long countByUserId(Long userId);
 }

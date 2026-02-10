@@ -225,6 +225,11 @@ public class ManualMigrationRunner implements CommandLineRunner {
             executeV39Migration(conn);
             log.info("V39 마이그레이션 완료");
 
+            // V40: chat_log 테이블의 user_message 컬럼을 nullable로 변경 (선제 메시지 지원)
+            log.info("V40 마이그레이션 실행 중: chat_log.user_message 컬럼 nullable 변경...");
+            executeV40Migration(conn);
+            log.info("V40 마이그레이션 완료");
+
         } catch (Exception e) {
             log.error("마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
         }
@@ -246,6 +251,71 @@ public class ManualMigrationRunner implements CommandLineRunner {
             log.warn("컬럼 존재 여부 확인 실패: {}", e.getMessage());
         }
         return false;
+    }
+
+    private boolean tableExists(Statement stmt, String tableName) {
+        try {
+            ResultSet rs = stmt.executeQuery(
+                "SELECT COUNT(*) FROM information_schema.TABLES " +
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '" + tableName + "'"
+            );
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (Exception e) {
+            log.warn("테이블 존재 여부 확인 실패: {}", e.getMessage());
+        }
+        return false;
+    }
+
+    private boolean indexExists(Statement stmt, String tableName, String indexName) {
+        try {
+            ResultSet rs = stmt.executeQuery(
+                "SELECT COUNT(*) FROM information_schema.STATISTICS " +
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '" + tableName + "' " +
+                "AND INDEX_NAME = '" + indexName + "'"
+            );
+            if (rs.next()) {
+                return rs.getInt(1) > 0;
+            }
+        } catch (Exception e) {
+            log.warn("인덱스 존재 여부 확인 실패: {}", e.getMessage());
+        }
+        return false;
+    }
+
+    private String getAlterTableSqlForColumn(String tableName, String columnName) {
+        // 컬럼 타입 정의 (위치 지정 없이 추가 - 더 안전함)
+        switch (columnName) {
+            case "user_id":
+                return "ALTER TABLE " + tableName + " ADD COLUMN user_id BIGINT NOT NULL";
+            case "mission_type":
+                return "ALTER TABLE " + tableName + " ADD COLUMN mission_type VARCHAR(20) NOT NULL";
+            case "title":
+                return "ALTER TABLE " + tableName + " ADD COLUMN title VARCHAR(100) NOT NULL DEFAULT '돌발 미션'";
+            case "description":
+                return "ALTER TABLE " + tableName + " ADD COLUMN description TEXT NOT NULL DEFAULT '돌발 미션입니다.'";
+            case "assigned_at":
+                return "ALTER TABLE " + tableName + " ADD COLUMN assigned_at DATETIME NOT NULL";
+            case "deadline_at":
+                return "ALTER TABLE " + tableName + " ADD COLUMN deadline_at DATETIME NOT NULL";
+            case "deadline_minutes":
+                return "ALTER TABLE " + tableName + " ADD COLUMN deadline_minutes INT NULL";
+            case "status":
+                return "ALTER TABLE " + tableName + " ADD COLUMN status VARCHAR(20) NOT NULL";
+            case "verified_at":
+                return "ALTER TABLE " + tableName + " ADD COLUMN verified_at DATETIME NULL";
+            case "post_id":
+                return "ALTER TABLE " + tableName + " ADD COLUMN post_id BIGINT NULL";
+            case "meal_log_id":
+                return "ALTER TABLE " + tableName + " ADD COLUMN meal_log_id BIGINT NULL";
+            case "exp_reward":
+                return "ALTER TABLE " + tableName + " ADD COLUMN exp_reward INT NOT NULL DEFAULT 10";
+            case "created_at":
+                return "ALTER TABLE " + tableName + " ADD COLUMN created_at DATETIME NOT NULL";
+            default:
+                return null;
+        }
     }
 
     private void executeV6Migration(Connection conn) throws Exception {
@@ -691,21 +761,6 @@ public class ManualMigrationRunner implements CommandLineRunner {
         }
     }
 
-    private boolean tableExists(Statement stmt, String tableName) {
-        try {
-            ResultSet rs = stmt.executeQuery(
-                "SELECT COUNT(*) FROM information_schema.TABLES " +
-                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '" + tableName + "'"
-            );
-            if (rs.next()) {
-                return rs.getInt(1) > 0;
-            }
-        } catch (Exception e) {
-            log.warn("테이블 존재 여부 확인 실패: {}", e.getMessage());
-        }
-        return false;
-    }
-
     /**
      * 삭제된 테이블을 참조하는 고아 외래키 제거
      */
@@ -866,6 +921,12 @@ public class ManualMigrationRunner implements CommandLineRunner {
                     "ALTER TABLE `user_mission` ADD COLUMN `is_spontaneous` BOOLEAN NOT NULL DEFAULT FALSE"
                 );
                 log.info("V29 마이그레이션: user_mission.is_spontaneous 컬럼 추가 완료");
+            } else {
+                // 컬럼이 이미 존재하는 경우 기본값이 없을 수 있으므로 기본값 추가
+                executeIgnore(stmt,
+                    "ALTER TABLE `user_mission` MODIFY COLUMN `is_spontaneous` BOOLEAN NOT NULL DEFAULT FALSE"
+                );
+                log.info("V29 마이그레이션: user_mission.is_spontaneous 컬럼 기본값 설정 완료");
             }
 
             log.info("V29 마이그레이션: UserMission 테이블 돌발 미션 구분 컬럼 추가 완료");
@@ -1109,6 +1170,8 @@ public class ManualMigrationRunner implements CommandLineRunner {
                     "`id` BIGINT NOT NULL AUTO_INCREMENT, " +
                     "`user_id` BIGINT NOT NULL, " +
                     "`mission_type` VARCHAR(20) NOT NULL, " +
+                    "`title` VARCHAR(100) NOT NULL, " +
+                    "`description` TEXT NOT NULL, " +
                     "`assigned_at` DATETIME NOT NULL, " +
                     "`deadline_at` DATETIME NOT NULL, " +
                     "`status` VARCHAR(20) NOT NULL, " +
@@ -1129,6 +1192,25 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V37 마이그레이션: spontaneous_mission 테이블 생성 완료");
             } else {
                 log.info("V37 마이그레이션: spontaneous_mission 테이블이 이미 존재합니다.");
+                
+                // title과 description 컬럼이 없으면 추가
+                if (!columnExists(stmt, "spontaneous_mission", "title")) {
+                    try {
+                        stmt.execute("ALTER TABLE `spontaneous_mission` ADD COLUMN `title` VARCHAR(100) NOT NULL DEFAULT '돌발 미션'");
+                        log.info("V37 마이그레이션: title 컬럼 추가 완료");
+                    } catch (SQLException e) {
+                        log.warn("V37 마이그레이션: title 컬럼 추가 실패: {}", e.getMessage());
+                    }
+                }
+                
+                if (!columnExists(stmt, "spontaneous_mission", "description")) {
+                    try {
+                        stmt.execute("ALTER TABLE `spontaneous_mission` ADD COLUMN `description` TEXT NOT NULL DEFAULT '돌발 미션입니다.'");
+                        log.info("V37 마이그레이션: description 컬럼 추가 완료");
+                    } catch (SQLException e) {
+                        log.warn("V37 마이그레이션: description 컬럼 추가 실패: {}", e.getMessage());
+                    }
+                }
             }
         }
     }
@@ -1138,6 +1220,49 @@ public class ManualMigrationRunner implements CommandLineRunner {
      */
     private void executeV38Migration(Connection conn) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
+            // spontaneous_mission 테이블이 존재하는지 확인
+            boolean tableExists = tableExists(stmt, "spontaneous_mission");
+            
+            if (!tableExists) {
+                log.info("V38 마이그레이션: spontaneous_mission 테이블이 없습니다. V37 마이그레이션을 먼저 실행해야 합니다.");
+                return;
+            }
+            
+            // 필요한 컬럼들이 있는지 확인하고 없으면 추가
+            String[] requiredColumns = {
+                "user_id", "mission_type", "title", "description", "assigned_at", "deadline_at", "deadline_minutes", "status", 
+                "verified_at", "post_id", "meal_log_id", "exp_reward", "created_at"
+            };
+            
+            for (String columnName : requiredColumns) {
+                if (!columnExists(stmt, "spontaneous_mission", columnName)) {
+                    log.info("V38 마이그레이션: spontaneous_mission 테이블에 {} 컬럼이 없습니다. 컬럼 추가 중...", columnName);
+                    try {
+                        String alterSql = getAlterTableSqlForColumn("spontaneous_mission", columnName);
+                        if (alterSql != null) {
+                            stmt.execute(alterSql);
+                            log.info("V38 마이그레이션: {} 컬럼 추가 완료", columnName);
+                        }
+                    } catch (SQLException e) {
+                        log.warn("V38 마이그레이션: {} 컬럼 추가 실패: {}", columnName, e.getMessage());
+                    }
+                }
+            }
+            
+            // 인덱스 추가 (user_id가 있는 경우에만)
+            if (columnExists(stmt, "spontaneous_mission", "user_id") && 
+                columnExists(stmt, "spontaneous_mission", "assigned_at")) {
+                try {
+                    // 인덱스가 이미 존재하는지 확인
+                    if (!indexExists(stmt, "spontaneous_mission", "idx_spontaneous_user_date")) {
+                        stmt.execute("CREATE INDEX idx_spontaneous_user_date ON spontaneous_mission (user_id, assigned_at)");
+                        log.info("V38 마이그레이션: 인덱스 추가 완료");
+                    }
+                } catch (SQLException e) {
+                    log.warn("V38 마이그레이션: 인덱스 추가 실패: {}", e.getMessage());
+                }
+            }
+            
             // 이미 마이그레이션되었는지 확인 (spontaneous_mission에 데이터가 있고 user_mission에 is_spontaneous=true가 없으면 완료)
             ResultSet checkRs = stmt.executeQuery(
                 "SELECT COUNT(*) FROM user_mission WHERE is_spontaneous = TRUE"
@@ -1151,11 +1276,22 @@ public class ManualMigrationRunner implements CommandLineRunner {
             
             log.info("V38 마이그레이션: {}개의 돌발 미션 데이터 마이그레이션 시작", remainingCount);
             
+            // 먼저 잘못된 데이터 정리: user 테이블에 존재하지 않는 user_id를 가진 spontaneous_mission 삭제
+            String preCleanupSql = 
+                "DELETE FROM spontaneous_mission sm " +
+                "WHERE NOT EXISTS (" +
+                "  SELECT 1 FROM `user` u WHERE u.id = sm.user_id" +
+                ")";
+            int preDeletedCount = stmt.executeUpdate(preCleanupSql);
+            if (preDeletedCount > 0) {
+                log.warn("V38 마이그레이션: {}개의 잘못된 spontaneous_mission 데이터 사전 삭제 (존재하지 않는 user_id)", preDeletedCount);
+            }
+            
             // user_mission의 is_spontaneous=true 데이터를 spontaneous_mission으로 마이그레이션
             // 미션 제목을 기반으로 SpontaneousMissionType 결정
             String migrationSql = 
                 "INSERT INTO spontaneous_mission (" +
-                "  user_id, mission_type, assigned_at, deadline_at, status, " +
+                "  user_id, mission_type, title, description, assigned_at, deadline_at, deadline_minutes, status, " +
                 "  verified_at, post_id, meal_log_id, exp_reward, created_at" +
                 ") " +
                 "SELECT " +
@@ -1168,12 +1304,19 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 "    WHEN m.title LIKE '%일기%' OR m.title LIKE '%감성%' THEN 'DIARY' " +
                 "    ELSE 'WAKE_UP' " +  // 기본값
                 "  END AS mission_type, " +
+                "  COALESCE(m.title, '돌발 미션') AS title, " +
+                "  COALESCE(m.description, '돌발 미션입니다.') AS description, " +
                 "  um.assigned_at, " +
                 "  CASE " +
                 "    WHEN m.title LIKE '%기상%' OR m.title LIKE '%일어나%' THEN DATE_ADD(um.assigned_at, INTERVAL 10 MINUTE) " +
                 "    WHEN m.title LIKE '%일기%' OR m.title LIKE '%감성%' THEN DATE_ADD(um.assigned_at, INTERVAL 1440 MINUTE) " +
                 "    ELSE DATE_ADD(um.assigned_at, INTERVAL 120 MINUTE) " +  // 식사 미션: 2시간
                 "  END AS deadline_at, " +
+                "  CASE " +
+                "    WHEN m.title LIKE '%기상%' OR m.title LIKE '%일어나%' THEN 10 " +
+                "    WHEN m.title LIKE '%일기%' OR m.title LIKE '%감성%' THEN 1440 " +
+                "    ELSE 120 " +  // 식사 미션: 120분
+                "  END AS deadline_minutes, " +
                 "  CASE " +
                 "    WHEN um.status = 'ASSIGNED' THEN 'ASSIGNED' " +
                 "    WHEN um.status = 'COMPLETED' THEN 'COMPLETED' " +
@@ -1190,9 +1333,11 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 "  um.created_at " +
                 "FROM user_mission um " +
                 "INNER JOIN mission m ON um.mission_id = m.id " +
+                "INNER JOIN `user` u ON u.id = um.user_id " +  // 유효한 user_id만 포함
                 "LEFT JOIN mission_verification mv ON mv.user_mission_id = um.id " +
                 "LEFT JOIN post p ON p.user_mission_id = um.id " +
                 "WHERE um.is_spontaneous = TRUE " +
+                "AND (u.del_flag = FALSE OR u.del_flag IS NULL) " +  // 삭제되지 않은 사용자만
                 "AND NOT EXISTS (" +
                 "  SELECT 1 FROM spontaneous_mission sm " +
                 "  WHERE sm.user_id = um.user_id " +
@@ -1234,6 +1379,17 @@ public class ManualMigrationRunner implements CommandLineRunner {
                 log.info("V38 마이그레이션: {}개의 식사 미션에 meal_log 연결 완료", mealLogUpdated);
             }
             
+            // 잘못된 데이터 정리: user 테이블에 존재하지 않는 user_id를 가진 spontaneous_mission 삭제
+            String cleanupSql = 
+                "DELETE FROM spontaneous_mission sm " +
+                "WHERE NOT EXISTS (" +
+                "  SELECT 1 FROM `user` u WHERE u.id = sm.user_id" +
+                ")";
+            int deletedCount = stmt.executeUpdate(cleanupSql);
+            if (deletedCount > 0) {
+                log.warn("V38 마이그레이션: {}개의 잘못된 spontaneous_mission 데이터 삭제 (존재하지 않는 user_id)", deletedCount);
+            }
+            
         } catch (Exception e) {
             log.error("V38 마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
             throw e;
@@ -1261,6 +1417,23 @@ public class ManualMigrationRunner implements CommandLineRunner {
         } catch (Exception e) {
             log.error("V39 마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
             // 컬럼 제거 실패는 치명적이지 않으므로 예외를 던지지 않음
+        }
+    }
+
+    private void executeV40Migration(Connection conn) throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            // chat_log 테이블의 user_message 컬럼을 nullable로 변경
+            // 선제 메시지(proactive message)는 사용자 메시지가 없으므로 null이어야 함
+            try {
+                stmt.execute("ALTER TABLE `chat_log` MODIFY COLUMN `user_message` TEXT NULL");
+                log.info("V40 마이그레이션: chat_log.user_message 컬럼 nullable 변경 완료");
+            } catch (SQLException e) {
+                // 이미 nullable이거나 다른 문제가 있을 수 있음
+                log.warn("V40 마이그레이션: chat_log.user_message 컬럼 nullable 변경 실패: {}", e.getMessage());
+            }
+        } catch (Exception e) {
+            log.error("V40 마이그레이션 실행 중 오류 발생: {}", e.getMessage(), e);
+            // 컬럼 변경 실패는 치명적이지 않으므로 예외를 던지지 않음
         }
     }
 }

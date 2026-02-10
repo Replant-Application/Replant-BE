@@ -23,6 +23,9 @@ public interface CommentRepositoryCustom {
 
     Optional<Comment> findByIdAndUserId(Long commentId, Long userId);
 
+    /** 댓글 ID로 조회 (User fetch join) */
+    Optional<Comment> findByIdWithUser(Long commentId);
+
     long countByPostId(Long postId);
 
     List<Comment> findRepliesByParentId(Long parentId);

@@ -121,6 +121,42 @@ public class DatabaseCleanupInitializer implements InitializingBean {
                 log.debug("고아 외래키 자동 검색 실패: {}", e.getMessage());
             }
 
+            // spontaneous_mission 테이블의 잘못된 데이터 정리 (user 테이블에 존재하지 않는 user_id)
+            try {
+                ResultSet tableRs = stmt.executeQuery(
+                    "SELECT COUNT(*) FROM information_schema.TABLES " +
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'spontaneous_mission'"
+                );
+                boolean tableExists = tableRs.next() && tableRs.getInt(1) > 0;
+                tableRs.close();
+                
+                if (tableExists) {
+                    // 먼저 user_id가 NULL이거나 존재하지 않는 user_id를 가진 레코드 삭제
+                    String cleanupSql = 
+                        "DELETE sm FROM spontaneous_mission sm " +
+                        "WHERE sm.user_id IS NULL OR NOT EXISTS (" +
+                        "  SELECT 1 FROM `user` u WHERE u.id = sm.user_id" +
+                        ")";
+                    int deletedCount = stmt.executeUpdate(cleanupSql);
+                    if (deletedCount > 0) {
+                        log.info("spontaneous_mission 테이블에서 {}개의 잘못된 데이터 삭제 (NULL이거나 존재하지 않는 user_id)", deletedCount);
+                    }
+                    
+                    // 삭제된 사용자(del_flag = TRUE)를 참조하는 레코드도 삭제
+                    String cleanupDeletedUsersSql = 
+                        "DELETE sm FROM spontaneous_mission sm " +
+                        "WHERE EXISTS (" +
+                        "  SELECT 1 FROM `user` u WHERE u.id = sm.user_id AND (u.del_flag = TRUE OR u.del_flag IS NULL)" +
+                        ")";
+                    int deletedUserCount = stmt.executeUpdate(cleanupDeletedUsersSql);
+                    if (deletedUserCount > 0) {
+                        log.info("spontaneous_mission 테이블에서 {}개의 데이터 삭제 (삭제된 사용자 참조)", deletedUserCount);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("spontaneous_mission 데이터 정리 실패: {}", e.getMessage(), e);
+            }
+
             // 외래키 체크 활성화
             stmt.execute("SET FOREIGN_KEY_CHECKS = 1");
 

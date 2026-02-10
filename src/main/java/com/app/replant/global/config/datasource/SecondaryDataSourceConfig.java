@@ -41,7 +41,7 @@ public class SecondaryDataSourceConfig {
 
     @Primary
     @Bean(name = "secondaryEntityManagerFactory")
-    @DependsOn("databaseCleanupInitializer") // 외래키 정리 후 EntityManagerFactory 생성
+    @DependsOn({"databaseCleanupInitializer", "manualMigrationRunner"}) // 외래키 정리 및 마이그레이션 후 EntityManagerFactory 생성
     public LocalContainerEntityManagerFactoryBean secondaryEntityManagerFactory(
             EntityManagerFactoryBuilder builder,
             @Qualifier("secondaryDataSource") DataSource dataSource) {

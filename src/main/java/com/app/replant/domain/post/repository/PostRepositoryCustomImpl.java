@@ -276,11 +276,14 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     @Override
     public long countByUserId(Long userId) {
-        return queryFactory
+        Long count = queryFactory
                 .select(post.count())
                 .from(post)
-                .where(post.user.id.eq(userId).and(isNotDeleted()))
+                .where(post.user.id.eq(userId)
+                        .and(isNotDeleted())
+                        .and(isPostType(PostType.GENERAL))) // 커뮤니티 게시글은 일반 게시글만 카운트
                 .fetchOne();
+        return count != null ? count : 0L;
     }
 
     // ========================================

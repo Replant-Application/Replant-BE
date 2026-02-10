@@ -97,7 +97,8 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
                 .select(userMission.count())
                 .from(userMission)
                 .where(userMission.user.id.eq(userId)
-                        .and(userMission.status.eq(status)))
+                        .and(userMission.status.eq(status))
+                        .and(userMission.mission.isNotNull())) // mission이 있는 경우만 카운트 (돌발 미션 제외)
                 .fetchOne();
 
         return count != null ? count : 0L;

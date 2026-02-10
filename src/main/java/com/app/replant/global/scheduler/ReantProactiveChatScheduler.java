@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
@@ -75,7 +76,6 @@ public class ReantProactiveChatScheduler {
      * 매 2시간마다 실행 (08시~22시)
      */
     @Scheduled(cron = "0 0 8,10,12,14,16,18,20,22 * * *", zone = "Asia/Seoul")
-    @Transactional
     public void sendProactiveMessages() {
         log.info("=== 리앤트 선제 메시지 스케줄러 시작 ===");
 
@@ -90,48 +90,12 @@ public class ReantProactiveChatScheduler {
 
             for (Long userId : userIds) {
                 try {
-                    // 오늘 이미 선제 메시지를 보냈으면 스킵
-                    Long proactiveToday = chatLogRepository.countProactiveTodayByUserId(userId, todayStart);
-                    if (proactiveToday >= MAX_PROACTIVE_PER_DAY) {
-                        continue;
-                    }
-
-                    // 리앤트 조회
-                    Optional<Reant> reantOpt = reantRepository.findByUserId(userId);
-                    if (reantOpt.isEmpty()) {
-                        continue;
-                    }
-                    Reant reant = reantOpt.get();
-
-                    // 메시지 선택 (우선순위: 배고픔 > 기분 > 비활성)
-                    String message = selectMessage(userId, reant, inactivityThreshold);
-                    if (message == null) {
-                        continue;
-                    }
-
-                    // 사용자 조회
-                    Optional<User> userOpt = userRepository.findById(userId);
-                    if (userOpt.isEmpty()) {
-                        continue;
-                    }
-                    User user = userOpt.get();
-
-                    // 선제 메시지 저장
-                    chatService.createProactiveMessage(user, reant, message);
-
-                    // 푸시 알림 전송
-                    notificationService.createAndPushNotification(
-                            user,
-                            NotificationType.CHAT_MESSAGE,
-                            reant.getName(),
-                            message
-                    );
-
+                    // 각 사용자 처리를 별도의 트랜잭션으로 분리하여 에러 격리
+                    sendProactiveMessageToUser(userId, todayStart, inactivityThreshold);
                     sentCount++;
-                    log.info("[선제메시지] 전송 완료 - userId: {}, reant: {}", userId, reant.getName());
-
                 } catch (Exception e) {
-                    log.error("[선제메시지] userId: {} 처리 중 오류: {}", userId, e.getMessage());
+                    log.error("[선제메시지] userId: {} 처리 중 오류: {}", userId, e.getMessage(), e);
+                    // 개별 사용자 에러는 무시하고 계속 진행
                 }
             }
 
@@ -140,6 +104,51 @@ public class ReantProactiveChatScheduler {
         } catch (Exception e) {
             log.error("리앤트 선제 메시지 스케줄러 실행 중 오류", e);
         }
+    }
+
+    /**
+     * 개별 사용자에게 선제 메시지 전송 (별도 트랜잭션으로 격리)
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void sendProactiveMessageToUser(Long userId, LocalDateTime todayStart, LocalDateTime inactivityThreshold) {
+        // 오늘 이미 선제 메시지를 보냈으면 스킵
+        Long proactiveToday = chatLogRepository.countProactiveTodayByUserId(userId, todayStart);
+        if (proactiveToday >= MAX_PROACTIVE_PER_DAY) {
+            return;
+        }
+
+        // 리앤트 조회 - N+1 문제 방지를 위해 user를 함께 fetch join
+        Optional<Reant> reantOpt = reantRepository.findByUserIdWithUser(userId);
+        if (reantOpt.isEmpty()) {
+            return;
+        }
+        Reant reant = reantOpt.get();
+
+        // 메시지 선택 (우선순위: 배고픔 > 기분 > 비활성)
+        String message = selectMessage(userId, reant, inactivityThreshold);
+        if (message == null) {
+            return;
+        }
+
+        // 사용자 조회
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            return;
+        }
+        User user = userOpt.get();
+
+        // 선제 메시지 저장
+        chatService.createProactiveMessage(user, reant, message);
+
+        // 푸시 알림 전송
+        notificationService.createAndPushNotification(
+                user,
+                NotificationType.CHAT_MESSAGE,
+                reant.getName(),
+                message
+        );
+
+        log.info("[선제메시지] 전송 완료 - userId: {}, reant: {}", userId, reant.getName());
     }
 
     /**

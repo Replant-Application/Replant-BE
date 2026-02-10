@@ -71,6 +71,17 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
     }
 
     @Override
+    public Optional<Comment> findByIdWithUser(Long commentId) {
+        Comment result = queryFactory
+                .selectFrom(comment)
+                .leftJoin(comment.user, user).fetchJoin()
+                .where(comment.id.eq(commentId))
+                .fetchOne();
+
+        return Optional.ofNullable(result);
+    }
+
+    @Override
     public long countByPostId(Long postId) {
         Long count = queryFactory
                 .select(comment.count())

@@ -13,8 +13,10 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
 
     /**
      * 이메일로 사용자 조회 (Soft Delete된 사용자 제외)
+     * @deprecated findByEmailWithReant를 사용하세요 (N+1 문제 방지)
      */
-    @Query("SELECT u FROM User u WHERE u.email = :email AND (u.delFlag = false OR u.delFlag IS NULL)")
+    @Deprecated
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.reant WHERE u.email = :email AND (u.delFlag = false OR u.delFlag IS NULL)")
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
@@ -33,8 +35,9 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     /**
      * 특정 시간에 기상 미션을 받을 사용자 조회
      * Soft Delete된 사용자 제외
+     * N+1 문제 방지를 위해 Reant를 함께 fetch join
      */
-    @Query("SELECT u FROM User u WHERE u.status = 'ACTIVE' " +
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.reant WHERE u.status = 'ACTIVE' " +
            "AND (u.delFlag = false OR u.delFlag IS NULL) " +
            "AND u.isSpontaneousMissionSetupCompleted = true " +
            "AND u.wakeTime = :time")

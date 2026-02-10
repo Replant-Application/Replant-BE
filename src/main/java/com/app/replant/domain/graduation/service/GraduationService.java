@@ -51,8 +51,8 @@ public class GraduationService {
                     .build();
         }
 
-        // 리앤트 정보 확인
-        Reant reant = reantRepository.findByUserId(userId)
+        // 리앤트 정보 확인 - N+1 문제 방지를 위해 user를 함께 fetch join
+        Reant reant = reantRepository.findByUserIdWithUser(userId)
                 .orElse(null);
 
         if (reant == null) {

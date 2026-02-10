@@ -11,6 +11,7 @@ import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.notification.entity.Notification;
 import com.app.replant.domain.notification.repository.NotificationRepository;
 import com.app.replant.domain.reant.repository.ReantRepository;
+import com.app.replant.domain.reant.service.ReantService;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.global.exception.CustomException;
@@ -38,6 +39,7 @@ public class MealLogService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final ReantRepository reantRepository;
+    private final ReantService reantService;
     private final NotificationRepository notificationRepository;
 
     // 식사 인증 마감 시간 (분)
@@ -144,11 +146,15 @@ public class MealLogService {
         // 인증 처리
         mealLog.verify(post, request.getTitle(), request.getDescription(), request.getRating());
 
-        // 경험치 지급 (리앤트)
+        // 경험치 지급 (리앤트) - N+1 문제 방지를 위해 user를 함께 fetch join
         int expReward = mealLog.getExpReward();
         try {
-            reantRepository.findByUserId(userId)
-                    .ifPresent(reant -> reant.addExp(expReward));
+            reantRepository.findByUserIdWithUser(userId)
+                    .ifPresent(reant -> {
+                        reant.addExp(expReward);
+                        reantRepository.save(reant);  // 변경사항 저장
+                        reantService.evictReantCache(userId);  // 캐시 무효화
+                    });
             log.info("식사 인증 경험치 지급: userId={}, exp={}", userId, expReward);
         } catch (Exception e) {
             log.warn("식사 인증 경험치 지급 실패: userId={}, error={}", userId, e.getMessage());

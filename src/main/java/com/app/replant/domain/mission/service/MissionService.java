@@ -14,6 +14,8 @@ import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -42,6 +44,9 @@ public class MissionService {
     private final UserRepository userRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final UserMissionRepository userMissionRepository;
+    
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public Page<MissionResponse> getMissions(MissionCategory category, VerificationType verificationType, Pageable pageable) {
         return getMissions(category, verificationType, pageable, null);
@@ -85,6 +90,9 @@ public class MissionService {
         Map<Long, Long> participantCountMap = userMissionRepository.countDistinctUsersByMissionIds(missionIds);
         
         // MissionResponse로 변환 (전체 미션)
+        // 트랜잭션 범위 내에서 ageRanges 일괄 초기화 (N+1 문제 방지)
+        initializeAgeRangesBatch(allMissions.getContent());
+        
         List<MissionResponse> allMissionResponses = allMissions.getContent().stream()
                 .map(mission -> {
                     boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
@@ -192,6 +200,9 @@ public class MissionService {
                 .collect(Collectors.toList());
         Map<Long, Long> participantCountMap = userMissionRepository.countDistinctUsersByMissionIds(missionIds);
         
+        // 트랜잭션 범위 내에서 ageRanges 일괄 초기화 (N+1 문제 방지)
+        initializeAgeRangesBatch(missions.getContent());
+        
         return missions.map(mission -> {
             boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
@@ -264,6 +275,9 @@ public class MissionService {
                 .collect(Collectors.toList());
         Map<Long, Long> participantCountMap = userMissionRepository.countDistinctUsersByMissionIds(missionIds);
         
+        // 트랜잭션 범위 내에서 ageRanges 일괄 초기화 (N+1 문제 방지)
+        initializeAgeRangesBatch(missions.getContent());
+        
         return missions.map(mission -> {
             boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
@@ -278,6 +292,9 @@ public class MissionService {
 
     public MissionResponse getMission(Long missionId, Long userId) {
         Mission mission = findMissionById(missionId);
+        // 트랜잭션 범위 내에서 ageRanges 초기화
+        initializeAgeRanges(mission);
+        
         long reviewCount = reviewRepository.countByMissionId(missionId);
         
         // 사용자가 해당 미션을 수행했는지 및 완료했는지 확인
@@ -371,6 +388,8 @@ public class MissionService {
     @Transactional
     public MissionResponse updateMission(Long missionId, MissionRequest request) {
         Mission mission = findMissionById(missionId);
+        // 트랜잭션 범위 내에서 ageRanges 초기화
+        initializeAgeRanges(mission);
 
         mission.updateOfficial(
                 request.getTitle(),
@@ -439,6 +458,9 @@ public class MissionService {
     @Transactional
     public MissionResponse toggleMissionActive(Long missionId, Boolean isActive) {
         Mission mission = findMissionById(missionId);
+        // 트랜잭션 범위 내에서 ageRanges 초기화
+        initializeAgeRanges(mission);
+        
         mission.setActive(isActive);
         // 참여자 수 조회
         long participantCount = userMissionRepository.countDistinctUsersByMissionId(missionId);
@@ -550,6 +572,9 @@ public class MissionService {
                 .collect(Collectors.toList());
         Map<Long, Long> participantCountMap = userMissionRepository.countDistinctUsersByMissionIds(missionIds);
         
+        // 트랜잭션 범위 내에서 ageRanges 일괄 초기화 (N+1 문제 방지)
+        initializeAgeRangesBatch(missions.getContent());
+        
         return missions.map(mission -> {
             boolean isAttempted = userId != null && finalAttemptedMissionIds.contains(mission.getId());
             boolean isCompleted = userId != null && finalCompletedMissionIds.contains(mission.getId());
@@ -572,6 +597,9 @@ public class MissionService {
         if (!mission.isCustomMission()) {
             throw new CustomException(ErrorCode.MISSION_NOT_FOUND);
         }
+
+        // 트랜잭션 범위 내에서 ageRanges 초기화
+        initializeAgeRanges(mission);
 
         // 사용자가 해당 미션을 수행했는지 및 완료했는지 확인
         boolean isAttempted = false;
@@ -648,6 +676,9 @@ public class MissionService {
             throw new CustomException(ErrorCode.NOT_MISSION_CREATOR);
         }
 
+        // 트랜잭션 범위 내에서 ageRanges 초기화
+        initializeAgeRanges(mission);
+
         // 커스텀 미션은 경험치 지급 없음 (expReward는 무시됨, Entity에서 0으로 설정)
         mission.updateCustom(
                 request.getTitle(),
@@ -693,6 +724,79 @@ public class MissionService {
         // N+1 문제 방지를 위해 reant를 함께 로드
         return userRepository.findByIdWithReant(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+    }
+
+    /**
+     * Mission의 ageRanges를 트랜잭션 범위 내에서 초기화
+     * LazyInitializationException 방지를 위해 사용
+     */
+    private void initializeAgeRanges(Mission mission) {
+        try {
+            if (mission.getAgeRanges() != null) {
+                // 명시적으로 접근하여 초기화
+                mission.getAgeRanges().size();
+            }
+        } catch (Exception e) {
+            // 초기화 실패 시 무시 (나중에 MissionResponse에서 처리)
+        }
+    }
+
+    /**
+     * 여러 Mission의 ageRanges를 한 번에 초기화 (N+1 문제 방지)
+     * EntityManager를 사용하여 한 번의 쿼리로 모든 ageRanges를 로드
+     */
+    private void initializeAgeRangesBatch(List<Mission> missions) {
+        if (missions == null || missions.isEmpty()) {
+            return;
+        }
+        
+        List<Long> missionIds = missions.stream()
+                .map(Mission::getId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+        
+        if (missionIds.isEmpty()) {
+            return;
+        }
+        
+        // 한 번의 쿼리로 모든 Mission의 ageRanges를 로드
+        // ElementCollection은 JOIN FETCH로 함께 조회 가능
+        String jpql = "SELECT DISTINCT m FROM Mission m " +
+                      "LEFT JOIN FETCH m.ageRanges " +
+                      "WHERE m.id IN :missionIds";
+        
+        try {
+            List<Mission> missionsWithAgeRanges = entityManager.createQuery(jpql, Mission.class)
+                    .setParameter("missionIds", missionIds)
+                    .getResultList();
+            
+            // 결과를 Map으로 변환하여 빠른 조회
+            Map<Long, Mission> missionMap = missionsWithAgeRanges.stream()
+                    .collect(Collectors.toMap(Mission::getId, m -> m, (m1, m2) -> m1));
+            
+            // 원본 Mission 리스트의 ageRanges를 초기화된 것으로 교체
+            // Hibernate는 같은 세션에서 같은 ID의 엔티티를 공유하므로,
+            // missionsWithAgeRanges에서 로드된 엔티티가 원본 missions의 엔티티와 동일한 인스턴스입니다.
+            missions.forEach(mission -> {
+                Mission initializedMission = missionMap.get(mission.getId());
+                if (initializedMission != null) {
+                    // 같은 세션 내에서 같은 엔티티이므로 ageRanges가 이미 초기화되어 있음
+                    try {
+                        // 명시적으로 접근하여 초기화 확인
+                        if (initializedMission.getAgeRanges() != null) {
+                            initializedMission.getAgeRanges().size();
+                        }
+                    } catch (Exception e) {
+                        // 초기화 실패 시 무시
+                    }
+                }
+            });
+        } catch (Exception e) {
+            log.warn("Failed to initialize ageRanges in batch: {}", e.getMessage());
+            // 실패 시 개별 초기화로 폴백
+            missions.forEach(this::initializeAgeRanges);
+        }
     }
 
     /**

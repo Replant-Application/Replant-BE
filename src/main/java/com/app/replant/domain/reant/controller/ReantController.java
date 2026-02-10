@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/reant")
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class ReantController {
 
     private final ReantService reantService;
@@ -23,7 +24,9 @@ public class ReantController {
     @Operation(summary = "내 펫 조회")
     @GetMapping
     public ApiResponse<ReantResponse> getMyReant(@AuthenticationPrincipal Long userId) {
+        log.info("=== API 호출: GET /api/reant, userId={} ===", userId);
         ReantResponse response = reantService.getMyReant(userId);
+        log.info("Reant 조회 완료: userId={}", userId);
         return ApiResponse.success(response);
     }
 
@@ -39,7 +42,9 @@ public class ReantController {
     @Operation(summary = "펫 상태 조회", description = "기분, 건강, 배고픔 등 상세 상태 정보 조회")
     @GetMapping("/status")
     public ApiResponse<ReantStatusResponse> getReantStatus(@AuthenticationPrincipal Long userId) {
+        log.info("=== API 호출: GET /api/reant/status, userId={} ===", userId);
         ReantStatusResponse response = reantService.getReantStatus(userId);
+        log.info("Reant 상태 조회 완료: userId={}", userId);
         return ApiResponse.success(response);
     }
 }

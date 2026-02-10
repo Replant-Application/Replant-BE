@@ -7,6 +7,7 @@ import com.app.replant.domain.mission.enums.MissionType;
 import com.app.replant.domain.mission.enums.VerificationType;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.reant.repository.ReantRepository;
+import com.app.replant.domain.reant.service.ReantService;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.post.entity.Post;
@@ -48,6 +49,7 @@ public class UserMissionService {
     private final UserRepository userRepository;
     private final MissionRepository missionRepository;
     private final UserBadgeRepository userBadgeRepository;
+    private final ReantService reantService;
     private final ReantRepository reantRepository;
     private final TodoListMissionRepository todoListMissionRepository;
     private final TodoListRepository todoListRepository;
@@ -166,6 +168,70 @@ public class UserMissionService {
         return UserMissionResponse.from(userMission, LocalDateTime.now());
     }
 
+    /**
+     * 커스텀 미션 취소 (인증 취소)
+     * - COMPLETED 상태인 경우: ASSIGNED로 상태 변경 (인증 취소)
+     * - ASSIGNED 상태인 경우: 삭제 (내 미션에서 제거)
+     */
+    @Transactional
+    public UserMissionResponse cancelCustomMission(Long userId, Long missionId) {
+        // 상태와 관계없이 해당 사용자의 커스텀 미션 조회
+        List<UserMission> list = userMissionRepository.findByUserIdAndMissionId(userId, missionId);
+        if (list == null || list.isEmpty()) {
+            throw new CustomException(ErrorCode.USER_MISSION_NOT_FOUND, "내 미션에 추가한 커스텀 미션만 취소할 수 있습니다.");
+        }
+        
+        // 가장 최근의 UserMission 선택 (같은 미션이 여러 개 있을 수 있음)
+        UserMission userMission = list.get(0);
+        if (!userMission.isCustomMission()) {
+            throw new CustomException(ErrorCode.INVALID_REQUEST, "공식 미션은 이 방법으로 취소할 수 없습니다.");
+        }
+        
+        // COMPLETED 상태인 경우: ASSIGNED로 상태 변경 (인증 취소)
+        if (userMission.getStatus() == UserMissionStatus.COMPLETED) {
+            userMission.updateStatus(UserMissionStatus.ASSIGNED);
+            userMissionRepository.saveAndFlush(userMission);
+            log.info("[커스텀 미션 인증 취소] userId: {}, missionId: {}, status: {} -> {}", 
+                    userId, missionId, UserMissionStatus.COMPLETED, userMission.getStatus());
+            
+            // 투두리스트에 포함된 같은 미션이 있으면 TodoListMission도 완료 취소 처리
+            if (userMission.getMission() != null) {
+                Long umMissionId = userMission.getMission().getId();
+                Long umUserId = userMission.getUser().getId();
+                
+                // 완료된 TodoListMission 찾기
+                List<TodoListMission> completedTodoListMissions = todoListMissionRepository
+                        .findCompleteByUserIdAndMissionId(umUserId, umMissionId);
+                
+                for (TodoListMission todoListMission : completedTodoListMissions) {
+                    if (todoListMission.isCompletedMission()) {
+                        todoListMission.uncomplete();
+                        
+                        // TodoList의 completedCount 감소
+                        var todoList = todoListMission.getTodoList();
+                        todoList.decrementCompletedCount();
+                        
+                        // 변경사항 저장
+                        todoListMissionRepository.save(todoListMission);
+                        todoListRepository.save(todoList);
+                        
+                        log.info("커스텀 미션 인증 취소로 TodoListMission 완료 취소: todoListId={}, missionId={}, userId={}", 
+                                todoList.getId(), umMissionId, umUserId);
+                    }
+                }
+            }
+            
+            return UserMissionResponse.from(userMission, LocalDateTime.now());
+        }
+        
+        // ASSIGNED 상태인 경우: 삭제 (내 미션에서 제거)
+        userMissionRepository.delete(userMission);
+        log.info("[커스텀 미션 삭제] userId: {}, missionId: {}, status: {}", userId, missionId, userMission.getStatus());
+        
+        // 삭제된 경우 null 반환 (클라이언트에서 처리)
+        return null;
+    }
+
     @Transactional
     public void completeMissionVerification(UserMission userMission) {
         if (userMission.getStatus() == UserMissionStatus.COMPLETED) {
@@ -200,10 +266,15 @@ public class UserMissionService {
             // 경험치 비례 계산 (0-100% 범위)
             int actualExpReward = (int) Math.round(baseExpReward * (completionRate / 100.0));
             
-            // 경험치 지급
+            // 경험치 지급 - N+1 문제 방지를 위해 user를 함께 fetch join
             if (actualExpReward > 0) {
-                reantRepository.findByUserId(userMission.getUser().getId())
-                        .ifPresent(reant -> reant.addExp(actualExpReward));
+                Long userId = userMission.getUser().getId();
+                reantRepository.findByUserIdWithUser(userId)
+                        .ifPresent(reant -> {
+                            reant.addExp(actualExpReward);
+                            reantRepository.save(reant);  // 변경사항 저장
+                            reantService.evictReantCache(userId);  // 캐시 무효화
+                        });
                 
                 log.info("경험치 비례 지급: userMissionId={}, baseExp={}, completionRate={}%, actualExp={}", 
                         userMission.getId(), baseExpReward, completionRate, actualExpReward);

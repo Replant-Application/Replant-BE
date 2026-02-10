@@ -1,11 +1,17 @@
 package com.app.replant.domain.user.service;
 
+import com.app.replant.domain.badge.repository.UserBadgeRepository;
+import com.app.replant.domain.diary.repository.DiaryRepository;
+import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.domain.user.dto.SpontaneousMissionRequest;
 import com.app.replant.domain.user.dto.SpontaneousMissionResponse;
+import com.app.replant.domain.user.dto.UserStatsResponse;
 import com.app.replant.domain.user.dto.UserUpdateRequest;
 import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.enums.MetropolitanArea;
 import com.app.replant.domain.user.repository.UserRepository;
+import com.app.replant.domain.usermission.enums.UserMissionStatus;
+import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Slf4j
 @Service
@@ -24,6 +33,10 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserMissionRepository userMissionRepository;
+    private final PostRepository postRepository;
+    private final DiaryRepository diaryRepository;
+    private final UserBadgeRepository userBadgeRepository;
 
     /**
      * ID로 사용자 조회. N+1 방지를 위해 reant를 함께 로드(JOIN FETCH).
@@ -191,5 +204,48 @@ public class UserService {
                 .isSpontaneousMissionSetupCompleted(saved.isSpontaneousMissionSetupCompleted())
                 .wakeTime(saved.getWakeTime())
                 .build();
+    }
+
+    /**
+     * 마이 페이지 통계 정보 조회
+     * 통계만 필요한 경우 대량 조회를 방지하기 위해 별도 API 제공
+     * 모든 통계를 병렬로 조회하여 성능 최적화
+     */
+    public UserStatsResponse getUserStats(Long userId) {
+        // 모든 통계를 병렬로 조회 (CompletableFuture 사용)
+        CompletableFuture<Long> completedMissionsFuture = CompletableFuture.supplyAsync(() ->
+                userMissionRepository.countByUserIdAndStatus(userId, UserMissionStatus.COMPLETED));
+        
+        CompletableFuture<Long> postsCountFuture = CompletableFuture.supplyAsync(() ->
+                postRepository.countByUserId(userId));
+        
+        CompletableFuture<Long> approvedVerificationsFuture = CompletableFuture.supplyAsync(() ->
+                postRepository.countApprovedVerificationsByUserId(userId));
+        
+        CompletableFuture<Long> diariesCountFuture = CompletableFuture.supplyAsync(() ->
+                diaryRepository.countByUserId(userId));
+        
+        CompletableFuture<Long> badgesCountFuture = CompletableFuture.supplyAsync(() ->
+                userBadgeRepository.countByUserId(userId));
+
+        // 모든 통계 조회 완료 대기
+        try {
+            long completedMissionsCount = completedMissionsFuture.get();
+            long postsCount = postsCountFuture.get();
+            long approvedVerificationsCount = approvedVerificationsFuture.get();
+            long diariesCount = diariesCountFuture.get();
+            long badgesCount = badgesCountFuture.get();
+
+            return UserStatsResponse.builder()
+                    .completedMissionsCount(completedMissionsCount)
+                    .postsCount(postsCount)
+                    .approvedVerificationsCount(approvedVerificationsCount)
+                    .diariesCount(diariesCount)
+                    .badgesCount(badgesCount)
+                    .build();
+        } catch (Exception e) {
+            log.error("통계 조회 중 오류 발생: userId={}, error={}", userId, e.getMessage(), e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
     }
 }

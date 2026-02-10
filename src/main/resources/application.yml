@@ -46,6 +46,7 @@ spring:
       write-dates-as-timestamps: false  # LocalDateTime을 ISO 8601 형식으로 직렬화
 
   jpa:
+    open-in-view: false  # Jackson 직렬화 시 지연 로딩 방지 (N+1 문제 해결)
     hibernate:
       ddl-auto: update
     properties:
@@ -161,6 +162,14 @@ chat:
   prompt:
     max-length: ${env.CHAT_PROMPT_MAX_LENGTH:15}
     max-length-unit: ${env.CHAT_PROMPT_MAX_LENGTH_UNIT:글자}
+
+# Log 설정
+logging:
+  level:
+    com.app.replant: INFO
+    com.app.replant.domain.user.repository: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
 
 # Swagger/OpenAPI 설정
 springdoc:

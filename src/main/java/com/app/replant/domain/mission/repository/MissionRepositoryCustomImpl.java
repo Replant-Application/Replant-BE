@@ -57,23 +57,63 @@ public class MissionRepositoryCustomImpl implements MissionRepositoryCustom {
             MissionCategory category,
             VerificationType verificationType,
             Pageable pageable) {
-        BooleanBuilder builder = new BooleanBuilder();
-        builder.and(isActive());
-        builder.and(isOfficial());
-
+        // JPQL을 사용하여 ageRanges를 함께 조회 (N+1 문제 방지)
+        StringBuilder jpql = new StringBuilder(
+            "SELECT DISTINCT m FROM Mission m " +
+            "LEFT JOIN FETCH m.ageRanges " +
+            "WHERE m.isActive = true AND m.missionType = :missionType"
+        );
+        
         if (category != null) {
-            builder.and(mission.category.eq(category));
+            jpql.append(" AND m.category = :category");
         }
         if (verificationType != null) {
-            builder.and(mission.verificationType.eq(verificationType));
+            jpql.append(" AND m.verificationType = :verificationType");
         }
-
-        JPAQuery<Mission> query = queryFactory
-                .selectFrom(mission)
-                .where(builder)
-                .orderBy(mission.id.desc());
-
-        return getPage(query, pageable);
+        jpql.append(" ORDER BY m.id DESC");
+        
+        jakarta.persistence.Query query = entityManager.createQuery(jpql.toString(), Mission.class);
+        query.setParameter("missionType", MissionType.OFFICIAL);
+        if (category != null) {
+            query.setParameter("category", category);
+        }
+        if (verificationType != null) {
+            query.setParameter("verificationType", verificationType);
+        }
+        
+        // Count 쿼리
+        StringBuilder countJpql = new StringBuilder(
+            "SELECT COUNT(DISTINCT m.id) FROM Mission m " +
+            "WHERE m.isActive = true AND m.missionType = :missionType"
+        );
+        if (category != null) {
+            countJpql.append(" AND m.category = :category");
+        }
+        if (verificationType != null) {
+            countJpql.append(" AND m.verificationType = :verificationType");
+        }
+        
+        jakarta.persistence.Query countQuery = entityManager.createQuery(countJpql.toString(), Long.class);
+        countQuery.setParameter("missionType", MissionType.OFFICIAL);
+        if (category != null) {
+            countQuery.setParameter("category", category);
+        }
+        if (verificationType != null) {
+            countQuery.setParameter("verificationType", verificationType);
+        }
+        
+        long total = ((Number) countQuery.getSingleResult()).longValue();
+        
+        // 페이징 적용
+        if (!pageable.isUnpaged()) {
+            query.setFirstResult((int) pageable.getOffset());
+            query.setMaxResults(pageable.getPageSize());
+        }
+        
+        @SuppressWarnings("unchecked")
+        List<Mission> content = query.getResultList();
+        
+        return new PageImpl<>(content, pageable, total);
     }
 
     // ============================================

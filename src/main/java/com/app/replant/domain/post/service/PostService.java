@@ -20,6 +20,9 @@ import com.app.replant.domain.user.entity.User;
 import com.app.replant.domain.user.repository.UserRepository;
 import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
+import com.app.replant.domain.missionset.entity.TodoListMission;
+import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
+import com.app.replant.domain.missionset.repository.TodoListRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -61,6 +64,8 @@ public class PostService {
     private final UserMissionRepository userMissionRepository;
     private final NotificationService notificationService;
     private final com.app.replant.domain.usermission.service.UserMissionService userMissionService;
+    private final TodoListMissionRepository todoListMissionRepository;
+    private final TodoListRepository todoListRepository;
     private final ObjectMapper objectMapper;
 
     // ========================================
@@ -313,11 +318,45 @@ public class PostService {
         // 인증글인 경우 UserMission 상태를 되돌림
         if (post.isVerificationPost() && post.getUserMission() != null) {
             UserMission userMission = post.getUserMission();
+            
             // PENDING 상태였으면 ASSIGNED로 되돌림
             if (userMission.getStatus() == UserMissionStatus.PENDING) {
                 userMission.updateStatus(UserMissionStatus.ASSIGNED);
                 log.info("인증글 삭제로 인해 UserMission 상태 복원: userMissionId={}, status={}", 
                         userMission.getId(), userMission.getStatus());
+            }
+            // COMPLETED 상태이고 커스텀 미션이면 ASSIGNED로 되돌림
+            else if (userMission.getStatus() == UserMissionStatus.COMPLETED && userMission.isCustomMission()) {
+                userMission.updateStatus(UserMissionStatus.ASSIGNED);
+                log.info("커스텀 미션 인증 취소로 인해 UserMission 상태 복원: userMissionId={}, status={}", 
+                        userMission.getId(), userMission.getStatus());
+                
+                // 투두리스트에 포함된 같은 미션이 있으면 TodoListMission도 완료 취소 처리
+                if (userMission.getMission() != null) {
+                    Long missionId = userMission.getMission().getId();
+                    Long missionUserId = userMission.getUser().getId();
+                    
+                    // 완료된 TodoListMission 찾기
+                    List<TodoListMission> completedTodoListMissions = todoListMissionRepository
+                            .findCompleteByUserIdAndMissionId(missionUserId, missionId);
+                    
+                    for (TodoListMission todoListMission : completedTodoListMissions) {
+                        if (todoListMission.isCompletedMission()) {
+                            todoListMission.uncomplete();
+                            
+                            // TodoList의 completedCount 감소
+                            var todoList = todoListMission.getTodoList();
+                            todoList.decrementCompletedCount();
+                            
+                            // 변경사항 저장
+                            todoListMissionRepository.save(todoListMission);
+                            todoListRepository.save(todoList);
+                            
+                            log.info("커스텀 미션 인증 취소로 TodoListMission 완료 취소: todoListId={}, missionId={}, userId={}", 
+                                    todoList.getId(), missionId, missionUserId);
+                        }
+                    }
+                }
             }
         }
 
@@ -403,7 +442,19 @@ public class PostService {
         }
 
         comment.updateContent(request.getContent());
-        return CommentResponse.from(comment, userId);
+        // 저장 후 다시 조회하여 User가 제대로 로드되었는지 확인
+        commentRepository.saveAndFlush(comment);
+        
+        // 저장 후 다시 조회 (User fetch join 포함)
+        Comment updatedComment = findCommentById(commentId);
+        CommentResponse response = CommentResponse.from(updatedComment, userId);
+        
+        // 디버깅: isAuthor가 제대로 설정되었는지 확인
+        log.debug("[댓글 수정] commentId={}, userId={}, response.isAuthor={}, comment.user.id={}", 
+                commentId, userId, response.getIsAuthor(), 
+                updatedComment.getUser() != null ? updatedComment.getUser().getId() : null);
+        
+        return response;
     }
 
     @Transactional
@@ -572,7 +623,7 @@ public class PostService {
     }
 
     private Comment findCommentById(Long commentId) {
-        return commentRepository.findById(commentId)
+        return commentRepository.findByIdWithUser(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
     }
 
