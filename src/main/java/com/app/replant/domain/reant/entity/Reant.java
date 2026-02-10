@@ -4,6 +4,7 @@ import com.app.replant.global.common.BaseEntity;
 import com.app.replant.domain.reant.enums.ReantStage;
 import com.app.replant.domain.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
@@ -19,6 +20,7 @@ import java.util.Map;
 @Table(name = "reant")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})  // Hibernate 프록시 직렬화 방지
 public class Reant extends BaseEntity {
 
     @Id
