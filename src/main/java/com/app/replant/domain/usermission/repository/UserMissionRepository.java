@@ -4,6 +4,7 @@ import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,10 +14,16 @@ import java.util.Optional;
  */
 public interface UserMissionRepository extends JpaRepository<UserMission, Long>, UserMissionRepositoryCustom {
 
-    // TODO: UserMission 엔티티에 TodoList 필드가 없어서 주석 처리
-    // 투두리스트와 UserMission의 관계는 TodoListMission을 통해 관리됨
-    // List<UserMission> findByTodoList_Id(Long todoListId);
-    // void deleteByTodoList_Id(Long todoListId);
+    /**
+     * 투두리스트 삭제 시 해당 날짜·미션에 해당하는 나의 미션(ASSIGNED/PENDING) 조회.
+     * 투두리스트 생성 시 같은 날 assignedAt으로 UserMission이 생성되므로, 같은 날짜+미션ID로 삭제 대상 식별.
+     */
+    List<UserMission> findByUser_IdAndMission_IdInAndStatusInAndAssignedAtBetween(
+            Long userId,
+            List<Long> missionIds,
+            List<UserMissionStatus> statuses,
+            LocalDateTime assignedAtStart,
+            LocalDateTime assignedAtEnd);
     
     // TODO: isSpontaneous 필드가 삭제되어 임시로 주석 처리
     // 필요시 mission IS NULL 조건으로 QueryDSL로 구현 필요

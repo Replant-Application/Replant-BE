@@ -16,12 +16,14 @@ public class VersionServiceImpl implements VersionService {
     @Override
     public VersionCheckResponse checkVersion(String currentVersion, String minVersion,
                                             String latestVersion, String storeUrl, String message) {
+        // null/빈 값 방어: NPE 및 500 방지 (클라이언트 오류 시에도 서버는 200으로 응답)
+        String current = (currentVersion != null && !currentVersion.isBlank()) ? currentVersion : "0.0.0";
         log.info("[VersionService] 버전 비교 - current: {}, min: {}, latest: {}", 
-                currentVersion, minVersion, latestVersion);
+                current, minVersion, latestVersion);
 
         // 버전 비교
-        boolean isRequired = compareVersions(currentVersion, minVersion) < 0;
-        boolean isRecommended = compareVersions(currentVersion, latestVersion) < 0;
+        boolean isRequired = compareVersions(current, minVersion) < 0;
+        boolean isRecommended = compareVersions(current, latestVersion) < 0;
 
         // 강제 업데이트가 필요하면 선택 업데이트는 false
         if (isRequired) {
@@ -45,14 +47,20 @@ public class VersionServiceImpl implements VersionService {
      * @return current < target이면 -1, 같으면 0, current > target이면 1
      */
     private int compareVersions(String current, String target) {
+        if (current == null || current.isBlank()) {
+            current = "0.0.0";
+        }
+        if (target == null || target.isBlank()) {
+            target = "0.0.0";
+        }
         String[] currentParts = current.split("\\.");
         String[] targetParts = target.split("\\.");
 
         int maxLength = Math.max(currentParts.length, targetParts.length);
 
         for (int i = 0; i < maxLength; i++) {
-            int currentPart = i < currentParts.length ? Integer.parseInt(currentParts[i]) : 0;
-            int targetPart = i < targetParts.length ? Integer.parseInt(targetParts[i]) : 0;
+            int currentPart = parseVersionPart(currentParts, i);
+            int targetPart = parseVersionPart(targetParts, i);
 
             if (currentPart < targetPart) {
                 return -1;
@@ -62,5 +70,17 @@ public class VersionServiceImpl implements VersionService {
         }
 
         return 0;
+    }
+
+    /** 숫자가 아닌 부분은 0으로 처리 (500 방지) */
+    private int parseVersionPart(String[] parts, int index) {
+        if (index >= parts.length || parts[index] == null || parts[index].isBlank()) {
+            return 0;
+        }
+        try {
+            return Integer.parseInt(parts[index].trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }

@@ -5,7 +5,8 @@ package com.app.replant.domain.chat.enums;
  */
 public enum LLMProvider {
     GEMINI("Google Gemini"),
-    QWEN("Qwen (vLLM)");
+    QWEN("Qwen (vLLM)"),
+    AUTO("리앤트 자동 메시지");
 
     private final String displayName;
 

@@ -241,6 +241,28 @@ public class TodoListDto {
                     .missionCount(todoList.getTotalCount() != null ? todoList.getTotalCount() : 5)
                     .build();
         }
+
+        /** 공개 투두리스트 상세: 작성자 완료 여부 + 작성자 인증 게시글 ID가 채워진 미션 목록 사용 */
+        public static DetailResponse fromPublicDetail(TodoList todoList, List<TodoMissionInfo> missionInfos) {
+            return DetailResponse.builder()
+                    .id(todoList.getId())
+                    .title(todoList.getTitle())
+                    .description(todoList.getDescription())
+                    .completedCount(todoList.getCompletedCount() != null ? todoList.getCompletedCount() : 0)
+                    .totalCount(todoList.getTotalCount() != null ? todoList.getTotalCount() : 5)
+                    .progressRate(todoList.getProgressRate())
+                    .canCreateNew(false)
+                    .status(todoList.getTodolistStatus())
+                    .missions(missionInfos)
+                    .createdAt(todoList.getCreatedAt())
+                    .updatedAt(todoList.getUpdatedAt())
+                    .creatorId(todoList.getCreator() != null ? todoList.getCreator().getId() : null)
+                    .creatorNickname(todoList.getCreator() != null ? todoList.getCreator().getNickname() : null)
+                    .missionCount(todoList.getTotalCount() != null ? todoList.getTotalCount() : 5)
+                    .likeCount(0)
+                    .isLiked(false)
+                    .build();
+        }
     }
 
     @Getter
@@ -358,6 +380,47 @@ public class TodoListDto {
                     .scheduledEndTime(base.getScheduledEndTime())
                     .isVerified(base.getIsVerified())
                     .userMissionStatus(base.getUserMissionStatus())
+                    .verificationPostId(verificationPostId)
+                    .build();
+        }
+
+        /** 공개 투두리스트 상세용: 작성자 완료 여부(isCompleted) + 인증 게시글 ID. 작성자가 해당 미션에 대해 쓴 인증글이 있으면 표시. */
+        public static TodoMissionInfo fromPublic(TodoListMission msm, Long verificationPostId) {
+            Mission mission = msm.getMission();
+            if (mission == null) {
+                return TodoMissionInfo.builder()
+                        .id(msm.getId())
+                        .missionId(null)
+                        .title("알 수 없는 미션")
+                        .description("")
+                        .missionType("UNKNOWN")
+                        .verificationType("UNKNOWN")
+                        .displayOrder(msm.getDisplayOrder())
+                        .isCompleted(msm.getIsCompleted() != null && msm.getIsCompleted())
+                        .completedAt(msm.getCompletedAt())
+                        .missionSource(msm.getMissionSource())
+                        .scheduledStartTime(msm.getScheduledStartTime())
+                        .scheduledEndTime(msm.getScheduledEndTime())
+                        .isVerified(false)
+                        .userMissionStatus(null)
+                        .verificationPostId(verificationPostId)
+                        .build();
+            }
+            return TodoMissionInfo.builder()
+                    .id(msm.getId())
+                    .missionId(mission.getId())
+                    .title(mission.getTitle())
+                    .description(mission.getDescription())
+                    .missionType(mission.getMissionType().name())
+                    .verificationType(mission.getVerificationType().name())
+                    .displayOrder(msm.getDisplayOrder())
+                    .isCompleted(msm.getIsCompleted() != null && msm.getIsCompleted())
+                    .completedAt(msm.getCompletedAt())
+                    .missionSource(msm.getMissionSource())
+                    .scheduledStartTime(msm.getScheduledStartTime())
+                    .scheduledEndTime(msm.getScheduledEndTime())
+                    .isVerified(false)
+                    .userMissionStatus(null)
                     .verificationPostId(verificationPostId)
                     .build();
         }

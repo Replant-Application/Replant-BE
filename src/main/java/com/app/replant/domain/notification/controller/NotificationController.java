@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -21,6 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Tag(name = "Notification", description = "알림 API")
+@Slf4j
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
@@ -114,6 +116,7 @@ public class NotificationController {
             @AuthenticationPrincipal Long userId,
             @Valid @RequestBody FcmTokenRequest request) {
         if (userId == null) throw new CustomException(ErrorCode.UNAUTHORIZED);
+        log.info("[알림] FCM 토큰 등록 요청 - userId: {}, 토큰 존재: {}", userId, request.getFcmToken() != null && !request.getFcmToken().isEmpty());
         notificationService.registerFcmToken(userId, request.getFcmToken());
 
         Map<String, String> result = new HashMap<>();

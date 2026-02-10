@@ -17,6 +17,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @Tag(name = "Verification", description = "인증 게시판 API")
+@Slf4j
 @RestController
 @RequestMapping("/api/verifications")
 @RequiredArgsConstructor
@@ -87,8 +89,10 @@ public class VerificationController {
     public ApiResponse<VerifyMissionResponse> verifyByTime(
             @AuthenticationPrincipal Long userId,
             @RequestBody @Valid TimeVerifyRequest request) {
+        log.info("[인증] 시간 인증 요청 - userId: {}, userMissionId: {} (기상/식사/투두 TIME 인증)", userId, request.getUserMissionId());
         VerifyMissionResponse response = userMissionService.verifyByTime(
                 request.getUserMissionId(), userId);
+        log.info("[인증] 시간 인증 완료 - userId: {}, userMissionId: {}", userId, request.getUserMissionId());
         return ApiResponse.success(response);
     }
 

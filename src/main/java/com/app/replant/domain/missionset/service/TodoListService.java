@@ -7,6 +7,7 @@ import com.app.replant.domain.missionset.entity.TodoList;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.enums.MissionSource;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
+import com.app.replant.domain.missionset.repository.TodoListLikeRepository;
 import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
 import com.app.replant.domain.user.entity.User;
@@ -15,6 +16,7 @@ import com.app.replant.domain.usermission.entity.UserMission;
 import com.app.replant.domain.usermission.enums.UserMissionStatus;
 import com.app.replant.domain.usermission.repository.UserMissionRepository;
 import com.app.replant.domain.badge.repository.UserBadgeRepository;
+import com.app.replant.domain.post.repository.PostRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -37,11 +39,13 @@ import java.util.stream.Collectors;
 public class TodoListService {
 
         private final TodoListRepository todoListRepository;
+        private final TodoListLikeRepository todoListLikeRepository;
         private final TodoListMissionRepository todoListMissionRepository;
         private final MissionRepository missionRepository;
         private final UserRepository userRepository;
         private final UserMissionRepository userMissionRepository;
         private final UserBadgeRepository userBadgeRepository;
+        private final PostRepository postRepository;
 
         private static final int RANDOM_OFFICIAL_COUNT = 3; // 필수 공식 미션 개수
 
@@ -134,7 +138,8 @@ public class TodoListService {
         }
 
         /**
-         * 공개 투두리스트 상세 조회 (공개된 것만 조회 가능)
+         * 공개 투두리스트 상세 조회 (공개된 것만 조회 가능).
+         * 미션별로 작성자(creator)가 해당 미션에 대해 쓴 인증 게시글이 있으면 verificationPostId를 채워서 반환.
          */
         public TodoListDto.DetailResponse getPublicTodoListDetail(Long todoListId, Long userId) {
                 TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
@@ -142,7 +147,20 @@ public class TodoListService {
                 if (!Boolean.TRUE.equals(todoList.getIsPublic())) {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
-                return TodoListDto.DetailResponse.from(todoList, userId, userMissionRepository);
+                Long creatorId = todoList.getCreator() != null ? todoList.getCreator().getId() : null;
+                List<TodoListDto.TodoMissionInfo> missionInfos = new java.util.ArrayList<>();
+                if (todoList.getMissions() != null) {
+                        for (TodoListMission msm : todoList.getMissions()) {
+                                Long verificationPostId = null;
+                                if (creatorId != null && msm.getMission() != null) {
+                                        verificationPostId = postRepository.findVerificationPostByUserIdAndMissionId(creatorId, msm.getMission().getId())
+                                                .map(p -> p.getId())
+                                                .orElse(null);
+                                }
+                                missionInfos.add(TodoListDto.TodoMissionInfo.fromPublic(msm, verificationPostId));
+                        }
+                }
+                return TodoListDto.DetailResponse.fromPublicDetail(todoList, missionInfos);
         }
         
         /**
@@ -470,20 +488,46 @@ public class TodoListService {
 
 
         /**
-         * 투두리스트 삭제
+         * 투두리스트 삭제 (Hard Delete)
+         * - 진행 중(ACTIVE)인 경우에만 삭제 가능
+         * - 해당 투두리스트에 연결된 UserMission(나의 미션 진행중) 삭제 → 나의 미션에서도 사라지도록
+         * - 연관 TodoListLike 삭제 후 TodoList 및 하위 TodoListMission 물리 삭제
          */
         @Transactional
         public void deleteTodoList(Long todoListId, Long userId) {
-                TodoList todoList = todoListRepository.findById(todoListId)
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
                                 .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
 
-                // 본인만 삭제 가능
                 if (!todoList.isCreator(userId)) {
                         throw new CustomException(ErrorCode.ACCESS_DENIED);
                 }
 
-                todoList.setActive(false);
-                log.info("투두리스트 삭제 완료: todoListId={}, userId={}", todoListId, userId);
+                if (todoList.getTodolistStatus() != TodoListStatus.ACTIVE) {
+                        throw new CustomException(ErrorCode.TODO_LIST_DELETE_ONLY_ACTIVE);
+                }
+
+                // 나의 미션(진행중)에서도 제거: 해당 투두리스트와 같은 날·같은 미션의 ASSIGNED/PENDING UserMission 삭제
+                List<Long> missionIds = todoList.getMissions().stream()
+                                .map(msm -> msm.getMission().getId())
+                                .collect(Collectors.toList());
+                if (!missionIds.isEmpty()) {
+                        ZoneId zone = ZoneId.of("Asia/Seoul");
+                        LocalDate createdDate = todoList.getCreatedAt().atZone(zone).toLocalDate();
+                        LocalDateTime startOfDay = createdDate.atStartOfDay();
+                        LocalDateTime endOfDay = createdDate.plusDays(1).atStartOfDay();
+                        List<UserMission> toDelete = userMissionRepository.findByUser_IdAndMission_IdInAndStatusInAndAssignedAtBetween(
+                                        todoList.getCreator().getId(),
+                                        missionIds,
+                                        List.of(UserMissionStatus.ASSIGNED, UserMissionStatus.PENDING),
+                                        startOfDay,
+                                        endOfDay);
+                        userMissionRepository.deleteAll(toDelete);
+                        log.info("투두리스트 삭제: 연관 UserMission {}건 삭제 (나의 미션에서 제거)", toDelete.size());
+                }
+
+                todoListLikeRepository.deleteByTodoList(todoList);
+                todoListRepository.delete(todoList);
+                log.info("투두리스트 삭제 완료 (Hard Delete): todoListId={}, userId={}", todoListId, userId);
         }
 
         /**

@@ -18,4 +18,6 @@ public interface TodoListLikeRepository extends JpaRepository<TodoListLike, Long
     Optional<TodoListLike> findByTodoListAndUser(TodoList todoList, User user);
 
     void deleteByTodoListAndUser(TodoList todoList, User user);
+
+    void deleteByTodoList(TodoList todoList);
 }

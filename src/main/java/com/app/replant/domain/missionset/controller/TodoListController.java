@@ -112,7 +112,9 @@ public class TodoListController {
         @GetMapping("/active")
         public ApiResponse<List<TodoListDto.SimpleResponse>> getActiveTodoLists(
                         @AuthenticationPrincipal Long userId) {
+                log.info("[투두리스트] 활성 목록 조회 - userId: {}", userId);
                 List<TodoListDto.SimpleResponse> response = todoListService.getActiveTodoLists(userId);
+                log.info("[투두리스트] 활성 목록 조회 결과 - userId: {}, {}건", userId, response.size());
                 return ApiResponse.success(response);
         }
 
@@ -241,12 +243,14 @@ public class TodoListController {
                 return ApiResponse.success(response);
         }
 
-        @Operation(summary = "투두리스트 삭제", description = "진행 중(ACTIVE)인 투두리스트만 삭제합니다. (Hard Delete)")
+        @Operation(summary = "투두리스트 삭제", description = "진행 중(ACTIVE)인 투두리스트만 물리 삭제(Hard Delete)합니다. 완료/보관 상태는 삭제 불가.")
         @DeleteMapping("/{todoListId}")
         public ApiResponse<Void> deleteTodoList(
                         @Parameter(description = "투두리스트 ID") @PathVariable Long todoListId,
                         @AuthenticationPrincipal Long userId) {
+                log.info("[투두리스트] 삭제 요청 - todoListId: {}, userId: {} (Hard Delete)", todoListId, userId);
                 todoListService.deleteTodoList(todoListId, userId);
+                log.info("[투두리스트] 삭제 완료 - todoListId: {}, userId: {}", todoListId, userId);
                 return ApiResponse.success(null);
         }
 

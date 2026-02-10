@@ -86,11 +86,31 @@ public class ChatService {
     }
 
     /**
-     * 채팅 이력 조회 (관리자/운영용)
+     * 채팅 이력 조회
      */
     public Page<ChatHistoryResponse> getChatHistory(Long userId, Pageable pageable) {
         return chatLogRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
                 .map(ChatHistoryResponse::from);
+    }
+
+    /**
+     * 리앤트 선제 메시지 생성 (스케줄러에서 호출)
+     */
+    @Transactional
+    public void createProactiveMessage(User user, Reant reant, String message) {
+        ChatLog chatLog = ChatLog.builder()
+                .user(user)
+                .reant(reant)
+                .userMessage(null)
+                .aiResponse(message)
+                .llmProvider(LLMProvider.AUTO)
+                .modelName("auto")
+                .status(ChatStatus.SUCCESS)
+                .isProactive(true)
+                .build();
+
+        chatLogRepository.save(chatLog);
+        log.info("[선제메시지] 저장 완료 - userId: {}, reant: {}", user.getId(), reant.getName());
     }
 
     /**
