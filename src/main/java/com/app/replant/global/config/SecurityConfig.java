@@ -104,10 +104,10 @@ public class SecurityConfig {
     }
 
     @Bean
+    @SuppressWarnings("java:S4502") // JWT 무상태 API, 세션 쿠키 미사용 → CSRF 공격 표면 없음. Authorization 헤더만 사용.
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 // CSRF 비활성화: JWT 기반 무상태 API이며 세션 쿠키를 사용하지 않으므로 CSRF 공격 표면이 없음.
-                // 모바일/클라이언트는 Authorization 헤더로만 인증하므로 SonarQube S4502 Safe로 검토 가능.
                 .csrf(AbstractHttpConfigurer::disable)
                 
                 // CORS 설정 활성화
