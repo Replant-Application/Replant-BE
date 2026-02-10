@@ -136,16 +136,19 @@ public class MissionController {
         return ApiResponse.success(missions);
     }
 
-    @Operation(summary = "커스텀 미션 검색", description = "제목/설명으로 커스텀 미션을 검색하고 필터링합니다.")
+    @Operation(summary = "커스텀 미션 검색", description = "제목/설명으로 커스텀 미션을 검색하고 필터링합니다. titleOnly=true인 경우 제목만 검색합니다.")
     @GetMapping("/custom/search")
     public ApiResponse<Page<MissionResponse>> searchCustomMissions(
+            @Parameter(description = "검색 키워드 (제목 또는 설명)")
             @RequestParam(required = false) String keyword,
+            @Parameter(description = "제목만 검색 여부 (true: 제목만, false/null: 제목+설명)")
+            @RequestParam(required = false) Boolean titleOnly,
             @RequestParam(required = false) WorryType worryType,
             @RequestParam(required = false) DifficultyLevel difficultyLevel,
             @Parameter(hidden = true) @AuthenticationPrincipal Long userId,
             @PageableDefault(size = 20, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<MissionResponse> missions = missionService.searchCustomMissions(
-                keyword, worryType, difficultyLevel, pageable, userId);
+                keyword, titleOnly, worryType, difficultyLevel, pageable, userId);
         return ApiResponse.success(missions);
     }
 

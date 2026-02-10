@@ -315,6 +315,7 @@ public class MissionRepositoryCustomImpl implements MissionRepositoryCustom {
     @Override
     public Page<Mission> searchCustomMissions(
             String keyword,
+            Boolean titleOnly,
             WorryType worryType,
             DifficultyLevel difficultyLevel,
             Pageable pageable) {
@@ -323,11 +324,17 @@ public class MissionRepositoryCustomImpl implements MissionRepositoryCustom {
         builder.and(mission.isPublic.isTrue());
         builder.and(isActive());
 
-        // 키워드 검색 (제목 또는 설명)
+        // 키워드 검색
         if (keyword != null && !keyword.trim().isEmpty()) {
             String searchKeyword = "%" + keyword.trim() + "%";
-            builder.and(mission.title.likeIgnoreCase(searchKeyword)
-                    .or(mission.description.likeIgnoreCase(searchKeyword)));
+            if (Boolean.TRUE.equals(titleOnly)) {
+                // 제목만 검색
+                builder.and(mission.title.likeIgnoreCase(searchKeyword));
+            } else {
+                // 제목 또는 설명 검색
+                builder.and(mission.title.likeIgnoreCase(searchKeyword)
+                        .or(mission.description.likeIgnoreCase(searchKeyword)));
+            }
         }
 
         if (worryType != null) {

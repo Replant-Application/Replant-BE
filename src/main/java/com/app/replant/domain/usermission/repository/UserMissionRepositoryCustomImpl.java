@@ -165,12 +165,16 @@ public class UserMissionRepositoryCustomImpl implements UserMissionRepositoryCus
     public List<UserMission> findByUserIdAndMissionId(
             Long userId,
             Long missionId) {
+        // 상태와 관계없이 조회 (COMPLETED 상태도 포함)
+        // mission이 null인 돌발 미션은 제외하되, is_active 상태는 체크하지 않음
+        // Mission join 없이 직접 조회하여 Mission이 비활성화되어도 조회 가능하도록 함
         return queryFactory
                 .selectFrom(userMission)
-                .join(userMission.user, user).fetchJoin()
-                .join(userMission.mission, mission).fetchJoin()
+                .leftJoin(userMission.user, user).fetchJoin()
+                .leftJoin(userMission.mission, mission).fetchJoin()
                 .where(userMission.user.id.eq(userId)
-                        .and(userMission.mission.id.eq(missionId)))
+                        .and(userMission.mission.id.isNotNull())  // mission이 null인 돌발 미션 제외
+                        .and(userMission.mission.id.eq(missionId)))  // missionId 조건
                 .distinct()
                 .orderBy(userMission.id.desc())
                 .fetch();

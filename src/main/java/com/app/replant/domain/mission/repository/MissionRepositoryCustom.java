@@ -75,9 +75,15 @@ public interface MissionRepositoryCustom {
 
     /**
      * 커스텀 미션 검색 (제목/설명 검색 + 필터링)
+     * @param keyword 검색 키워드 (제목 또는 설명)
+     * @param titleOnly true인 경우 제목만 검색, false이거나 null인 경우 제목과 설명 모두 검색
+     * @param worryType 고민 타입 필터
+     * @param difficultyLevel 난이도 필터
+     * @param pageable 페이징 정보
      */
     Page<Mission> searchCustomMissions(
             String keyword,
+            Boolean titleOnly,
             WorryType worryType,
             DifficultyLevel difficultyLevel,
             Pageable pageable);

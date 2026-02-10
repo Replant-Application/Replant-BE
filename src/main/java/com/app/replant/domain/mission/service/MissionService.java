@@ -524,21 +524,22 @@ public class MissionService {
      */
     public Page<MissionResponse> searchCustomMissions(
             String keyword,
+            Boolean titleOnly,
             WorryType worryType,
             DifficultyLevel difficultyLevel,
             Pageable pageable) {
-        return searchCustomMissions(keyword, worryType, difficultyLevel, pageable, null);
+        return searchCustomMissions(keyword, titleOnly, worryType, difficultyLevel, pageable, null);
     }
 
     public Page<MissionResponse> searchCustomMissions(
             String keyword,
+            Boolean titleOnly,
             WorryType worryType,
             DifficultyLevel difficultyLevel,
             Pageable pageable,
             Long userId) {
         Page<Mission> missions = missionRepository.searchCustomMissions(
-                keyword, worryType, difficultyLevel, pageable
-        );
+                keyword, titleOnly, worryType, difficultyLevel, pageable);
         
         // 사용자가 수행한 미션 ID 목록 및 완료한 미션 ID 목록 조회 (미션 도감용: 과거 포함 전체 수행 이력)
         Set<Long> attemptedMissionIds = Collections.emptySet();

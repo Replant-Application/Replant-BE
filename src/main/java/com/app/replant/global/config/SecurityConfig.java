@@ -154,6 +154,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/version/**").permitAll() // 버전 체크 (인증 불필요)
                         .requestMatchers("/ws/**").permitAll() // WebSocket
                         .requestMatchers("/files/**").permitAll() // 파일 업로드/다운로드
+                        .requestMatchers("/error").permitAll() // 에러 페이지 (인증 불필요)
+                        .requestMatchers("/error/**").permitAll() // 에러 페이지 하위 경로 (인증 불필요)
                         // Actuator - 공개 엔드포인트만 허용 (health, info, metrics, prometheus)
                         // 순서 중요: 구체적인 경로를 먼저 설정
                         .requestMatchers("/actuator/health").permitAll()

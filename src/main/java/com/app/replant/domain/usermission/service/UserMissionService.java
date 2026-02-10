@@ -176,8 +176,19 @@ public class UserMissionService {
     @Transactional
     public UserMissionResponse cancelCustomMission(Long userId, Long missionId) {
         // 상태와 관계없이 해당 사용자의 커스텀 미션 조회
+        // COMPLETED 상태도 포함하여 조회해야 함
+        // Mission의 is_active 상태와 관계없이 조회
         List<UserMission> list = userMissionRepository.findByUserIdAndMissionId(userId, missionId);
+        
+        // 디버깅: 조회 결과 로깅
+        log.info("[커스텀 미션 취소] 조회 시도 - userId: {}, missionId: {}, 조회된 개수: {}", 
+                userId, missionId, list != null ? list.size() : 0);
+        
         if (list == null || list.isEmpty()) {
+            // 더 자세한 에러 메시지 제공
+            log.warn("[커스텀 미션 취소 실패] UserMission을 찾을 수 없음 - userId: {}, missionId: {}. " +
+                    "가능한 원인: 1) 해당 미션이 내 미션에 없음, 2) Mission이 비활성화됨, 3) 데이터 불일치", 
+                    userId, missionId);
             throw new CustomException(ErrorCode.USER_MISSION_NOT_FOUND, "내 미션에 추가한 커스텀 미션만 취소할 수 있습니다.");
         }
         
