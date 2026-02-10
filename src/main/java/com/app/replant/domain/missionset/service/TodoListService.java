@@ -4,6 +4,7 @@ import com.app.replant.domain.mission.entity.Mission;
 import com.app.replant.domain.mission.repository.MissionRepository;
 import com.app.replant.domain.missionset.dto.TodoListDto;
 import com.app.replant.domain.missionset.entity.TodoList;
+import com.app.replant.domain.missionset.entity.TodoListLike;
 import com.app.replant.domain.missionset.entity.TodoListMission;
 import com.app.replant.domain.missionset.enums.MissionSource;
 import com.app.replant.domain.missionset.enums.TodoListStatus;
@@ -22,6 +23,7 @@ import com.app.replant.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,7 +31,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -122,19 +128,43 @@ public class TodoListService {
         }
         
         /**
-         * 공개 투두리스트 목록 조회 (set_type=TODOLIST, is_public=true)
+         * 공개 투두리스트 목록 조회 (set_type=TODOLIST, is_public=true).
+         * userId가 있으면 isLiked를 채우고, 목록에 likeCount를 채운다.
          */
-        public Page<TodoListDto.SimpleResponse> getPublicTodoLists(Pageable pageable, String sortBy) {
-                return todoListRepository.findPublicTodoLists(pageable, sortBy != null ? sortBy : "latest")
-                                .map(TodoListDto.SimpleResponse::from);
+        public Page<TodoListDto.SimpleResponse> getPublicTodoLists(Pageable pageable, String sortBy, Long userId) {
+                Page<TodoList> page = todoListRepository.findPublicTodoLists(pageable, sortBy != null ? sortBy : "latest");
+                return enrichSimpleResponsesWithLikes(page, userId);
         }
 
         /**
          * 공개 투두리스트 검색
          */
-        public Page<TodoListDto.SimpleResponse> searchPublicTodoLists(String keyword, Pageable pageable, String sortBy) {
-                return todoListRepository.searchPublicTodoLists(keyword, pageable, sortBy != null ? sortBy : "latest")
-                                .map(TodoListDto.SimpleResponse::from);
+        public Page<TodoListDto.SimpleResponse> searchPublicTodoLists(String keyword, Pageable pageable, String sortBy, Long userId) {
+                Page<TodoList> page = todoListRepository.searchPublicTodoLists(keyword, pageable, sortBy != null ? sortBy : "latest");
+                return enrichSimpleResponsesWithLikes(page, userId);
+        }
+
+        /** 목록/검색 결과에 likeCount, isLiked 채우기 (배치 쿼리로 N+1 방지) */
+        private Page<TodoListDto.SimpleResponse> enrichSimpleResponsesWithLikes(Page<TodoList> page, Long userId) {
+                List<TodoList> content = page.getContent();
+                if (content.isEmpty()) {
+                        return page.map(TodoListDto.SimpleResponse::from);
+                }
+                List<Long> ids = content.stream().map(TodoList::getId).collect(Collectors.toList());
+                Map<Long, Long> countMap = new HashMap<>();
+                for (Object[] row : todoListLikeRepository.countGroupByTodoListId(ids)) {
+                        countMap.put((Long) row[0], (Long) row[1]);
+                }
+                Set<Long> likedIds = new HashSet<>();
+                if (userId != null) {
+                        likedIds.addAll(todoListLikeRepository.findTodoListIdsLikedByUserAndTodoListIdIn(userId, ids));
+                }
+                List<TodoListDto.SimpleResponse> enriched = content.stream()
+                                .map(tl -> TodoListDto.SimpleResponse.from(tl,
+                                                countMap.getOrDefault(tl.getId(), 0L).intValue(),
+                                                likedIds.contains(tl.getId())))
+                                .collect(Collectors.toList());
+                return new PageImpl<>(enriched, page.getPageable(), page.getTotalElements());
         }
 
         /**
@@ -160,25 +190,45 @@ public class TodoListService {
                                 missionInfos.add(TodoListDto.TodoMissionInfo.fromPublic(msm, verificationPostId));
                         }
                 }
-                return TodoListDto.DetailResponse.fromPublicDetail(todoList, missionInfos);
+                int likeCount = (int) todoListLikeRepository.countByTodoList(todoList);
+                boolean isLiked = userId != null && userRepository.findById(userId)
+                        .map(user -> todoListLikeRepository.existsByTodoListAndUser(todoList, user))
+                        .orElse(false);
+                return TodoListDto.DetailResponse.fromPublicDetail(todoList, missionInfos, likeCount, isLiked);
         }
-        
+
         /**
-         * 투두리스트 좋아요 (삭제된 기능 - 임시로 무시)
+         * 투두리스트 좋아요
          */
         @Transactional
         public void likeTodoList(Long todoListId, Long userId) {
-                // TODO: 좋아요 기능이 삭제되어 임시로 무시
-                log.warn("좋아요 기능이 삭제되었습니다. todoListId={}, userId={}", todoListId, userId);
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+                if (!Boolean.TRUE.equals(todoList.getIsPublic())) {
+                        throw new CustomException(ErrorCode.ACCESS_DENIED);
+                }
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+                if (todoListLikeRepository.existsByTodoListAndUser(todoList, user)) {
+                        return;
+                }
+                TodoListLike like = TodoListLike.builder()
+                                .todoList(todoList)
+                                .user(user)
+                                .build();
+                todoListLikeRepository.save(like);
         }
-        
+
         /**
-         * 투두리스트 좋아요 취소 (삭제된 기능 - 임시로 무시)
+         * 투두리스트 좋아요 취소
          */
         @Transactional
         public void unlikeTodoList(Long todoListId, Long userId) {
-                // TODO: 좋아요 기능이 삭제되어 임시로 무시
-                log.warn("좋아요 취소 기능이 삭제되었습니다. todoListId={}, userId={}", todoListId, userId);
+                TodoList todoList = todoListRepository.findTodoListByIdWithMissions(todoListId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.MISSION_SET_NOT_FOUND));
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+                todoListLikeRepository.deleteByTodoListAndUser(todoList, user);
         }
 
         /**

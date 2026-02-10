@@ -96,6 +96,11 @@ public class TodoListDto {
         private Boolean isLiked;     // 현재 사용자 좋아요 여부 (선택, 목록/상세에서 설정)
 
         public static SimpleResponse from(TodoList todoList) {
+            return from(todoList, 0, false);
+        }
+
+        /** 목록용: likeCount, isLiked 포함 (공유 게시판 목록에서 좋아요 수/여부 표시) */
+        public static SimpleResponse from(TodoList todoList, int likeCount, boolean isLiked) {
             return SimpleResponse.builder()
                     .id(todoList.getId())
                     .title(todoList.getTitle())
@@ -108,6 +113,8 @@ public class TodoListDto {
                     .createdAt(todoList.getCreatedAt())
                     .creatorId(todoList.getCreator() != null ? todoList.getCreator().getId() : null)
                     .creatorNickname(todoList.getCreator() != null ? todoList.getCreator().getNickname() : null)
+                    .likeCount(likeCount)
+                    .isLiked(isLiked)
                     .build();
         }
     }
@@ -242,8 +249,8 @@ public class TodoListDto {
                     .build();
         }
 
-        /** 공개 투두리스트 상세: 작성자 완료 여부 + 작성자 인증 게시글 ID가 채워진 미션 목록 사용 */
-        public static DetailResponse fromPublicDetail(TodoList todoList, List<TodoMissionInfo> missionInfos) {
+        /** 공개 투두리스트 상세: 작성자 완료 여부 + 작성자 인증 게시글 ID가 채워진 미션 목록 + 좋아요 수/여부 */
+        public static DetailResponse fromPublicDetail(TodoList todoList, List<TodoMissionInfo> missionInfos, int likeCount, boolean isLiked) {
             return DetailResponse.builder()
                     .id(todoList.getId())
                     .title(todoList.getTitle())
@@ -259,8 +266,8 @@ public class TodoListDto {
                     .creatorId(todoList.getCreator() != null ? todoList.getCreator().getId() : null)
                     .creatorNickname(todoList.getCreator() != null ? todoList.getCreator().getNickname() : null)
                     .missionCount(todoList.getTotalCount() != null ? todoList.getTotalCount() : 5)
-                    .likeCount(0)
-                    .isLiked(false)
+                    .likeCount(likeCount)
+                    .isLiked(isLiked)
                     .build();
         }
     }

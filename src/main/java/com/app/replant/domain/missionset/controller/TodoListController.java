@@ -118,22 +118,24 @@ public class TodoListController {
                 return ApiResponse.success(response);
         }
 
-        @Operation(summary = "공개 투두리스트 목록 조회", description = "공개된 투두리스트 목록을 조회합니다. sortBy 파라미터로 'popular' 또는 'latest'를 지정할 수 있습니다.")
+        @Operation(summary = "공개 투두리스트 목록 조회", description = "공개된 투두리스트 목록을 조회합니다. sortBy 파라미터로 'popular' 또는 'latest'를 지정할 수 있습니다. 로그인 시 userId로 isLiked가 채워집니다.")
         @GetMapping("/public")
         public ApiResponse<Page<TodoListDto.SimpleResponse>> getPublicTodoLists(
                         @RequestParam(required = false, defaultValue = "popular") String sortBy,
-                        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-                Page<TodoListDto.SimpleResponse> response = todoListService.getPublicTodoLists(pageable, sortBy);
+                        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+                        @AuthenticationPrincipal(required = false) Long userId) {
+                Page<TodoListDto.SimpleResponse> response = todoListService.getPublicTodoLists(pageable, sortBy, userId);
                 return ApiResponse.success(response);
         }
 
-        @Operation(summary = "공개 투두리스트 검색", description = "제목 또는 설명으로 공개된 투두리스트를 검색합니다. sortBy 파라미터로 'popular' 또는 'latest'를 지정할 수 있습니다.")
+        @Operation(summary = "공개 투두리스트 검색", description = "제목 또는 설명으로 공개된 투두리스트를 검색합니다. sortBy 파라미터로 'popular' 또는 'latest'를 지정할 수 있습니다. 로그인 시 userId로 isLiked가 채워집니다.")
         @GetMapping("/public/search")
         public ApiResponse<Page<TodoListDto.SimpleResponse>> searchPublicTodoLists(
                         @RequestParam(required = false) String keyword,
                         @RequestParam(required = false, defaultValue = "popular") String sortBy,
-                        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-                Page<TodoListDto.SimpleResponse> response = todoListService.searchPublicTodoLists(keyword, pageable, sortBy);
+                        @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+                        @AuthenticationPrincipal(required = false) Long userId) {
+                Page<TodoListDto.SimpleResponse> response = todoListService.searchPublicTodoLists(keyword, pageable, sortBy, userId);
                 return ApiResponse.success(response);
         }
 
