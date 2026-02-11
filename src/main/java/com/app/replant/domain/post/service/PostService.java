@@ -25,6 +25,7 @@ import com.app.replant.domain.missionset.repository.TodoListMissionRepository;
 import com.app.replant.domain.missionset.repository.TodoListRepository;
 import com.app.replant.global.exception.CustomException;
 import com.app.replant.global.exception.ErrorCode;
+import com.app.replant.global.filter.BadWordFilterService;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -67,6 +68,7 @@ public class PostService {
     private final TodoListMissionRepository todoListMissionRepository;
     private final TodoListRepository todoListRepository;
     private final ObjectMapper objectMapper;
+    private final BadWordFilterService badWordFilterService;
 
     // ========================================
     // 게시글 CRUD
@@ -113,6 +115,11 @@ public class PostService {
     @Transactional
     public PostResponse createPost(Long userId, PostRequest request) {
         log.info("일반 게시글 생성 호출 - userId={}, title={}", userId, request.getTitle());
+
+        if (badWordFilterService.containsBadWordIgnoreBlank(request.getTitle()) || badWordFilterService.containsBadWordIgnoreBlank(request.getContent())) {
+            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
+        }
+
         User user = findUserById(userId);
 
         String imageUrlsJson = null;
@@ -144,6 +151,10 @@ public class PostService {
      */
     @Transactional
     public PostResponse createVerificationPost(Long userId, VerificationPostRequest request) {
+        if (badWordFilterService.containsBadWordIgnoreBlank(request.getContent())) {
+            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
+        }
+
         User user = findUserById(userId);
 
         // UserMission 조회
@@ -265,6 +276,10 @@ public class PostService {
             throw new CustomException(ErrorCode.VERIFICATION_ALREADY_APPROVED);
         }
 
+        if (badWordFilterService.containsBadWordIgnoreBlank(request.getContent())) {
+            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
+        }
+
         String imageUrlsJson = null;
         if (request.getImageUrls() != null && !request.getImageUrls().isEmpty()) {
             try {
@@ -286,6 +301,10 @@ public class PostService {
 
     @Transactional
     public PostResponse updatePost(Long postId, Long userId, PostRequest request) {
+        if (badWordFilterService.containsBadWordIgnoreBlank(request.getTitle()) || badWordFilterService.containsBadWordIgnoreBlank(request.getContent())) {
+            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
+        }
+
         Post post = findPostById(postId);
 
         if (!post.isAuthor(userId)) {
@@ -400,6 +419,10 @@ public class PostService {
 
     @Transactional
     public CommentResponse createComment(Long postId, Long userId, CommentRequest request) {
+        if (badWordFilterService.containsBadWordIgnoreBlank(request.getContent())) {
+            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
+        }
+
         Post post = findPostById(postId);
         User user = findUserById(userId);
 
@@ -435,6 +458,10 @@ public class PostService {
 
     @Transactional
     public CommentResponse updateComment(Long commentId, Long userId, CommentRequest request) {
+        if (badWordFilterService.containsBadWordIgnoreBlank(request.getContent())) {
+            throw new CustomException(ErrorCode.BAD_WORD_DETECTED);
+        }
+
         Comment comment = findCommentById(commentId);
 
         if (!comment.isAuthor(userId)) {
